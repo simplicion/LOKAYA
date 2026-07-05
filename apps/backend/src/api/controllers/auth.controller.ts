@@ -30,23 +30,24 @@ export class AuthController {
 
   googleLogin = async (req: Request, res: Response) => {
     try {
-      const { token, role } = req.body; // The Google ID token from frontend
+      const { token, role } = req.body; // The Google access token from frontend
       if (!token) {
         return res.status(400).json({ error: 'Google token is required' });
       }
 
-      // Verify the Google token
-      const { OAuth2Client } = require('google-auth-library');
-      const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-      
-      const ticket = await client.verifyIdToken({
-          idToken: token,
-          audience: process.env.GOOGLE_CLIENT_ID,
+      // Verify the Google token by fetching user profile
+      const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${token}` }
       });
-      const payload = ticket.getPayload();
-      
-      if (!payload) {
+
+      if (!response.ok) {
         throw new Error('Invalid Google token');
+      }
+      
+      const payload = await response.json();
+      
+      if (!payload || !payload.email) {
+        throw new Error('Invalid Google token payload');
       }
 
       const result = await this.authService.googleLogin(payload, role);

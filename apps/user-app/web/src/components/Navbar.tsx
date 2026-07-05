@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { logout } from '@/lib/features/authSlice';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 
 export function Navbar() {
@@ -12,13 +12,19 @@ export function Navbar() {
   const dispatch = useDispatch();
   const router = useRouter();
 
+  const pathname = usePathname();
+
   const handleLogout = () => {
     dispatch(logout());
     router.push('/login');
   };
 
+  if (pathname && (pathname.includes('/login') || pathname.includes('/register') || pathname.includes('/forgot-password') || pathname.includes('/onboarding'))) {
+    return null;
+  }
+
   return (
-    <nav className="border-b bg-white dark:bg-gray-950">
+    <nav className="block md:hidden border-b bg-white dark:bg-gray-950">
       <div className="flex h-16 items-center px-4 md:px-6 container mx-auto">
         <Link href="/" className="flex items-center gap-2 font-bold text-xl">
           <span className="text-blue-600">Sna</span>pick

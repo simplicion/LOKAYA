@@ -69,8 +69,10 @@ export class AuthService {
   async googleLogin(payload: any, role?: string) {
     const { email, name, sub: googleId } = payload;
     let user = await prisma.user.findUnique({ where: { email } });
+    let isNewUser = false;
 
     if (!user) {
+      isNewUser = true;
       let assignedRole: Role = Role.BUYER;
       if (role && Object.values(Role).includes(role as Role)) {
         assignedRole = role as Role;
@@ -99,7 +101,7 @@ export class AuthService {
     );
 
     const { password: _, ...userWithoutPassword } = user;
-    return { token, user: userWithoutPassword };
+    return { token, user: userWithoutPassword, isNewUser };
   }
 
   async loginWithPhone(phone: string, role?: string) {
