@@ -14,7 +14,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     // Validate role
-    let assignedRole: Role = Role.BUYER;
+    let assignedRole: Role = Role.USER;
     if (role && Object.values(Role).includes(role as Role)) {
       assignedRole = role as Role;
     }
@@ -73,7 +73,7 @@ export class AuthService {
 
     if (!user) {
       isNewUser = true;
-      let assignedRole: Role = Role.BUYER;
+      let assignedRole: Role = Role.USER;
       if (role && Object.values(Role).includes(role as Role)) {
         assignedRole = role as Role;
       }
@@ -108,7 +108,7 @@ export class AuthService {
     let user = await prisma.user.findUnique({ where: { phone } });
 
     if (!user) {
-      let assignedRole: Role = Role.BUYER;
+      let assignedRole: Role = Role.USER;
       if (role && Object.values(Role).includes(role as Role)) {
         assignedRole = role as Role;
       }

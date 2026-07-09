@@ -8,9 +8,8 @@ datasource db {
 }
 
 enum Role {
-  BUYER
-  SELLER_ADMIN
-  SELLER_STAFF
+  USER
+  STORE_PARTNER
   SYSTEM_ADMIN
 }
 
@@ -33,7 +32,7 @@ model User {
   email        String?      @unique
   phone        String?      @unique
   password     String?
-  role         Role         @default(BUYER)
+  role         Role         @default(USER)
   name         String
   googleId     String?      @unique
   authProvider AuthProvider @default(LOCAL)

@@ -13,7 +13,7 @@ export default function StoreVerification() {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    const socket = io('http://localhost:4000');
+    const socket = io('http://localhost:4002');
 
     socket.on('store_pending', (data) => {
       toast.info(`New store pending verification: ${data.name}`);

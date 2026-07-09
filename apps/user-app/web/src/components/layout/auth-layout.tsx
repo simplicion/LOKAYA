@@ -8,9 +8,13 @@ interface AuthLayoutProps {
   children: React.ReactNode;
 }
 
+import { usePathname } from 'next/navigation';
+
 export function AuthLayout({ children }: AuthLayoutProps) {
+  const pathname = usePathname();
+
   return (
-    <div className="h-screen w-full bg-white lg:bg-gray-50 flex overflow-hidden">
+    <div className="fixed inset-0 w-full bg-white lg:bg-gray-50 flex overflow-hidden z-[100]">
       {/* Left Marketing Side (Hidden on Mobile, visible on lg screens) */}
       <div className="hidden lg:flex flex-1 flex-col justify-center items-center bg-indigo-600 p-12 relative overflow-hidden">
         {/* Decorative background elements */}
@@ -58,23 +62,8 @@ export function AuthLayout({ children }: AuthLayoutProps) {
            </div>
 
            {/* Content Area */}
-           <div className="flex-1 flex flex-col h-full w-full bg-white overflow-y-auto no-scrollbar relative pt-12 lg:pt-0">
+           <div className="flex-1 flex flex-col h-full w-full bg-white overflow-hidden relative">
              
-             {/* Mobile/In-App Navbar */}
-             <div className="flex items-center justify-between px-6 py-4 border-b-[3px] border-indigo-600 bg-white sticky top-0 z-40">
-               <div className="flex items-center text-xl font-extrabold tracking-tight">
-                 <span className="text-indigo-600">Sna</span>
-                 <span className="text-zinc-900 ml-1">pick</span>
-               </div>
-               <div className="flex items-center space-x-4">
-                 <Link href="/login" className="text-sm font-semibold text-zinc-900 hover:text-indigo-600 transition-colors">
-                   Login
-                 </Link>
-                 <Link href="/register" className="text-sm font-semibold bg-zinc-900 text-white px-4 py-2 rounded-full hover:bg-zinc-800 transition-colors">
-                   Sign Up
-                 </Link>
-               </div>
-             </div>
 
              <div className="flex-1 flex flex-col w-full h-full relative">
                {children}

@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({ 
-    baseUrl: 'http://localhost:4000/api/v1', // Fixed port and version path
+    baseUrl: 'http://localhost:4002/api/v1', // Fixed port and version path
     prepareHeaders: (headers, { getState }) => {
       // @ts-ignore
       const token = getState().auth.token;
@@ -105,6 +105,35 @@ export const api = createApi({
         body,
       }),
     }),
+    updateProfile: builder.mutation<any, any>({
+      query: (body) => ({
+        url: `/users/profile`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['User'],
+    }),
+    forgotPasswordOtp: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/auth/forgot-password',
+        method: 'POST',
+        body,
+      }),
+    }),
+    verifyForgotPasswordOtp: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/auth/verify-forgot-password-otp',
+        method: 'POST',
+        body,
+      }),
+    }),
+    resetPassword: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/auth/reset-password',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 });
 
@@ -123,5 +152,9 @@ export const {
   useUpdateOrderStatusMutation,
   useCreatePaymentOrderMutation,
   useVerifyPaymentMutation,
-  useGetPresignedUrlMutation
+  useGetPresignedUrlMutation,
+  useUpdateProfileMutation,
+  useForgotPasswordOtpMutation,
+  useVerifyForgotPasswordOtpMutation,
+  useResetPasswordMutation
 } = api;

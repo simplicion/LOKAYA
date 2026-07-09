@@ -18,9 +18,8 @@ export const metadata: Metadata = {
 };
 
 import { StoreProvider } from '../lib/StoreProvider';
-import { Navbar } from '@/components/Navbar';
-import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { Toaster } from '@/components/ui/sonner';
+import { OfflineDetector } from '@/components/OfflineDetector';
 
 export default function RootLayout({
   children,
@@ -34,9 +33,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-gray-50">
         <StoreProvider>
-          <Navbar />
-          <main className="flex-1 pb-16 md:pb-0">{children}</main>
-          <MobileBottomNav />
+          <OfflineDetector />
+          <main className="flex-1">{children}</main>
           <Toaster richColors />
         </StoreProvider>
       </body>

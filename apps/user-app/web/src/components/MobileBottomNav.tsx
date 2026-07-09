@@ -2,29 +2,63 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, QrCode, ShoppingCart, User } from 'lucide-react';
+import { Home, Store, ShoppingCart, User, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
+import { useState, useEffect } from 'react';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
   const user = useSelector((state: RootState) => state.auth.user);
   
-  if (!user) return null;
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      // Hide if scrolling down past 50px
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        setIsVisible(false);
+      } 
+      // Show if scrolling up or at the very top
+      else if (currentScrollY < lastScrollY || currentScrollY <= 50) {
+        setIsVisible(true);
+      }
+      
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
+
+  // Hide completely on pages where we don't need it
+  const hideOnRoutes = ['/home/checkout', '/home/product', '/home/store', '/home/search', '/home/orders', '/store-partner'];
+  const shouldHideCompletely = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(`${route}/`));
+
+  if (!user || shouldHideCompletely) return null;
 
   const links = [
-    { href: '/', label: 'Home', icon: Home },
-    { href: '/buyer/scan', label: 'Scan', icon: QrCode },
-    { href: '/buyer/cart', label: 'Cart', icon: ShoppingCart },
+    { href: '/home', label: 'Home', icon: Home },
+    { href: '/home/stores', label: 'Stores', icon: Store },
+    { href: '/home/search', label: 'Search', icon: Search },
+    { href: '/home/cart', label: 'Cart', icon: ShoppingCart },
     { href: '/profile', label: 'Profile', icon: User },
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 flex h-16 w-full items-center justify-around border-t bg-white pb-safe dark:bg-gray-950 md:hidden">
+    <div className={cn(
+      "fixed bottom-0 left-0 right-0 z-50 flex h-16 w-full items-center justify-around border-t bg-white pb-safe dark:bg-gray-950 transition-transform duration-300 md:hidden",
+      isVisible ? "translate-y-0" : "translate-y-full"
+    )}>
       {links.map((link) => {
         const Icon = link.icon;
-        const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+        const isActive = link.href === '/home' 
+          ? pathname === '/home' 
+          : pathname === link.href || pathname?.startsWith(`${link.href}/`);
         
         return (
           <Link

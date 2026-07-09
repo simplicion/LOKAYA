@@ -8,12 +8,13 @@ import productRoutes from './routes/product.routes';
 import orderRoutes from './routes/order.routes';
 import paymentRoutes from './routes/payment.routes';
 import uploadRoutes from './routes/upload.routes';
+import userRoutes from './routes/user.routes';
 import { initSocket } from './socket';
 
 export function startApiServer() {
   const app = express();
   const httpServer = createServer(app);
-  const port = process.env.PORT || 4000;
+  const port = process.env.PORT || 4002;
 
   // Init socket.io
   initSocket(httpServer);
@@ -22,6 +23,7 @@ export function startApiServer() {
   app.use(express.json());
 
   app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/users', userRoutes);
   app.use('/api/v1/stores', storeRoutes);
   app.use('/api/v1', productRoutes);
   app.use('/api/v1/orders', orderRoutes);

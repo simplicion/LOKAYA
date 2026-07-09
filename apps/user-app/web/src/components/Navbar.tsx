@@ -19,7 +19,8 @@ export function Navbar() {
     router.push('/login');
   };
 
-  if (pathname && (pathname.includes('/login') || pathname.includes('/register') || pathname.includes('/forgot-password') || pathname.includes('/onboarding'))) {
+  const hiddenPaths = ['/login', '/register', '/forgot-password', '/onboarding', '/allow-location', '/verify-reset-otp', '/reset-password', '/store-partner', '/home'];
+  if (pathname && hiddenPaths.some(path => pathname.includes(path))) {
     return null;
   }
 
@@ -33,7 +34,7 @@ export function Navbar() {
           {user ? (
             <>
               <span className="text-sm font-medium hidden md:inline-block">
-                {user.name} ({user.role === 'BUYER' ? 'Buyer' : 'Seller'})
+                {user.name} ({user.role === 'USER' ? 'User' : 'Store Partner'})
               </span>
               <Button variant="outline" onClick={handleLogout}>
                 Logout

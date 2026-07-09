@@ -4,7 +4,7 @@ import { RootState } from './index';
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: fetchBaseQuery({
-    baseUrl: 'http://localhost:4000/api/v1',
+    baseUrl: 'http://localhost:4002/api/v1',
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as RootState).auth.token;
       if (token) {
