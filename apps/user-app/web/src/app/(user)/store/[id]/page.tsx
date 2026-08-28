@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Share2, MapPin, Star, Clock, CheckCircle2, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ProductOverlayCard } from '@/components/ProductOverlayCard';
+import { ProductOverlayCard } from '@/components/feed/ProductOverlayCard';
 
 // Dummy data
 const STORE = {
