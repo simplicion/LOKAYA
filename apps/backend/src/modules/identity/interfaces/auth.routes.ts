@@ -8,7 +8,7 @@ import {
   refreshTokenSchema
 } from '../domain/schemas';
 
-export const authRouter = Router();
+export const authRouter: Router = Router();
 const authService = new AuthService();
 
 authRouter.post('/register', validateRequest(registerSchema), async (req, res, next) => {

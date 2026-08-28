@@ -29,7 +29,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 font-bold text-2xl shadow-lg">
                 S
              </div>
-             <span className="text-3xl font-extrabold tracking-tight">Snapick</span>
+             <span className="text-3xl font-extrabold tracking-tight">LOKAYA</span>
           </div>
 
           <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">

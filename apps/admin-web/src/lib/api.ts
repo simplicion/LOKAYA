@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query';
-import { RootState } from './index';
+import { RootState } from './store';
 import { logout, setCredentials } from './features/authSlice';
 
 const baseQuery = fetchBaseQuery({
@@ -21,7 +21,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
     const refreshToken = (api.getState() as RootState).auth.refreshToken;
     
     if (refreshToken) {
-      const refreshResult = await baseQuery({ url: '/auth/refresh', method: 'POST', body: { refreshToken } }, api, extraOptions);
+      const refreshResult = await baseQuery({ url: '/identity/refresh', method: 'POST', body: { refreshToken } }, api, extraOptions);
       if (refreshResult.data) {
         const user = (api.getState() as RootState).auth.user;
         api.dispatch(setCredentials({ token: (refreshResult.data as any).token, refreshToken, user }));
@@ -42,19 +42,19 @@ export const adminApi = createApi({
   tagTypes: ['Stores'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
-      query: () => '/stores/pending',
+      query: () => '/seller/pending',
       providesTags: ['Stores'],
     }),
     login: builder.mutation<any, any>({
       query: (credentials) => ({
-        url: '/auth/login',
+        url: '/identity/login',
         method: 'POST',
         body: credentials,
       }),
     }),
     verifyStore: builder.mutation<any, string>({
       query: (storeId) => ({
-        url: `/stores/${storeId}/verify`,
+        url: `/seller/${storeId}/verify`,
         method: 'PATCH',
       }),
       invalidatesTags: ['Stores'],

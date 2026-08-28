@@ -78,7 +78,7 @@ export default function LoginPage() {
             <button onClick={() => router.back()} className="h-10 w-10 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <span className="text-2xl font-black text-indigo-600 tracking-tight">snapick</span>
+            <span className="text-2xl font-black text-indigo-600 tracking-tight">LOKAYA</span>
             <div className="w-10" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Welcome Back 👋</h1>

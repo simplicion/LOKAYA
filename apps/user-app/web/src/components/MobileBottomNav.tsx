@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Store, ShoppingCart, User, Search } from 'lucide-react';
+import { Home, Search, PlaySquare, ShoppingCart, User, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -10,70 +10,69 @@ import { useState, useEffect } from 'react';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
-  const user = useSelector((state: RootState) => state.auth.user);
-  
-  const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      
-      // Hide if scrolling down past 50px
-      if (currentScrollY > lastScrollY && currentScrollY > 50) {
-        setIsVisible(false);
-      } 
-      // Show if scrolling up or at the very top
-      else if (currentScrollY < lastScrollY || currentScrollY <= 50) {
-        setIsVisible(true);
-      }
-      
-      setLastScrollY(currentScrollY);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
-
-  // Hide completely on pages where we don't need it
-  const hideOnRoutes = ['/home/checkout', '/home/product', '/home/store', '/home/search', '/home/orders', '/store-partner'];
+  const cart = useSelector((state: RootState) => state.cart);
+  const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
+  const hideOnRoutes = ['/home/checkout', '/home/product', '/home/store', '/home/orders', '/store-partner', '/home/reels', '/search', '/cart', '/wishlist'];
   const shouldHideCompletely = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(`${route}/`));
 
   if (shouldHideCompletely) return null;
 
   const links = [
     { href: '/home', label: 'Home', icon: Home },
-    { href: '/home/stores', label: 'Stores', icon: Store },
-    { href: '/home/search', label: 'Search', icon: Search },
-    { href: '/home/cart', label: 'Cart', icon: ShoppingCart },
-    { href: '/profile', label: 'Profile', icon: User },
+    { href: '/explore', label: 'Explore', icon: Search },
+    { href: '/home/reels', label: 'Reels', icon: PlaySquare },
+    { href: '/explore/nearby', label: 'Stores', icon: MapPin },
+    { href: '/profile', label: 'Account', icon: User },
   ];
 
   return (
-    <div className={cn(
-      "fixed bottom-0 left-0 right-0 z-50 flex h-16 w-full items-center justify-around border-t bg-white pb-safe dark:bg-gray-950 transition-transform duration-300 md:hidden",
-      isVisible ? "translate-y-0" : "translate-y-full"
-    )}>
-      {links.map((link) => {
+    <>
+      {/* Spacer to prevent content from hiding behind the fixed nav */}
+      <div className="h-24 w-full md:hidden" />
+      <div className={cn(
+        "fixed bottom-0 left-0 right-0 z-50 flex h-16 w-full items-center justify-around border-t border-[#E5E2DC] bg-[#FFFFFF] pb-safe transition-transform duration-300 md:hidden",
+        "translate-y-0"
+      )}>
+        {links.map((link) => {
         const Icon = link.icon;
-        const isActive = link.href === '/home' 
-          ? pathname === '/home' 
-          : pathname === link.href || pathname?.startsWith(`${link.href}/`);
+        let isActive = false;
+        if (link.href === '/home') {
+          isActive = pathname === '/home';
+        } else if (link.href === '/explore') {
+          isActive = pathname === '/explore';
+        } else {
+          isActive = pathname === link.href || pathname?.startsWith(`${link.href}/`);
+        }
         
         return (
           <Link
             key={link.href}
             href={link.href}
             className={cn(
-              "flex flex-col items-center justify-center gap-1 w-full h-full text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50",
-              isActive && "text-blue-600 dark:text-blue-500"
+              "flex flex-col items-center justify-center w-full h-full relative transition-all duration-300",
+              isActive ? "text-[#FF5A36]" : "text-[#8E8E93] hover:text-[#171717]"
             )}
           >
-            <Icon className="h-5 w-5" />
-            <span className="text-[10px] font-medium">{link.label}</span>
+            <div className={cn(
+              "relative flex items-center justify-center w-[46px] h-8 rounded-2xl transition-all duration-300 ease-out",
+              isActive ? "bg-[#FF5A36]/15 scale-110" : "bg-transparent scale-100"
+            )}>
+              <Icon 
+                className={cn("h-[22px] w-[22px] transition-transform duration-300")} 
+                strokeWidth={isActive ? 2.5 : 2} 
+              />
+              {/* Cart Badge */}
+              {link.label === 'Cart' && cartTotalItems > 0 && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white shadow-sm">
+                  {cartTotalItems > 9 ? '9+' : cartTotalItems}
+                </div>
+              )}
+            </div>
           </Link>
         );
       })}
     </div>
+    </>
   );
 }
+

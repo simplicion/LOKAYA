@@ -49,6 +49,18 @@ export default function AdminLayout({
               Store Verification
             </Button>
           </Link>
+          <Link href="/admin/reviews">
+            <Button variant="ghost" className="w-full justify-start">
+              <Users className="mr-2 h-4 w-4" />
+              Reviews
+            </Button>
+          </Link>
+          <Link href="/admin/content">
+            <Button variant="ghost" className="w-full justify-start">
+              <Users className="mr-2 h-4 w-4" />
+              Content Moderation
+            </Button>
+          </Link>
           <Link href="/admin/users">
             <Button variant="ghost" className="w-full justify-start">
               <Users className="mr-2 h-4 w-4" />

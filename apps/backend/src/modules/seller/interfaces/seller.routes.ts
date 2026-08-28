@@ -4,7 +4,7 @@ import { requireAuth, AuthRequest } from '../../../shared/middleware/auth';
 import { SellerService } from '../application/seller.service';
 import { onboardSellerSchema, updateStoreProfileSchema } from '../domain/schemas';
 
-export const sellerRouter = Router();
+export const sellerRouter: Router = Router();
 const sellerService = new SellerService();
 
 sellerRouter.post('/onboard', requireAuth, validateRequest(onboardSellerSchema), async (req: AuthRequest, res, next) => {

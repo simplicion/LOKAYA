@@ -51,7 +51,7 @@ export default function SellerOnboardingPage() {
     <div className="max-w-2xl mx-auto py-12">
       <div className="text-center mb-10">
         <h1 className="text-3xl font-bold text-gray-900 mb-3">Set up your Store</h1>
-        <p className="text-gray-500">Fill in your business details to start selling on Snapick.</p>
+        <p className="text-gray-500">Fill in your business details to start selling on LOKAYA.</p>
       </div>
 
       <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">

@@ -32,7 +32,7 @@ export default function EGiftCardsPage() {
             
             <div>
               <span className="text-4xl font-black tracking-tight">₹0.00</span>
-              <p className="text-indigo-200 text-xs mt-2 font-medium">Valid across all Snapick stores</p>
+              <p className="text-indigo-200 text-xs mt-2 font-medium">Valid across all LOKAYA stores</p>
             </div>
           </div>
         </div>

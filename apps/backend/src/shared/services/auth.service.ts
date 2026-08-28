@@ -1,4 +1,4 @@
-import { prisma, Role } from '@workspace/db';
+import { prisma } from '@workspace/db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -6,31 +6,24 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-dev';
 
 export class AuthService {
   private generateTokens(user: any) {
-    const payload = { userId: user.id, email: user.email, role: user.role };
+    const payload = { userId: user.id, email: user.email, isSystemAdmin: user.isSystemAdmin };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' }); // 1 hour access token
     const refreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }); // 7 days refresh token
     return { token, refreshToken };
   }
-  async registerUser(email: string, password: string, name: string, role?: string) {
+  async registerUser(email: string, password: string, name: string) {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       throw new Error('User already exists');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // Validate role
-    let assignedRole: Role = Role.USER;
-    if (role && Object.values(Role).includes(role as Role)) {
-      assignedRole = role as Role;
-    }
 
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
-        role: assignedRole,
         authProvider: 'LOCAL'
       },
     });
@@ -61,23 +54,18 @@ export class AuthService {
     return { ...tokens, user: userWithoutPassword };
   }
 
-  async googleLogin(payload: any, role?: string) {
+  async googleLogin(payload: any) {
     const { email, name, sub: googleId } = payload;
     let user = await prisma.user.findUnique({ where: { email } });
     let isNewUser = false;
 
     if (!user) {
       isNewUser = true;
-      let assignedRole: Role = Role.USER;
-      if (role && Object.values(Role).includes(role as Role)) {
-        assignedRole = role as Role;
-      }
       user = await prisma.user.create({
         data: {
           email,
           name,
           googleId,
-          role: assignedRole,
           authProvider: 'GOOGLE'
         }
       });
@@ -94,19 +82,14 @@ export class AuthService {
     return { ...tokens, user: userWithoutPassword, isNewUser };
   }
 
-  async loginWithPhone(phone: string, role?: string) {
+  async loginWithPhone(phone: string) {
     let user = await prisma.user.findUnique({ where: { phone } });
 
     if (!user) {
-      let assignedRole: Role = Role.USER;
-      if (role && Object.values(Role).includes(role as Role)) {
-        assignedRole = role as Role;
-      }
       user = await prisma.user.create({
         data: {
           phone,
           name: 'User', // Generic name since we only have phone
-          role: assignedRole,
           authProvider: 'PHONE'
         }
       });

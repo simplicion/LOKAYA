@@ -22,7 +22,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
     const refreshToken = api.getState().auth.refreshToken;
     
     if (refreshToken) {
-      const refreshResult = await baseQuery({ url: '/auth/refresh', method: 'POST', body: { refreshToken } }, api, extraOptions);
+      const refreshResult = await baseQuery({ url: '/identity/refresh', method: 'POST', body: { refreshToken } }, api, extraOptions);
       if (refreshResult.data) {
         // @ts-ignore
         const user = (refreshResult.data as any).user || api.getState().auth.user;
@@ -41,56 +41,56 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category'],
+  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment'],
   endpoints: (builder) => ({
     login: builder.mutation<any, any>({
       query: (credentials) => ({
-        url: '/auth/login',
+        url: '/identity/login',
         method: 'POST',
         body: credentials,
       }),
     }),
     register: builder.mutation<any, any>({
       query: (userData) => ({
-        url: '/auth/register',
+        url: '/identity/register',
         method: 'POST',
         body: userData,
       }),
     }),
     googleLogin: builder.mutation<any, { token: string; role?: string }>({
       query: (body) => ({
-        url: '/auth/google',
+        url: '/identity/google',
         method: 'POST',
         body,
       }),
     }),
     getStoreProducts: builder.query<any[], string>({
-      query: (storeId) => `/stores/${storeId}/products`,
+      query: (storeId) => `/catalog/store/${storeId}/products`,
       providesTags: ['Product'],
     }),
     getAllStores: builder.query<any[], { lat?: number; lng?: number } | void>({
       query: (params) => {
         if (params && params.lat && params.lng) {
-          return `/stores?lat=${params.lat}&lng=${params.lng}`;
+          return `/catalog/stores?lat=${params.lat}&lng=${params.lng}`;
         }
-        return '/stores';
+        return '/catalog/stores';
       },
       providesTags: ['Store'],
     }),
-    getMyStore: builder.query<any, string>({
-      query: (userId) => `/stores/my-store/${userId}`,
+    getMyStore: builder.query<any, string | void>({
+      query: () => `/seller/me`,
       providesTags: ['Store'],
     }),
     getStore: builder.query<any, string>({
-      query: (storeId) => `/stores/${storeId}`,
+      query: (storeId) => `/catalog/store/${storeId}`,
       providesTags: ['Store'],
     }),
     resolveQr: builder.query<any, string>({
-      query: (qrUuid) => `/products/qr/${qrUuid}`,
+      query: (qrUuid) => `/catalog/qr/${qrUuid}`,
     }),
     onboardStore: builder.mutation<any, Partial<any>>({
       query: (body) => ({
-        url: '/stores/onboard',
+        url: '/seller/onboard',
         method: 'POST',
         body,
       }),
@@ -98,7 +98,7 @@ export const api = createApi({
     }),
     addProduct: builder.mutation<any, { storeId: string; body: any }>({
       query: ({ storeId, body }) => ({
-        url: `/stores/${storeId}/products`,
+        url: `/catalog/store/${storeId}/products`,
         method: 'POST',
         body,
       }),
@@ -137,14 +137,14 @@ export const api = createApi({
     }),
     getPresignedUrl: builder.mutation<any, any>({
       query: (body) => ({
-        url: `/uploads/presigned-url`,
+        url: `/content/upload/presigned-url`,
         method: 'POST',
         body,
       }),
     }),
     updateProfile: builder.mutation<any, any>({
       query: (body) => ({
-        url: `/users/profile`,
+        url: `/identity/profile`,
         method: 'PUT',
         body,
       }),
@@ -152,51 +152,103 @@ export const api = createApi({
     }),
     forgotPasswordOtp: builder.mutation<any, any>({
       query: (body) => ({
-        url: '/auth/forgot-password',
+        url: '/identity/forgot-password',
         method: 'POST',
         body,
       }),
     }),
     verifyForgotPasswordOtp: builder.mutation<any, any>({
       query: (body) => ({
-        url: '/auth/verify-forgot-password-otp',
+        url: '/identity/verify-forgot-password-otp',
         method: 'POST',
         body,
       }),
     }),
     resetPassword: builder.mutation<any, any>({
       query: (body) => ({
-        url: '/auth/reset-password',
+        url: '/identity/reset-password',
         method: 'POST',
         body,
       }),
     }),
     updateStoreProfile: builder.mutation<any, { storeId: string; body: any }>({
       query: ({ storeId, body }) => ({
-        url: `/stores/${storeId}/profile`,
-        method: 'PUT',
+        url: `/seller/${storeId}`,
+        method: 'PATCH',
         body,
       }),
       invalidatesTags: ['Store'],
     }),
     createCategory: builder.mutation<any, any>({
       query: (body) => ({
-        url: '/categories',
+        url: `/catalog/store/${body.storeId}/categories`,
         method: 'POST',
         body,
       }),
       invalidatesTags: ['Category'],
     }),
     getStoreCategories: builder.query<any[], string>({
-      query: (storeId) => `/categories/store/${storeId}`,
+      query: (storeId) => `/catalog/store/${storeId}/categories`,
       providesTags: ['Category'],
     }),
     deleteCategory: builder.mutation<any, string>({
       query: (id) => ({
-        url: `/categories/${id}`,
+        url: `/catalog/categories/${id}`,
         method: 'DELETE',
       }),
       invalidatesTags: ['Category'],
+    }),
+    
+    // New Content & Social Endpoints (Phase 1)
+    getReels: builder.query<any[], { page?: number; limit?: number } | void>({
+      query: (params) => {
+        let qs = '';
+        if (params?.page) qs += `?page=${params.page}`;
+        if (params?.limit) qs += `${qs ? '&' : '?'}limit=${params.limit}`;
+        return `/content/reels${qs}`;
+      },
+      providesTags: ['Reel'],
+    }),
+    getPosts: builder.query<any[], { page?: number; limit?: number } | void>({
+      query: (params) => {
+        let qs = '';
+        if (params?.page) qs += `?page=${params.page}`;
+        if (params?.limit) qs += `${qs ? '&' : '?'}limit=${params.limit}`;
+        return `/content/posts${qs}`;
+      },
+      providesTags: ['Post'],
+    }),
+    likeReel: builder.mutation<any, string>({
+      query: (reelId) => ({
+        url: `/social/like/reel/${reelId}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Reel'],
+    }),
+    likePost: builder.mutation<any, string>({
+      query: (postId) => ({
+        url: `/social/like/post/${postId}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Post'],
+    }),
+    followUser: builder.mutation<any, string>({
+      query: (userId) => ({
+        url: `/social/follow/${userId}`,
+        method: 'POST',
+      }),
+    }),
+    getReelComments: builder.query<any[], string>({
+      query: (reelId) => `/social/comment/reel/${reelId}`,
+      providesTags: ['Comment'],
+    }),
+    addReelComment: builder.mutation<any, { reelId: string; content: string }>({
+      query: ({ reelId, content }) => ({
+        url: `/social/comment/reel/${reelId}`,
+        method: 'POST',
+        body: { content },
+      }),
+      invalidatesTags: ['Comment'],
     }),
   }),
 });
@@ -225,5 +277,13 @@ export const {
   useUpdateStoreProfileMutation,
   useCreateCategoryMutation,
   useGetStoreCategoriesQuery,
-  useDeleteCategoryMutation
+  useDeleteCategoryMutation,
+  
+  useGetReelsQuery,
+  useGetPostsQuery,
+  useLikeReelMutation,
+  useLikePostMutation,
+  useFollowUserMutation,
+  useGetReelCommentsQuery,
+  useAddReelCommentMutation
 } = api;

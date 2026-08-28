@@ -21,7 +21,7 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
       {/* Seller Top Navigation Bar */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <span className="text-xl font-black text-indigo-600 tracking-tight">snapick</span>
+          <span className="text-xl font-black text-indigo-600 tracking-tight">LOKAYA</span>
           <span className="text-gray-400">|</span>
           <span className="text-sm font-semibold text-gray-700 tracking-wide uppercase">Seller Workspace</span>
         </div>

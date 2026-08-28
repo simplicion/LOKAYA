@@ -21,7 +21,7 @@ export function startWorker() {
       
       await prisma.order.update({
         where: { id: orderId },
-        data: { status: OrderStatus.READY_FOR_PICKUP }
+        data: { status: OrderStatus.PACKED }
       });
       
       console.log(`Order ${orderId} is ready for pickup.`);

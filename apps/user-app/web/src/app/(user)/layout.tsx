@@ -1,11 +1,11 @@
-import { Navbar } from '@/components/Navbar';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
+import { MobileTopNav } from '@/components/MobileTopNav';
 
 export default function UserLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <Navbar />
-      <div className="w-full pb-24 md:pb-0">
+      <MobileTopNav />
+      <div className="w-full">
         {children}
       </div>
       <MobileBottomNav />
