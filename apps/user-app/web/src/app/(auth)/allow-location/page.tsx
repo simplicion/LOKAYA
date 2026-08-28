@@ -46,7 +46,7 @@ export default function AllowLocationPage() {
         
         // Wait 2.5s for user to see their location on map before redirecting
         setTimeout(() => {
-          router.push(user?.role === 'USER' ? '/home' : '/store-partner/home');
+          router.push(user?.role === 'USER' ? '/home' : '/seller');
         }, 2500);
       },
       (error) => {
@@ -58,7 +58,7 @@ export default function AllowLocationPage() {
   };
 
   const handleSkip = () => {
-    router.push(user?.role === 'USER' ? '/home' : '/store-partner/home');
+    router.push(user?.role === 'USER' ? '/home' : '/seller');
   };
 
   return (
