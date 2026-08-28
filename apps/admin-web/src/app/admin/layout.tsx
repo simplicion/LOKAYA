@@ -19,12 +19,12 @@ export default function AdminLayout({
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'PLATFORM_ADMIN') {
+    if (!isAuthenticated || user?.role !== 'SYSTEM_ADMIN') {
       router.push('/login');
     }
   }, [isAuthenticated, user, router]);
 
-  if (!isAuthenticated || user?.role !== 'PLATFORM_ADMIN') {
+  if (!isAuthenticated || user?.role !== 'SYSTEM_ADMIN') {
     return null; // Or a loading spinner
   }
 

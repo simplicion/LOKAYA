@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
-import { RootState } from '@/lib/store';
+import { RootState, store } from '@/lib/store';
+import { setCredentials } from '@/lib/features/authSlice';
 import { toast } from 'sonner';
 
 interface AuthGuardProps {
@@ -24,6 +25,33 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
     }
 
     if (allowedRoles && !allowedRoles.includes(user.role)) {
+      // Try to self-heal stale roles by forcing a token refresh before rejecting
+      const refreshToken = store.getState().auth.refreshToken;
+      if (refreshToken) {
+        fetch('http://localhost:4002/api/v1/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.token && data.user) {
+            store.dispatch(setCredentials({ token: data.token, refreshToken, user: data.user }));
+            if (allowedRoles.includes(data.user.role)) {
+              setIsAuthorized(true);
+              return; // Success, role is now valid
+            }
+          }
+          toast.error('You do not have permission to access this page');
+          router.push('/');
+        })
+        .catch(() => {
+          toast.error('You do not have permission to access this page');
+          router.push('/');
+        });
+        return;
+      }
+
       toast.error('You do not have permission to access this page');
       router.push('/');
       return;

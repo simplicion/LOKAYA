@@ -9,6 +9,7 @@ import orderRoutes from './routes/order.routes';
 import paymentRoutes from './routes/payment.routes';
 import uploadRoutes from './routes/upload.routes';
 import userRoutes from './routes/user.routes';
+import categoryRoutes from './routes/category.routes';
 import { initSocket } from './socket';
 
 export function startApiServer() {
@@ -29,6 +30,7 @@ export function startApiServer() {
   app.use('/api/v1/orders', orderRoutes);
   app.use('/api/v1/payments', paymentRoutes);
   app.use('/api/v1/uploads', uploadRoutes);
+  app.use('/api/v1/categories', categoryRoutes);
 
   app.get('/health', (req, res) => {
     res.json({ 

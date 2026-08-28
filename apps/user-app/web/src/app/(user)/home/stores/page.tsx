@@ -1,19 +1,32 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Filter, Store as StoreIcon } from 'lucide-react';
 import Link from 'next/link';
-
-const storesList = [
-  { id: '1', name: 'FreshMart', rating: '4.6', reviews: '230', distance: '0.3 km', time: '10 mins', icon: 'FM', color: 'bg-emerald-600' },
-  { id: '2', name: 'Daily Needs', rating: '4.2', reviews: '150', distance: '0.5 km', time: '12 mins', icon: 'DN', color: 'bg-emerald-700' },
-  { id: '3', name: 'Green Grocer', rating: '4.8', reviews: '310', distance: '0.7 km', time: '15 mins', icon: 'GG', color: 'bg-emerald-800' },
-  { id: '4', name: 'Super Store', rating: '4.4', reviews: '90', distance: '0.9 km', time: '20 mins', icon: 'SS', color: 'bg-red-500' },
-  { id: '5', name: 'Quick Basket', rating: '4.5', reviews: '100', distance: '1.1 km', time: '15 mins', icon: 'QB', color: 'bg-emerald-700' },
-];
+import { useGetAllStoresQuery } from '@/lib/api';
+import Image from 'next/image';
 
 export default function StoresListPage() {
   const [search, setSearch] = useState('');
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | undefined>();
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        },
+        () => {}
+      );
+    }
+  }, []);
+
+  const { data: stores = [], isLoading } = useGetAllStoresQuery(userLocation || undefined);
+
+  const filteredStores = stores.filter(store => 
+    (store.title || store.name).toLowerCase().includes(search.toLowerCase()) ||
+    (store.description && store.description.toLowerCase().includes(search.toLowerCase()))
+  );
 
   return (
     <div className="flex flex-col min-h-screen bg-white pb-32">
@@ -43,31 +56,53 @@ export default function StoresListPage() {
 
       {/* Store List */}
       <div className="px-4 mt-6 flex flex-col gap-6">
-        {storesList.map(store => (
-          <Link href={`/home/store?id=${store.id}`} key={store.id} className="flex flex-col border-b border-gray-100 pb-4 last:border-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={`w-14 h-14 ${store.color} rounded-2xl flex items-center justify-center shrink-0`}>
-                  <span className="text-white font-bold text-lg">{store.icon}</span>
-                </div>
-                <div className="flex flex-col">
-                  <h3 className="font-bold text-gray-900 text-[15px] mb-1">{store.name}</h3>
-                  <div className="flex items-center text-xs text-gray-500 font-medium mb-1">
-                    <span className="text-yellow-500 mr-1">★</span>
-                    <span className="text-gray-700 font-semibold mr-1">{store.rating}</span>
-                    <span className="mr-1">({store.reviews})</span>
-                    <span className="mx-1">•</span>
-                    <span>{store.distance}</span>
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="w-full h-20 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : filteredStores.length === 0 ? (
+          <div className="text-center py-10 bg-gray-50 rounded-2xl">
+            <p className="text-gray-500 text-sm font-medium">No stores found.</p>
+          </div>
+        ) : (
+          filteredStores.map(store => (
+            <Link href={`/home/store?id=${store.id}`} key={store.id} className="flex flex-col border-b border-gray-100 pb-4 last:border-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`relative w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center shrink-0 border border-indigo-100 overflow-hidden`}>
+                    {store.logoUrl ? (
+                      <Image src={store.logoUrl} alt={store.title || store.name} fill className="object-cover" />
+                    ) : (
+                      <StoreIcon className="w-6 h-6 text-indigo-300" />
+                    )}
                   </div>
-                  <div className="text-[11px] text-gray-500 font-medium flex items-center">
-                    <span className="mr-1">⚡</span> Pick up in {store.time}
+                  <div className="flex flex-col">
+                    <h3 className="font-bold text-gray-900 text-[15px] mb-1">{store.title || store.name}</h3>
+                    <div className="flex items-center text-xs text-gray-500 font-medium mb-1">
+                      <span className="text-yellow-500 mr-1">★</span>
+                      <span className="text-gray-700 font-semibold mr-1">4.5</span>
+                      <span className="mr-1">(100+)</span>
+                      <span className="mx-1">•</span>
+                      <span>
+                        {store.distance !== undefined && store.distance !== null 
+                          ? `${store.distance.toFixed(1)} km` 
+                          : 'Distance unknown'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-gray-500 font-medium flex items-center">
+                      <span className="mr-1">⚡</span> Pick up in 15 mins
+                    </div>
                   </div>
                 </div>
+                {store.distance !== undefined && store.distance !== null && (
+                  <span className="text-xs text-gray-500 font-semibold">{store.distance.toFixed(1)} km</span>
+                )}
               </div>
-              <span className="text-xs text-gray-500 font-semibold">{store.distance}</span>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          ))
+        )}
       </div>
     </div>
   );

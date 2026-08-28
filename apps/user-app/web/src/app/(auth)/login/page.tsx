@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useLoginMutation } from '@/lib/api';
 import { setCredentials } from '@/lib/features/authSlice';
 import { Button } from '@/components/ui/button';
@@ -21,11 +21,18 @@ export default function LoginPage() {
   const [countryCode, setCountryCode] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const user = useSelector((state: any) => state.auth.user);
+  const router = useRouter();
+  
+  useEffect(() => {
+    if (user) {
+      router.push('/');
+    }
+  }, [user, router]);
   
   const [login, { isLoading }] = useLoginMutation();
   const [googleLoginMut, { isLoading: isGoogleLoading }] = useGoogleLoginMutation();
   const dispatch = useDispatch();
-  const router = useRouter();
 
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -36,7 +43,7 @@ export default function LoginPage() {
         if (result.isNewUser || !result.user.phone) {
           router.push('/onboarding');
         } else {
-          router.push(result.user.role === 'USER' ? '/home' : '/store-partner/home');
+          router.push('/');
         }
       } catch (err: any) {
         toast.error(err.data?.message || err.data?.error || 'Google login failed');
@@ -54,7 +61,7 @@ export default function LoginPage() {
       const result = await login(payload).unwrap();
       dispatch(setCredentials({ token: result.token, user: result.user }));
       toast.success('Logged in successfully');
-      router.push(result.user.role === 'USER' ? '/home' : '/store-partner/home');
+      router.push('/');
     } catch (err: any) {
       toast.error(err.data?.message || 'Failed to login');
     }

@@ -5,6 +5,12 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-dev';
 
 export class AuthService {
+  private generateTokens(user: any) {
+    const payload = { userId: user.id, email: user.email, role: user.role };
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' }); // 1 hour access token
+    const refreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }); // 7 days refresh token
+    return { token, refreshToken };
+  }
   async registerUser(email: string, password: string, name: string, role?: string) {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -29,16 +35,10 @@ export class AuthService {
       },
     });
 
-    // Exclude password from response
     const { password: _, ...userWithoutPassword } = user;
+    const tokens = this.generateTokens(user);
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    return { token, user: userWithoutPassword };
+    return { ...tokens, user: userWithoutPassword };
   }
 
   async loginUser(email: string, password: string) {
@@ -56,14 +56,9 @@ export class AuthService {
       throw new Error('Invalid email or password');
     }
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
+    const tokens = this.generateTokens(user);
     const { password: _, ...userWithoutPassword } = user;
-    return { token, user: userWithoutPassword };
+    return { ...tokens, user: userWithoutPassword };
   }
 
   async googleLogin(payload: any, role?: string) {
@@ -94,14 +89,9 @@ export class AuthService {
       });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
+    const tokens = this.generateTokens(user);
     const { password: _, ...userWithoutPassword } = user;
-    return { token, user: userWithoutPassword, isNewUser };
+    return { ...tokens, user: userWithoutPassword, isNewUser };
   }
 
   async loginWithPhone(phone: string, role?: string) {
@@ -122,13 +112,8 @@ export class AuthService {
       });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
+    const tokens = this.generateTokens(user);
     const { password: _, ...userWithoutPassword } = user;
-    return { token, user: userWithoutPassword };
+    return { ...tokens, user: userWithoutPassword };
   }
 }

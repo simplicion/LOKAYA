@@ -1,19 +1,47 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import { logout, setCredentials } from './features/authSlice';
+
+const baseQuery = fetchBaseQuery({ 
+  baseUrl: 'http://localhost:4002/api/v1',
+  prepareHeaders: (headers, { getState }) => {
+    // @ts-ignore
+    const token = getState().auth.token;
+    if (token) {
+      headers.set('authorization', `Bearer ${token}`);
+    }
+    return headers;
+  },
+});
+
+const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (args, api, extraOptions) => {
+  let result = await baseQuery(args, api, extraOptions);
+  
+  if (result.error && result.error.status === 401) {
+    // @ts-ignore
+    const refreshToken = api.getState().auth.refreshToken;
+    
+    if (refreshToken) {
+      const refreshResult = await baseQuery({ url: '/auth/refresh', method: 'POST', body: { refreshToken } }, api, extraOptions);
+      if (refreshResult.data) {
+        // @ts-ignore
+        const user = (refreshResult.data as any).user || api.getState().auth.user;
+        api.dispatch(setCredentials({ token: (refreshResult.data as any).token, refreshToken, user }));
+        result = await baseQuery(args, api, extraOptions);
+      } else {
+        api.dispatch(logout());
+      }
+    } else {
+      api.dispatch(logout());
+    }
+  }
+  return result;
+};
 
 export const api = createApi({
   reducerPath: 'api',
-  baseQuery: fetchBaseQuery({ 
-    baseUrl: 'http://localhost:4002/api/v1', // Fixed port and version path
-    prepareHeaders: (headers, { getState }) => {
-      // @ts-ignore
-      const token = getState().auth.token;
-      if (token) {
-        headers.set('authorization', `Bearer ${token}`);
-      }
-      return headers;
-    },
-  }),
-  tagTypes: ['Product', 'Order', 'Store', 'User'],
+  baseQuery: baseQueryWithReauth,
+  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category'],
   endpoints: (builder) => ({
     login: builder.mutation<any, any>({
       query: (credentials) => ({
@@ -40,12 +68,21 @@ export const api = createApi({
       query: (storeId) => `/stores/${storeId}/products`,
       providesTags: ['Product'],
     }),
-    getAllStores: builder.query<any[], void>({
-      query: () => '/stores',
+    getAllStores: builder.query<any[], { lat?: number; lng?: number } | void>({
+      query: (params) => {
+        if (params && params.lat && params.lng) {
+          return `/stores?lat=${params.lat}&lng=${params.lng}`;
+        }
+        return '/stores';
+      },
       providesTags: ['Store'],
     }),
     getMyStore: builder.query<any, string>({
       query: (userId) => `/stores/my-store/${userId}`,
+      providesTags: ['Store'],
+    }),
+    getStore: builder.query<any, string>({
+      query: (storeId) => `/stores/${storeId}`,
       providesTags: ['Store'],
     }),
     resolveQr: builder.query<any, string>({
@@ -134,6 +171,33 @@ export const api = createApi({
         body,
       }),
     }),
+    updateStoreProfile: builder.mutation<any, { storeId: string; body: any }>({
+      query: ({ storeId, body }) => ({
+        url: `/stores/${storeId}/profile`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Store'],
+    }),
+    createCategory: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/categories',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Category'],
+    }),
+    getStoreCategories: builder.query<any[], string>({
+      query: (storeId) => `/categories/store/${storeId}`,
+      providesTags: ['Category'],
+    }),
+    deleteCategory: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/categories/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Category'],
+    }),
   }),
 });
 
@@ -144,6 +208,7 @@ export const {
   useGetStoreProductsQuery, 
   useGetAllStoresQuery,
   useGetMyStoreQuery,
+  useGetStoreQuery,
   useResolveQrQuery, 
   useOnboardStoreMutation, 
   useAddProductMutation,
@@ -156,5 +221,9 @@ export const {
   useUpdateProfileMutation,
   useForgotPasswordOtpMutation,
   useVerifyForgotPasswordOtpMutation,
-  useResetPasswordMutation
+  useResetPasswordMutation,
+  useUpdateStoreProfileMutation,
+  useCreateCategoryMutation,
+  useGetStoreCategoriesQuery,
+  useDeleteCategoryMutation
 } = api;

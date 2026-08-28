@@ -39,7 +39,7 @@ export function MobileBottomNav() {
   const hideOnRoutes = ['/home/checkout', '/home/product', '/home/store', '/home/search', '/home/orders', '/store-partner'];
   const shouldHideCompletely = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(`${route}/`));
 
-  if (!user || shouldHideCompletely) return null;
+  if (shouldHideCompletely) return null;
 
   const links = [
     { href: '/home', label: 'Home', icon: Home },

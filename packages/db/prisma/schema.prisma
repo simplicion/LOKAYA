@@ -7,18 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  STORE_PARTNER
-  SYSTEM_ADMIN
+// Enums
+enum StoreStatus {
+  PENDING
+  VERIFIED
+  REJECTED
 }
 
 enum OrderStatus {
   PENDING
-  PAID
-  READY_FOR_PICKUP
+  CONFIRMED
+  PROCESSING
+  PACKED
+  SHIPPED
+  OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
+  RETURN_REQUESTED
+  RETURN_APPROVED
+  RETURNED
+  REFUNDED
 }
 
 enum AuthProvider {
@@ -27,35 +35,84 @@ enum AuthProvider {
   PHONE
 }
 
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+// User & Identity
 model User {
   id           String       @id @default(uuid())
   email        String?      @unique
   phone        String?      @unique
   password     String?
-  role         Role         @default(USER)
   name         String
   googleId     String?      @unique
   authProvider AuthProvider @default(LOCAL)
   
+  // Capabilities
+  isSystemAdmin Boolean     @default(false)
+  
   stores       StoreUser[]
   orders       Order[]
+  carts        Cart[]
   
+  // Social
+  posts        Post[]
+  reels        Reel[]
+  likes        Like[]
+  comments     Comment[]
+  
+  followers    Follow[] @relation("UserFollowers")
+  following    Follow[] @relation("UserFollowing")
+  
+  reviews      Review[]
+
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
 
+// Store / Seller Workspace
 model Store {
-  id          String   @id @default(uuid())
-  name        String
-  address     String
-  gstNumber   String?
-  upiId       String?
-  latitude    Float?
-  longitude   Float?
+  id            String      @id @default(uuid())
+  name          String
+  handle        String?     @unique
+  address       String
+  gstNumber     String?
+  upiId         String?
+  latitude      Float?
+  longitude     Float?
+  category      String?
+  landmark      String?
+  businessType  String?
+  aadharPanUrl  String?
+  storefrontUrl String?
+  bannerUrl     String?
+  logoUrl       String?
+  title         String?
+  description   String?
+  isActive      Boolean     @default(true)
+  openingTime   String?
+  closingTime   String?
+  themeColor    String?     @default("#059669")
+  secondaryColor String?    @default("#fcd34d")
+  workingDays   Int[]       @default([1, 2, 3, 4, 5, 6, 0]) // 0=Sun, 1=Mon...
+  minimumOrder  Float?      @default(0)
+  acceptedPayments String[] @default(["ONLINE PAYMENT", "CASH"])
+  status        StoreStatus @default(PENDING)
   
   users       StoreUser[]
   products    Product[]
   orders      Order[]
+  categories  Category[]
+  reviews     Review[]    @relation("StoreReviews")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -70,54 +127,69 @@ model StoreUser {
   @@id([userId, storeId])
 }
 
+// Catalog
 model Product {
   id            String   @id @default(uuid())
   storeId       String
   name          String
   brand         String?
+  description   String?
   category      String?
+  categoryId    String?
+  categoryModel Category? @relation(fields: [categoryId], references: [id])
   sku           String   @unique
-  qrUuid        String   @unique
+  qrUuid        String?  @unique
   mrp           Float
   sellingPrice  Float
   stockCount    Int      @default(0)
   imageUrl      String?
 
   store         Store    @relation(fields: [storeId], references: [id])
+  variants      ProductVariant[]
   orderItems    OrderItem[]
   inventoryLogs InventoryLog[]
+  cartItems     CartItem[]
+  productLinks  ProductLink[]
+  reviews       Review[] @relation("ProductReviews")
 
+  isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
 
-model Order {
-  id            String      @id @default(uuid())
-  buyerId       String
-  storeId       String
-  status        OrderStatus @default(PENDING)
-  totalAmount   Float
-  pickupToken   String?     @unique
+model ProductVariant {
+  id          String   @id @default(uuid())
+  productId   String
+  name        String
+  sku         String   @unique
+  price       Float
+  stockCount  Int      @default(0)
   
-  buyer         User        @relation(fields: [buyerId], references: [id])
-  store         Store       @relation(fields: [storeId], references: [id])
-  items         OrderItem[]
+  product     Product  @relation(fields: [productId], references: [id])
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
-model OrderItem {
-  id        String  @id @default(uuid())
-  orderId   String
-  productId String
-  quantity  Int
-  priceAt   Float
+model Category {
+  id            String    @id @default(uuid())
+  storeId       String
+  name          String
+  description   String?
+  imageUrl      String?
+  displayOrder  Int       @default(1)
+  isActive      Boolean   @default(true)
+  
+  store         Store     @relation(fields: [storeId], references: [id])
+  products      Product[]
 
-  order     Order   @relation(fields: [orderId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
+// Inventory
 model InventoryLog {
   id        String   @id @default(uuid())
   productId String
@@ -127,4 +199,202 @@ model InventoryLog {
   product   Product  @relation(fields: [productId], references: [id])
 
   createdAt DateTime @default(now())
+}
+
+// Cart
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  
+  items     CartItem[]
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id          String   @id @default(uuid())
+  cartId      String
+  productId   String
+  variantId   String?
+  quantity    Int
+
+  cart        Cart            @relation(fields: [cartId], references: [id])
+  product     Product         @relation(fields: [productId], references: [id])
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([cartId, productId, variantId])
+}
+
+// Order & Checkout
+model Order {
+  id            String      @id @default(uuid())
+  buyerId       String
+  storeId       String
+  status        OrderStatus @default(PENDING)
+  totalAmount   Float
+  pickupToken   String?     @unique
+  deliveryAddress String?
+  
+  buyer         User        @relation(fields: [buyerId], references: [id])
+  store         Store       @relation(fields: [storeId], references: [id])
+  items         OrderItem[]
+  payment       Payment?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model OrderItem {
+  id            String  @id @default(uuid())
+  orderId       String
+  productId     String
+  variantId     String?
+  quantity      Int
+  
+  // Snapshots
+  productName   String
+  sku           String
+  priceAt       Float
+  
+  order         Order           @relation(fields: [orderId], references: [id])
+  product       Product         @relation(fields: [productId], references: [id])
+  variant       ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  orderId           String        @unique
+  amount            Float
+  currency          String        @default("INR")
+  status            PaymentStatus @default(PENDING)
+  provider          String        @default("RAZORPAY")
+  providerOrderId   String?       @unique
+  providerPaymentId String?       @unique
+  providerSignature String?
+
+  order             Order         @relation(fields: [orderId], references: [id])
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+// Content (Posts & Reels)
+model MediaAsset {
+  id          String    @id @default(uuid())
+  url         String
+  type        MediaType
+  
+  post        Post?     @relation(fields: [postId], references: [id])
+  postId      String?
+  reel        Reel?     @relation(fields: [reelId], references: [id])
+  reelId      String?
+  
+  createdAt   DateTime  @default(now())
+}
+
+model Post {
+  id          String        @id @default(uuid())
+  authorId    String
+  caption     String?
+  
+  author      User          @relation(fields: [authorId], references: [id])
+  media       MediaAsset[]
+  productLinks ProductLink[]
+  likes       Like[]
+  comments    Comment[]
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Reel {
+  id          String        @id @default(uuid())
+  authorId    String
+  caption     String?
+  
+  author      User          @relation(fields: [authorId], references: [id])
+  media       MediaAsset[]
+  productLinks ProductLink[]
+  likes       Like[]
+  comments    Comment[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model ProductLink {
+  id        String   @id @default(uuid())
+  productId String
+  postId    String?
+  reelId    String?
+
+  product   Product  @relation(fields: [productId], references: [id])
+  post      Post?    @relation(fields: [postId], references: [id])
+  reel      Reel?    @relation(fields: [reelId], references: [id])
+}
+
+// Social
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id])
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([followerId, followingId])
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String?
+  reelId    String?
+
+  user      User     @relation(fields: [userId], references: [id])
+  post      Post?    @relation(fields: [postId], references: [id])
+  reel      Reel?    @relation(fields: [reelId], references: [id])
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, postId, reelId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  userId    String
+  postId    String?
+  reelId    String?
+
+  user      User     @relation(fields: [userId], references: [id])
+  post      Post?    @relation(fields: [postId], references: [id])
+  reel      Reel?    @relation(fields: [reelId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Review & Reputation
+model Review {
+  id          String   @id @default(uuid())
+  userId      String
+  productId   String?
+  storeId     String?
+  rating      Int
+  comment     String?
+  
+  user        User     @relation(fields: [userId], references: [id])
+  product     Product? @relation("ProductReviews", fields: [productId], references: [id])
+  store       Store?   @relation("StoreReviews", fields: [storeId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

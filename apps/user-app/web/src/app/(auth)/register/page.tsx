@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useRegisterMutation } from '@/lib/api';
 import { setCredentials } from '@/lib/features/authSlice';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,13 @@ export default function RegisterPage() {
   const [googleLoginMut, { isLoading: isGoogleLoading }] = useGoogleLoginMutation();
   const dispatch = useDispatch();
   const router = useRouter();
+  const user = useSelector((state: any) => state.auth.user);
+
+  useEffect(() => {
+    if (user) {
+      router.push('/');
+    }
+  }, [user, router]);
 
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -38,7 +45,7 @@ export default function RegisterPage() {
         if (result.isNewUser || !result.user.phone) {
           router.push('/onboarding');
         } else {
-          router.push(result.user.role === 'USER' ? '/home' : '/store-partner/home');
+          router.push('/');
         }
       } catch (err: any) {
         toast.error(err.data?.message || err.data?.error || 'Google registration failed');
@@ -58,7 +65,7 @@ export default function RegisterPage() {
       const result = await register(payload).unwrap();
       dispatch(setCredentials({ token: result.token, user: result.user }));
       toast.success('Registration successful');
-      router.push(result.user.role === 'USER' ? '/home' : '/store-partner/home');
+      router.push('/');
     } catch (err: any) {
       toast.error(err.data?.message || 'Failed to register');
     }

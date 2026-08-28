@@ -43,9 +43,9 @@ export class AuthController {
       if (!response.ok) {
         throw new Error('Invalid Google token');
       }
-      
+
       const payload = await response.json();
-      
+
       if (!payload || !payload.email) {
         throw new Error('Invalid Google token payload');
       }
@@ -55,6 +55,36 @@ export class AuthController {
     } catch (error: any) {
       console.error('Google login error:', error);
       res.status(401).json({ error: error.message || 'Google login failed' });
+    }
+  };
+
+  refreshToken = async (req: Request, res: Response) => {
+    try {
+      const { refreshToken } = req.body;
+      if (!refreshToken) {
+        return res.status(400).json({ error: 'Refresh token is required' });
+      }
+
+      const jwt = require('jsonwebtoken');
+      const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-dev';
+
+      const decoded = jwt.verify(refreshToken, JWT_SECRET);
+
+      // Fetch latest user data from database to ensure role is up-to-date
+      const { prisma } = require('@workspace/db');
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      // Generate new access token
+      const payload = { userId: user.id, email: user.email, role: user.role };
+      const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+
+      res.status(200).json({ token: newAccessToken, user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role } });
+    } catch (error: any) {
+      res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
   };
 
@@ -68,7 +98,7 @@ export class AuthController {
       // We'd load OtpService lazily here to avoid circular dependencies if any
       const { OtpService } = require('../../shared/services/otp.service');
       const otpService = new OtpService();
-      
+
       const success = await otpService.sendOtp(phone);
       if (success) {
         res.status(200).json({ message: 'OTP sent successfully' });
@@ -89,7 +119,7 @@ export class AuthController {
 
       const { OtpService } = require('../../shared/services/otp.service');
       const otpService = new OtpService();
-      
+
       const isValid = await otpService.verifyOtp(phone, otp);
       if (!isValid) {
         return res.status(401).json({ error: 'Invalid OTP' });
@@ -126,7 +156,7 @@ export class AuthController {
 
       const { OtpService } = require('../../shared/services/otp.service');
       const otpService = new OtpService();
-      
+
       const success = await otpService.sendOtp(identifier);
       if (success) {
         res.status(200).json({ message: 'OTP sent successfully' });
@@ -147,7 +177,7 @@ export class AuthController {
 
       const { OtpService } = require('../../shared/services/otp.service');
       const otpService = new OtpService();
-      
+
       const isValid = await otpService.verifyOtp(identifier, otp);
       if (!isValid) {
         return res.status(401).json({ error: 'Invalid OTP' });
@@ -156,7 +186,7 @@ export class AuthController {
       // Return a temporary token (just signing the identifier for simplicity)
       const jwt = require('jsonwebtoken');
       const resetToken = jwt.sign({ identifier }, process.env.JWT_SECRET || 'supersecret', { expiresIn: '15m' });
-      
+
       res.status(200).json({ resetToken });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Error verifying OTP' });
@@ -182,7 +212,7 @@ export class AuthController {
 
       const { prisma } = require('@workspace/db');
       const bcrypt = require('bcryptjs');
-      
+
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 

@@ -40,6 +40,7 @@ export default function BuyerDashboard() {
   const [products, setProducts] = useState(initialProducts);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  const user = useSelector((state: RootState) => state.auth.user);
   const cart = useSelector((state: RootState) => state.cart);
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
   const cartTotalAmount = Object.values(cart.items).reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2);
@@ -114,9 +115,17 @@ export default function BuyerDashboard() {
               <ChevronDown className="w-4 h-4 text-gray-600 shrink-0" />
             </div>
           </div>
-          <Link href="/notifications" className="p-3 bg-gray-50 rounded-full border border-gray-100 hover:bg-gray-100 transition-colors">
-            <Bell className="w-6 h-6 text-gray-800" />
-          </Link>
+          {user ? (
+            <Link href="/notifications" className="p-3 bg-gray-50 rounded-full border border-gray-100 hover:bg-gray-100 transition-colors">
+              <Bell className="w-6 h-6 text-gray-800" />
+            </Link>
+          ) : (
+            <Link href="/login">
+              <Button variant="default" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-bold px-4">
+                Login
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 

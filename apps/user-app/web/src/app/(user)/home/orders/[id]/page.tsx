@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 
 export default function OrderHistoryDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50/50 pb-safe">
       {/* Header */}
@@ -35,7 +35,7 @@ export default function OrderHistoryDetailsPage({ params }: { params: { id: stri
         {/* Items Card */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
           <h3 className="font-bold text-gray-900 text-[14px] mb-4">Items</h3>
-          
+
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <span className="font-bold text-gray-700 text-[13px] w-1/2">Banana (1kg)</span>
@@ -55,7 +55,7 @@ export default function OrderHistoryDetailsPage({ params }: { params: { id: stri
           </div>
 
           <div className="w-full h-[1px] bg-gray-100 my-4" />
-          
+
           <div className="flex items-center justify-between mb-4">
             <span className="text-gray-500 text-[13px] font-medium">Total Amount</span>
             <span className="font-black text-gray-900 text-[18px]">₹135</span>
@@ -75,15 +75,15 @@ export default function OrderHistoryDetailsPage({ params }: { params: { id: stri
 
       {/* Fixed Bottom Action */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 pb-safe-offset-4 z-40 flex flex-col gap-3">
-        <Button 
-          onClick={() => {}} 
+        <Button
+          onClick={() => { }}
           variant="outline"
           className="w-full h-14 rounded-2xl border-indigo-100 text-indigo-600 font-bold text-[16px] hover:bg-indigo-50 bg-indigo-50/50 transition-all active:scale-[0.98]"
         >
           Reorder
         </Button>
-        <Button 
-          onClick={() => router.push(`/home/order/${params.id}`)} 
+        <Button
+          onClick={() => router.push(`/home/order/${params.id}`)}
           className="w-full h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[16px] shadow-[0_8px_30px_rgb(79,70,229,0.25)] transition-all active:scale-[0.98]"
         >
           View Order Status

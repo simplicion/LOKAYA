@@ -26,7 +26,7 @@ export default function AdminLogin() {
       const response = await login({ email, password }).unwrap();
       
       // Basic role check (Backend should strictly enforce this too)
-      if (response.user.role !== 'PLATFORM_ADMIN') {
+      if (response.user.role !== 'SYSTEM_ADMIN') {
         setError('Unauthorized: Admin access required.');
         return;
       }

@@ -62,7 +62,8 @@ export default function AllowLocationPage() {
   };
 
   return (
-          {/* Full-screen map background */}
+    <div className="relative h-full w-full overflow-hidden bg-gray-50">
+      {/* Full-screen map background */}
       <div className="absolute inset-0 z-0">
         <LocationMap userLocation={fetchedLocation} nearbyStores={[]} className="h-full w-full" />
       </div>
@@ -97,5 +98,6 @@ export default function AllowLocationPage() {
           )}
         </div>
       </div>
-      );
+    </div>
+  );
 }

@@ -75,7 +75,11 @@ export default function ProfilePage() {
             <ListItem icon={Gift} label="E-gift cards" onClick={() => router.push('/profile/egiftcards')} />
             <ListItem icon={MessageCircle} label="Need help?" onClick={() => router.push('/profile/help')} />
             <div className="h-px bg-gray-100 my-1 mx-4"></div>
-            <ListItem icon={Store} label="Join as a Store Partner" onClick={() => router.push('/store-partner/onboarding')} />
+            <ListItem 
+              icon={Store} 
+              label={user?.role === 'STORE_PARTNER' ? 'Store Dashboard' : 'Join as a Store Partner'} 
+              onClick={() => router.push(user?.role === 'STORE_PARTNER' ? '/store-partner/home' : '/store-partner/onboarding')} 
+            />
           </div>
         </div>
         

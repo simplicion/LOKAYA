@@ -19,7 +19,7 @@ export function Navbar() {
     router.push('/login');
   };
 
-  const hiddenPaths = ['/login', '/register', '/forgot-password', '/onboarding', '/allow-location', '/verify-reset-otp', '/reset-password', '/store-partner', '/home'];
+  const hiddenPaths = ['/login', '/register', '/forgot-password', '/onboarding', '/allow-location', '/verify-reset-otp', '/reset-password', '/store-partner', '/home', '/profile'];
   if (pathname && hiddenPaths.some(path => pathname.includes(path))) {
     return null;
   }
