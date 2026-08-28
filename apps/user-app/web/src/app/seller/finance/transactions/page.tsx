@@ -37,7 +37,7 @@ export default function TransactionsPage() {
 
       <div className="p-4 space-y-4">
         {/* Filters */}
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
           {['All', 'Credits', 'Debits', 'Payouts'].map((filter) => (
             <button
               key={filter}

@@ -3,20 +3,23 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Heart, ShoppingCart, Bell, Settings, ChevronDown, Check, ArrowLeft, Bookmark } from 'lucide-react';
+import { Heart, ShoppingCart, Bell, Settings, ChevronDown, Check, ArrowLeft, Bookmark, PlusSquare, Menu } from 'lucide-react';
 import { Logo } from "@/components/ui/logo";
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import { useGetMyStoreQuery } from '@/lib/api';
 
 export function MobileTopNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const user = useSelector((state: RootState) => state.auth.user);
   const cart = useSelector((state: RootState) => state.cart);
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
+  const { data: myStore } = useGetMyStoreQuery();
 
   // Hide TopNav on these routes (they have their own headers or are full screen)
-  const hideOnRoutes = ['/search', '/home/reels', '/home/checkout', '/home/order', '/explore/nearby', '/wishlist', '/product', '/store'];
+  const hideOnRoutes = ['/search', '/home/reels', '/home/checkout', '/home/order', '/explore/nearby', '/wishlist', '/product', '/store', '/profile/create'];
   const shouldHide = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(`${route}/`));
 
   const [isVisible, setIsVisible] = useState(true);
@@ -126,17 +129,37 @@ export function MobileTopNav() {
       </div>
     );
   } else if (pathname === '/profile') {
-    leftContent = <h1 className="text-xl font-bold text-[#171717]">My Account</h1>;
-    rightContent = (
-      <div className="flex items-center gap-4">
-        <button className="relative text-[#171717]">
-          <Bell className="w-6 h-6" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#FAF9F6] tabular-nums">
-            3
-          </span>
-        </button>
-      </div>
-    );
+    if (myStore) {
+      leftContent = <h1 className="text-xl font-bold text-[#171717]">{user?.name || myStore.name}</h1>;
+      rightContent = (
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => router.push('/profile/create/post')} 
+            className="relative text-[#171717]"
+          >
+            <PlusSquare className="w-6 h-6" />
+          </button>
+          <Link href="/profile/settings" className="relative text-[#171717]">
+            <Menu className="w-6 h-6" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#FAF9F6] tabular-nums">
+              1
+            </span>
+          </Link>
+        </div>
+      );
+    } else {
+      leftContent = <h1 className="text-xl font-bold text-[#171717]">My Account</h1>;
+      rightContent = (
+        <div className="flex items-center gap-4">
+          <button className="relative text-[#171717]">
+            <Bell className="w-6 h-6" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#FAF9F6] tabular-nums">
+              3
+            </span>
+          </button>
+        </div>
+      );
+    }
   } else {
     // Default fallback
     leftContent = <h1><Logo className="text-xl text-[#171717]" /></h1>;

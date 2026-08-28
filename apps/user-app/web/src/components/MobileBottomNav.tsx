@@ -12,7 +12,7 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const cart = useSelector((state: RootState) => state.cart);
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
-  const hideOnRoutes = ['/home/checkout', '/home/product', '/home/store', '/home/orders', '/seller', '/home/reels', '/search', '/cart', '/wishlist', '/product', '/store'];
+  const hideOnRoutes = ['/home/checkout', '/home/product', '/home/store', '/home/orders', '/seller', '/home/reels', '/search', '/cart', '/wishlist', '/product', '/store', '/profile/create'];
   const shouldHideCompletely = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(`${route}/`));
 
   if (shouldHideCompletely) return null;

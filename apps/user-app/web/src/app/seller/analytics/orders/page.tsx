@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChevronDown, TrendingUp } from 'lucide-react';
+import { SellerHeader } from '@/components/seller/SellerHeader';
 import { 
   LineChart, 
   Line, 
@@ -25,60 +26,100 @@ const mockOrderData = [
 
 export default function OrderAnalyticsPage() {
   const router = useRouter();
-  const [dateRange, setDateRange] = useState('This Month');
+  const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
+  const [activeDateFilter, setActiveDateFilter] = useState('This Month');
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="bg-white px-4 py-4 sticky top-0 z-10 border-b border-gray-100 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-gray-900">
-            <ArrowLeft className="w-5 h-5" />
+    <div className="min-h-screen bg-[#FFFFFF] pb-20">
+      <SellerHeader 
+        title="Order Analytics"
+        showBack={true}
+        onBack={() => router.back()}
+        hideSearchIcon={true}
+        rightAction={
+          <button 
+            onClick={() => setIsDateSelectorOpen(true)}
+            className="flex items-center gap-1.5 bg-[#F9F9F9] pl-3 pr-2 py-1 rounded-full border border-[#E5E2DC]"
+          >
+            <span className="text-xs font-semibold text-[#171717]">{activeDateFilter}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-[#6B6B6B]" />
           </button>
-          <h1 className="text-xl font-bold text-gray-900">Order Analytics</h1>
+        }
+      />
+      
+      {/* Date Selector Modal */}
+      {isDateSelectorOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] w-full max-w-sm rounded-t-3xl sm:rounded-[1.25rem] p-6 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in">
+            <h3 className="text-xl font-bold text-[#171717] mb-4">Select Date Range</h3>
+            
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year'].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => {
+                    setActiveDateFilter(range);
+                    setIsDateSelectorOpen(false);
+                  }}
+                  className={`py-3 px-4 rounded-[1.25rem] border text-sm font-semibold text-center transition-colors ${
+                    activeDateFilter === range 
+                      ? 'bg-[#171717] text-white border-[#171717]' 
+                      : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#E5E2DC] hover:border-[#171717]'
+                  }`}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
+            
+            <button 
+              className="w-full h-12 bg-[#FF5A36] hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
+              onClick={() => setIsDateSelectorOpen(false)}
+            >
+              Apply Filter
+            </button>
+          </div>
         </div>
-        
-        <button className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
-          <span className="text-sm font-medium text-gray-700">{dateRange}</span>
-          <ChevronDown className="w-4 h-4 text-gray-500" />
-        </button>
-      </div>
+      )}
 
       <div className="p-4 space-y-6">
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-            <p className="text-xs text-gray-500 mb-1">Total Orders</p>
+          <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC]">
+            <p className="text-xs text-[#6B6B6B] mb-1 font-medium">Total Orders</p>
             <div className="flex flex-col">
-              <p className="text-xl font-bold text-gray-900">256</p>
-              <span className="text-xs font-medium text-emerald-600 flex items-center mt-1">
-                <TrendingUp className="w-3 h-3 mr-0.5" /> 18.6%
-              </span>
+              <p className="text-xl font-bold text-[#171717]">256</p>
+              <div className="flex mt-1.5">
+                <span className="text-[10px] font-bold text-[#00B960] bg-[#E5F7ED] px-1.5 py-0.5 rounded-md flex items-center">
+                  <TrendingUp className="w-3 h-3 mr-0.5" /> 18.6%
+                </span>
+              </div>
             </div>
           </div>
           
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-            <p className="text-xs text-gray-500 mb-1">Completed</p>
+          <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC]">
+            <p className="text-xs text-[#6B6B6B] mb-1 font-medium">Completed</p>
             <div className="flex flex-col">
-              <p className="text-xl font-bold text-gray-900">240</p>
+              <p className="text-xl font-bold text-[#171717]">240</p>
             </div>
           </div>
           
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-            <p className="text-xs text-gray-500 mb-1">Cancelled</p>
+          <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC]">
+            <p className="text-xs text-[#6B6B6B] mb-1 font-medium">Cancelled</p>
             <div className="flex flex-col">
-              <p className="text-xl font-bold text-gray-900">16</p>
+              <p className="text-xl font-bold text-[#171717]">16</p>
             </div>
           </div>
           
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-            <p className="text-xs text-gray-500 mb-1">Pending</p>
+          <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC]">
+            <p className="text-xs text-[#6B6B6B] mb-1 font-medium">Pending</p>
             <div className="flex flex-col">
-              <p className="text-xl font-bold text-gray-900">6</p>
+              <p className="text-xl font-bold text-[#171717]">6</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <h2 className="text-sm font-bold text-gray-900 mb-4">Order vs Revenue</h2>
+        <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC]">
+          <h2 className="text-sm font-bold text-[#171717] mb-4">Order vs Revenue</h2>
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={mockOrderData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
@@ -105,7 +146,7 @@ export default function OrderAnalyticsPage() {
                   tick={{ fontSize: 10, fill: '#6b7280' }}
                 />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ borderRadius: '1.25rem', border: '1px solid #E5E2DC', boxShadow: 'none' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
                 <Line 
@@ -113,7 +154,7 @@ export default function OrderAnalyticsPage() {
                   type="monotone" 
                   dataKey="revenue" 
                   name="Revenue (k)"
-                  stroke="#10b981" 
+                  stroke="#FF5A36" 
                   strokeWidth={2}
                   dot={{ r: 4, strokeWidth: 2 }}
                   activeDot={{ r: 6 }}
@@ -123,7 +164,7 @@ export default function OrderAnalyticsPage() {
                   type="monotone" 
                   dataKey="orders" 
                   name="Orders"
-                  stroke="#4f46e5" 
+                  stroke="#171717" 
                   strokeWidth={2}
                   dot={{ r: 4, strokeWidth: 2 }}
                   activeDot={{ r: 6 }}

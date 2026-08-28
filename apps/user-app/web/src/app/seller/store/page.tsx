@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, Image as ImageIcon, Edit2, Plus, Star } from 'lucide-react';
+import { Settings, Image as ImageIcon, Edit2, Plus, Star, Trash2 } from 'lucide-react';
 import Image from 'next/image';
+import { SellerHeader } from '@/components/seller/SellerHeader';
 
 const MOCK_CATEGORIES = [
   { id: '1', name: 'Fruits', icon: '🍎' },
@@ -22,20 +23,25 @@ const MOCK_PRODUCTS = [
 
 export default function StorePreviewPage() {
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-gray-50 pb-24">
+    <div className="flex flex-col min-h-[100dvh] bg-[#FFFFFF] pb-24">
       
-      {/* Top Header */}
-      <div className="flex items-center justify-between p-4 bg-white sticky top-0 z-20 border-b border-gray-100 shadow-sm">
-        <h1 className="text-lg font-bold text-gray-900">My Store</h1>
-        <button 
-          onClick={() => router.push('/seller/store/settings')} 
-          className="p-2 -mr-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors"
-        >
-          <Settings className="w-6 h-6" />
-        </button>
-      </div>
+      <SellerHeader 
+        title="My Store"
+        hideSearchIcon={true}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        rightAction={
+          <button 
+            onClick={() => router.push('/seller/store/settings')} 
+            className="p-2 -mr-2 rounded-full hover:bg-gray-100 text-[#171717] transition-colors"
+          >
+            <Settings className="w-6 h-6" />
+          </button>
+        }
+      />
 
       <div className="flex-1 overflow-y-auto">
         
@@ -85,9 +91,15 @@ export default function StorePreviewPage() {
         <div className="mt-4 bg-white py-4 shadow-sm border-y border-gray-100">
           <div className="px-4 flex items-center justify-between mb-3">
             <h3 className="text-lg font-bold text-gray-900">Categories</h3>
+            <button 
+              onClick={() => router.push('/seller/store/categories')}
+              className="text-sm font-bold text-indigo-600 hover:text-indigo-700"
+            >
+              View All
+            </button>
           </div>
           
-          <div className="flex overflow-x-auto hide-scrollbar px-4 pb-2 gap-4">
+          <div className="flex overflow-x-auto no-scrollbar px-4 pb-2 gap-4">
             
             {/* Add New Category Button */}
             <button 
@@ -102,11 +114,20 @@ export default function StorePreviewPage() {
 
             {/* Existing Categories */}
             {MOCK_CATEGORIES.map((cat) => (
-              <div key={cat.id} className="flex flex-col items-center gap-2 min-w-[72px]">
+              <div key={cat.id} className="relative flex flex-col items-center gap-2 min-w-[72px]">
                 <div className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-3xl shadow-sm">
                   {cat.icon}
                 </div>
                 <span className="text-xs font-medium text-gray-600 text-center truncate w-full">{cat.name}</span>
+                <button 
+                  className="absolute -top-1.5 -right-1.5 bg-white text-red-500 border border-gray-100 p-1.5 rounded-full shadow-md z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Handle delete
+                  }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             ))}
           </div>

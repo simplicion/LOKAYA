@@ -14,6 +14,7 @@ import {
   Wallet,
   Download
 } from 'lucide-react';
+import { SellerHeader } from '@/components/seller/SellerHeader';
 import { Button } from '@/components/ui/button';
 import { 
   AreaChart, 
@@ -40,25 +41,26 @@ export default function AnalyticsPage() {
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-white px-4 py-4 sticky top-0 z-10 border-b border-gray-100 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Analytics Overview</h1>
-        
-        <button 
-          onClick={() => setIsDateSelectorOpen(!isDateSelectorOpen)}
-          className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200"
-        >
-          <span className="text-sm font-medium text-gray-700">{dateRange}</span>
-          <ChevronDown className="w-4 h-4 text-gray-500" />
-        </button>
-      </div>
+    <div className="min-h-screen bg-[#FFFFFF] pb-24 md:pb-0">
+      <SellerHeader 
+        title="Analytics Overview"
+        hideSearchIcon={true}
+        rightAction={
+          <button 
+            onClick={() => setIsDateSelectorOpen(!isDateSelectorOpen)}
+            className="flex items-center gap-2 bg-[#F9F9F9] px-3 py-1.5 rounded-full border border-[#E5E2DC]"
+          >
+            <span className="text-sm font-semibold text-[#171717]">{dateRange}</span>
+            <ChevronDown className="w-4 h-4 text-[#6B6B6B]" />
+          </button>
+        }
+      />
 
       {/* Date Selector Modal (simplified for now) */}
       {isDateSelectorOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Select Date Range</h3>
+          <div className="bg-[#FFFFFF] w-full max-w-sm rounded-t-3xl sm:rounded-[1.25rem] p-6 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in">
+            <h3 className="text-xl font-bold text-[#171717] mb-4">Select Date Range</h3>
             
             <div className="grid grid-cols-2 gap-3 mb-4">
               {['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year'].map((range) => (
@@ -68,10 +70,10 @@ export default function AnalyticsPage() {
                     setDateRange(range);
                     setIsDateSelectorOpen(false);
                   }}
-                  className={`py-3 px-4 rounded-xl border text-sm font-medium text-center transition-colors ${
+                  className={`py-3 px-4 rounded-[1.25rem] border text-sm font-semibold text-center transition-colors ${
                     dateRange === range 
-                      ? 'bg-indigo-600 text-white border-indigo-600' 
-                      : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-200'
+                      ? 'bg-[#171717] text-white border-[#171717]' 
+                      : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#E5E2DC] hover:border-[#171717]'
                   }`}
                 >
                   {range}
@@ -81,14 +83,14 @@ export default function AnalyticsPage() {
             
             <Button 
               variant="outline" 
-              className="w-full h-12 rounded-xl mb-4"
+              className="w-full h-12 rounded-[1.25rem] mb-4 border-[#E5E2DC] text-[#171717] font-semibold"
               onClick={() => setIsDateSelectorOpen(false)}
             >
               Custom Range
             </Button>
             
             <Button 
-              className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 rounded-xl"
+              className="w-full h-12 bg-[#FF5A36] hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
               onClick={() => setIsDateSelectorOpen(false)}
             >
               Apply Filter
@@ -100,84 +102,64 @@ export default function AnalyticsPage() {
       <div className="p-4 space-y-6">
         {/* Overview Cards */}
         <div>
-          <h2 className="text-sm font-bold text-gray-900 mb-3">Overview</h2>
+          <h2 className="text-xl font-bold text-[#171717] mb-4">Overview</h2>
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-              <p className="text-xs text-gray-500 mb-1">Total Orders</p>
-              <div className="flex items-end justify-between">
-                <p className="text-xl font-bold text-gray-900">256</p>
-                <span className="text-xs font-medium text-emerald-600 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-0.5" /> 18.6%
-                </span>
+            {[
+              { label: "Total Orders", value: "256", trend: "+18.6%", isPositive: true },
+              { label: "Total Revenue", value: "₹45,860", trend: "+22.3%", isPositive: true },
+              { label: "Avg. Order Value", value: "₹179", trend: "+12.3%", isPositive: true },
+              { label: "Total Customers", value: "98", trend: "+16.2%", isPositive: true },
+            ].map((stat, i) => (
+              <div key={i} className="bg-white p-4 rounded-[1.25rem] border border-[#E5E2DC] flex flex-col justify-between">
+                <span className="text-xl font-bold text-[#171717]">{stat.value}</span>
+                <span className="text-xs text-[#6B6B6B] mt-1">{stat.label}</span>
+                <div className="flex justify-end mt-2">
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                    stat.isPositive ? 'bg-[#E5F7ED] text-[#00B960]' : 'bg-[#FFEBEE] text-[#FF5A36]'
+                  }`}>
+                    {stat.trend}
+                  </span>
+                </div>
               </div>
-            </div>
-            
-            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-              <p className="text-xs text-gray-500 mb-1">Total Revenue</p>
-              <div className="flex items-end justify-between">
-                <p className="text-xl font-bold text-gray-900">₹45,860</p>
-                <span className="text-xs font-medium text-emerald-600 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-0.5" /> 22.3%
-                </span>
-              </div>
-            </div>
-            
-            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-              <p className="text-xs text-gray-500 mb-1">Avg. Order Value</p>
-              <div className="flex items-end justify-between">
-                <p className="text-xl font-bold text-gray-900">₹179</p>
-                <span className="text-xs font-medium text-emerald-600 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-0.5" /> 12.3%
-                </span>
-              </div>
-            </div>
-            
-            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-              <p className="text-xs text-gray-500 mb-1">Total Customers</p>
-              <div className="flex items-end justify-between">
-                <p className="text-xl font-bold text-gray-900">98</p>
-                <span className="text-xs font-medium text-emerald-600 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-0.5" /> 16.2%
-                </span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
         {/* Revenue Overview Chart */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <h2 className="text-sm font-bold text-gray-900 mb-4">Revenue Overview</h2>
+        <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC]">
+          <h2 className="text-xl font-bold text-[#171717] mb-6">Revenue Overview</h2>
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={mockData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#FF5A36" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#FF5A36" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E2DC" />
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#6b7280' }} 
+                  tick={{ fontSize: 10, fill: '#6B6B6B' }} 
                   dy={10}
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                  tick={{ fontSize: 10, fill: '#6B6B6B' }}
                   tickFormatter={(value) => `₹${value/1000}k`}
                 />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ borderRadius: '12px', border: '1px solid #E5E2DC', boxShadow: 'none' }}
+                  itemStyle={{ color: '#171717', fontWeight: 'bold' }}
                   formatter={(value: any) => [`₹${value}`, 'Revenue']}
                 />
                 <Area 
                   type="monotone" 
                   dataKey="revenue" 
-                  stroke="#4f46e5" 
+                  stroke="#FF5A36" 
                   strokeWidth={2}
                   fillOpacity={1} 
                   fill="url(#colorRevenue)" 
@@ -188,104 +170,70 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Detailed Reports Links */}
-        <div>
-          <h2 className="text-sm font-bold text-gray-900 mb-3">Detailed Reports</h2>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <button 
-              onClick={() => router.push('/seller/analytics/sales-revenue')}
-              className="w-full flex items-center justify-between p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
-                  <IndianRupee className="w-5 h-5" />
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-[#171717] mb-4">Detailed Reports</h2>
+          <div className="bg-[#FFFFFF] rounded-[1.25rem] border border-[#E5E2DC] overflow-hidden">
+            {[
+              {
+                title: "Sales & Revenue",
+                desc: "Gross sales, net revenue, and margins",
+                icon: <IndianRupee className="w-5 h-5" />,
+                href: "/seller/analytics/sales-revenue",
+                color: "bg-[#F9F9F9] text-[#171717]"
+              },
+              {
+                title: "Order Analytics",
+                desc: "Order performance and trends",
+                icon: <Package className="w-5 h-5" />,
+                href: "/seller/analytics/orders",
+                color: "bg-[#F9F9F9] text-[#171717]"
+              },
+              {
+                title: "Product Analytics",
+                desc: "Top selling items and categories",
+                icon: <PieChart className="w-5 h-5" />,
+                href: "/seller/analytics/products",
+                color: "bg-[#F9F9F9] text-[#171717]"
+              },
+              {
+                title: "Customer Analytics",
+                desc: "Acquisition and top customers",
+                icon: <Users className="w-5 h-5" />,
+                href: "/seller/analytics/customers",
+                color: "bg-[#F9F9F9] text-[#171717]"
+              },
+              {
+                title: "Finance & Payouts",
+                desc: "Revenue, balance, and banking",
+                icon: <Wallet className="w-5 h-5" />,
+                href: "/seller/finance",
+                color: "bg-[#F9F9F9] text-[#171717]"
+              },
+              {
+                title: "Export Reports",
+                desc: "Download data in PDF, Excel",
+                icon: <Download className="w-5 h-5" />,
+                href: "/seller/analytics/export",
+                color: "bg-[#F9F9F9] text-[#171717]"
+              }
+            ].map((report, i) => (
+              <button 
+                key={i}
+                onClick={() => router.push(report.href)}
+                className="w-full flex items-center justify-between p-4 border-b border-[#E5E2DC] last:border-0 hover:bg-[#F9F9F9] transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${report.color}`}>
+                    {report.icon}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-[#171717] text-sm">{report.title}</p>
+                    <p className="text-xs font-medium text-[#6B6B6B] mt-0.5">{report.desc}</p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="font-semibold text-gray-900 text-sm">Sales & Revenue</p>
-                  <p className="text-xs text-gray-500">Gross sales, net revenue, and margins</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-            
-            <button 
-              onClick={() => router.push('/seller/analytics/orders')}
-              className="w-full flex items-center justify-between p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                  <Package className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-gray-900 text-sm">Order Analytics</p>
-                  <p className="text-xs text-gray-500">Order performance and trends</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-            
-            <button 
-              onClick={() => router.push('/seller/analytics/products')}
-              className="w-full flex items-center justify-between p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
-                  <PieChart className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-gray-900 text-sm">Product Analytics</p>
-                  <p className="text-xs text-gray-500">Top selling items and categories</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-
-            <button 
-              onClick={() => router.push('/seller/analytics/customers')}
-              className="w-full flex items-center justify-between p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-gray-900 text-sm">Customer Analytics</p>
-                  <p className="text-xs text-gray-500">Acquisition and top customers</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-            
-            <button 
-              onClick={() => router.push('/seller/finance')}
-              className="w-full flex items-center justify-between p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
-                  <Wallet className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-gray-900 text-sm">Finance & Payouts</p>
-                  <p className="text-xs text-gray-500">Revenue, balance, and banking</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
-            
-            <button 
-              onClick={() => router.push('/seller/analytics/export')}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-700">
-                  <Download className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-gray-900 text-sm">Export Reports</p>
-                  <p className="text-xs text-gray-500">Download data in PDF, Excel</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
+                <ChevronRight className="w-5 h-5 text-[#6B6B6B]" />
+              </button>
+            ))}
           </div>
         </div>
       </div>

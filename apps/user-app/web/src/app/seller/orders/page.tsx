@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { SellerHeader } from '@/components/seller/SellerHeader';
 
 // Shared Mock Data
 export const MOCK_ORDERS = [
@@ -73,48 +73,49 @@ export const MOCK_ORDERS = [
 export default function OrdersPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'All' | 'New' | 'Preparing' | 'Completed'>('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const filteredOrders = MOCK_ORDERS.filter(order => {
-    if (activeTab === 'All') return true;
-    return order.status === activeTab;
+    const matchesTab = activeTab === 'All' || order.status === activeTab;
+    const matchesSearch = !searchQuery || 
+      order.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      order.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesTab && matchesSearch;
   });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'New':
-        return <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-lg">New</span>;
+        return <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-md uppercase tracking-wider">New</span>;
       case 'Preparing':
-        return <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded-lg">Preparing</span>;
+        return <span className="px-2 py-0.5 bg-orange-50 text-orange-600 text-[10px] font-bold rounded-md uppercase tracking-wider">Preparing</span>;
       case 'Completed':
-        return <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg">Completed</span>;
+        return <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-bold rounded-md uppercase tracking-wider">Completed</span>;
       default:
         return null;
     }
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="flex items-center p-4 bg-white sticky top-0 z-10 border-b border-gray-100">
-        <button onClick={() => router.back()} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600">
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <h1 className="flex-1 text-lg font-bold text-center mr-8 text-gray-900">
-          Orders
-        </h1>
-      </div>
+    <div className="flex flex-col min-h-[100dvh] bg-white pb-24">
+      {/* Top Header */}
+      <SellerHeader 
+        title="Orders" 
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
 
-      {/* Tabs */}
-      <div className="px-4 py-3 bg-white border-b border-gray-100 overflow-x-auto hide-scrollbar">
-        <div className="flex gap-2 min-w-max">
+      {/* Category Tags (Tabs) */}
+      <div className="bg-white border-b border-[#E5E2DC]">
+        <div className="flex overflow-x-auto no-scrollbar px-4 py-3 gap-6">
           {['All', 'New', 'Preparing', 'Completed'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              className={`text-sm font-semibold whitespace-nowrap transition-colors px-5 py-1.5 rounded-full ${
                 activeTab === tab 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                  ? 'bg-[#171717] text-white' 
+                  : 'text-[#6B6B6B] bg-transparent'
               }`}
             >
               {tab}
@@ -124,30 +125,30 @@ export default function OrdersPage() {
       </div>
 
       {/* Orders List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {filteredOrders.map(order => (
+      <div className="flex-1 bg-white">
+        {filteredOrders.map((order, idx) => (
           <div 
             key={order.id} 
-            className="bg-white p-4 rounded-2xl cursor-pointer active:scale-[0.99] transition-transform shadow-sm border border-gray-100 flex flex-col gap-3"
+            className={`p-4 flex flex-col gap-3 bg-white cursor-pointer active:bg-gray-50 transition-colors ${idx !== filteredOrders.length - 1 ? 'border-b border-[#F2EFE9]' : ''}`}
             onClick={() => router.push(`/seller/orders/details?id=${order.id}`)}
           >
             <div className="flex items-center justify-between">
-              <span className="font-bold text-gray-900">#{order.id}</span>
+              <span className="font-bold text-[#171717] text-[15px]">#{order.id}</span>
               {getStatusBadge(order.status)}
             </div>
             
-            <div className="flex items-end justify-between">
+            <div className="flex items-end justify-between mt-1">
               <div>
-                <p className="font-semibold text-gray-900">{order.customerName}</p>
-                <p className="text-sm text-gray-500 mt-1">{order.itemsCount} {order.itemsCount > 1 ? 'items' : 'item'} - ₹{order.total}</p>
+                <p className="font-bold text-[#171717] text-[15px] leading-tight">{order.customerName}</p>
+                <p className="text-xs text-[#6B6B6B] mt-1 font-medium">{order.itemsCount} {order.itemsCount > 1 ? 'items' : 'item'} • ₹{order.total}</p>
               </div>
-              <p className="text-sm text-gray-400 font-medium">{order.timeLabel}</p>
+              <p className="text-[11px] text-[#999999] font-medium uppercase tracking-wider">{order.timeLabel}</p>
             </div>
           </div>
         ))}
 
         {filteredOrders.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-[#6B6B6B] text-sm">
             No orders found in this category.
           </div>
         )}

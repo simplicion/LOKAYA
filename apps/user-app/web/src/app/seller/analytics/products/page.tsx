@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
 import Image from 'next/image';
+import { SellerHeader } from '@/components/seller/SellerHeader';
 
 const mockTopProducts = [
   {
@@ -54,48 +55,86 @@ const mockCategorySales = [
 
 export default function ProductAnalyticsPage() {
   const router = useRouter();
-  const [dateRange, setDateRange] = useState('This Month');
+  const [activeDateFilter, setActiveDateFilter] = useState('This Month');
+  const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Products');
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="bg-white px-4 py-4 sticky top-0 z-10 border-b border-gray-100">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="text-gray-900">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-xl font-bold text-gray-900">Product Analytics</h1>
-          </div>
-          
-          <button className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
-            <span className="text-sm font-medium text-gray-700">{dateRange}</span>
-            <ChevronDown className="w-4 h-4 text-gray-500" />
+    <div className="min-h-screen bg-[#FFFFFF] pb-20">
+      <SellerHeader 
+        title="Product Analytics"
+        showBack={true}
+        onBack={() => router.back()}
+        hideSearchIcon={true}
+        rightAction={
+          <button 
+            onClick={() => setIsDateSelectorOpen(true)}
+            className="flex items-center gap-1.5 bg-[#F9F9F9] pl-3 pr-2 py-1 rounded-full border border-[#E5E2DC]"
+          >
+            <span className="text-xs font-semibold text-[#171717]">{activeDateFilter}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-[#6B6B6B]" />
           </button>
-        </div>
+        }
+      />
 
+      {/* Date Selector Modal */}
+      {isDateSelectorOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] w-full max-w-sm rounded-t-3xl sm:rounded-[1.25rem] p-6 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in">
+            <h3 className="text-xl font-bold text-[#171717] mb-4">Select Date Range</h3>
+            
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year'].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => {
+                    setActiveDateFilter(range);
+                    setIsDateSelectorOpen(false);
+                  }}
+                  className={`py-3 px-4 rounded-[1.25rem] border text-sm font-semibold text-center transition-colors ${
+                    activeDateFilter === range 
+                      ? 'bg-[#171717] text-white border-[#171717]' 
+                      : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#E5E2DC] hover:border-[#171717]'
+                  }`}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
+            
+            <button 
+              className="w-full h-12 bg-[#FF5A36] hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
+              onClick={() => setIsDateSelectorOpen(false)}
+            >
+              Apply Filter
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-[#FFFFFF] px-4 pt-2 pb-0 sticky top-[68px] z-10">
         {/* Tabs */}
-        <div className="flex gap-4 border-b border-gray-100">
+        <div className="flex gap-4 border-b border-[#E5E2DC]">
           <button 
             onClick={() => setActiveTab('Products')}
             className={`pb-3 text-sm font-semibold transition-colors relative ${
-              activeTab === 'Products' ? 'text-indigo-600' : 'text-gray-500'
+              activeTab === 'Products' ? 'text-[#FF5A36]' : 'text-[#6B6B6B]'
             }`}
           >
             Products
             {activeTab === 'Products' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-t-full" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF5A36] rounded-t-full" />
             )}
           </button>
           <button 
             onClick={() => setActiveTab('Categories')}
             className={`pb-3 text-sm font-semibold transition-colors relative ${
-              activeTab === 'Categories' ? 'text-indigo-600' : 'text-gray-500'
+              activeTab === 'Categories' ? 'text-[#FF5A36]' : 'text-[#6B6B6B]'
             }`}
           >
             Categories
             {activeTab === 'Categories' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-t-full" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF5A36] rounded-t-full" />
             )}
           </button>
         </div>
@@ -103,18 +142,18 @@ export default function ProductAnalyticsPage() {
 
       <div className="p-4">
         {activeTab === 'Products' ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-gray-50">
-              <h2 className="text-lg font-bold text-gray-900">Top Selling Products</h2>
+          <div className="bg-[#FFFFFF] rounded-[1.25rem] border border-[#E5E2DC] overflow-hidden">
+            <div className="p-4 border-b border-[#E5E2DC]">
+              <h2 className="text-lg font-bold text-[#171717]">Top Selling Products</h2>
             </div>
             {mockTopProducts.map((product, index) => (
               <div 
                 key={product.id}
-                className={`p-4 flex items-center gap-4 ${
-                  index !== mockTopProducts.length - 1 ? 'border-b border-gray-50' : ''
+                className={`p-4 flex items-center gap-4 hover:bg-[#F9F9F9] transition-colors ${
+                  index !== mockTopProducts.length - 1 ? 'border-b border-[#E5E2DC]' : ''
                 }`}
               >
-                <div className="relative w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+                <div className="relative w-12 h-12 rounded-xl bg-[#F9F9F9] overflow-hidden flex-shrink-0 border border-[#E5E2DC]">
                   <Image
                     src={product.image}
                     alt={product.name}
@@ -124,33 +163,32 @@ export default function ProductAnalyticsPage() {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 text-sm truncate">{product.name}</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">{product.orders} Orders</p>
+                  <h3 className="font-semibold text-[#171717] text-sm truncate">{product.name}</h3>
+                  <p className="text-xs text-[#6B6B6B] mt-0.5">{product.orders} Orders</p>
                 </div>
                 
                 <div className="text-right">
-                  <p className="font-bold text-gray-900">₹{product.revenue.toLocaleString()}</p>
+                  <p className="font-bold text-[#171717]">₹{product.revenue.toLocaleString()}</p>
                 </div>
               </div>
             ))}
             
-            <div className="p-4 border-t border-gray-50">
+            <div className="p-4 border-t border-[#E5E2DC]">
               <button 
                 onClick={() => router.push('/seller/products')}
-                className="w-full py-3 rounded-xl border border-indigo-200 text-indigo-600 font-semibold text-sm hover:bg-indigo-50 transition-colors"
+                className="w-full py-3 rounded-xl border border-[#FF5A36]/30 text-[#FF5A36] font-semibold text-sm hover:bg-[#FFEBEE] transition-colors"
               >
                 View All Products
               </button>
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-gray-50">
-              <h2 className="text-lg font-bold text-gray-900">Category Sales</h2>
+          <div className="bg-[#FFFFFF] rounded-[1.25rem] border border-[#E5E2DC] overflow-hidden">
+            <div className="p-4 border-b border-[#E5E2DC]">
+              <h2 className="text-lg font-bold text-[#171717]">Category Sales</h2>
             </div>
-            
             <div className="p-4">
-              <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 mb-3 px-2">
+              <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-[#6B6B6B] mb-3 px-2">
                 <div className="col-span-6">Category</div>
                 <div className="col-span-3 text-right">Sales</div>
                 <div className="col-span-3 text-right">Orders</div>
@@ -158,17 +196,17 @@ export default function ProductAnalyticsPage() {
               
               <div className="space-y-1">
                 {mockCategorySales.map((category) => (
-                  <div key={category.id} className="grid grid-cols-12 gap-2 py-3 px-2 items-center hover:bg-gray-50 rounded-xl transition-colors">
+                  <div key={category.id} className="grid grid-cols-12 gap-2 py-3 px-2 items-center hover:bg-[#F9F9F9] rounded-xl transition-colors">
                     <div className="col-span-6 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-sm shadow-sm border border-indigo-100/50">
+                      <div className="w-8 h-8 rounded-lg bg-[#F9F9F9] flex items-center justify-center text-sm border border-[#E5E2DC]">
                         {category.icon}
                       </div>
-                      <span className="font-semibold text-gray-900 text-sm truncate">{category.name}</span>
+                      <span className="font-semibold text-[#171717] text-sm truncate">{category.name}</span>
                     </div>
-                    <div className="col-span-3 text-right font-bold text-gray-900 text-sm">
+                    <div className="col-span-3 text-right font-bold text-[#171717] text-sm">
                       ₹{category.sales.toLocaleString()}
                     </div>
-                    <div className="col-span-3 text-right font-semibold text-gray-600 text-sm">
+                    <div className="col-span-3 text-right font-semibold text-[#6B6B6B] text-sm">
                       {category.orders}
                     </div>
                   </div>

@@ -1,18 +1,26 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useGetMyStoreQuery, useGetStoreProductsQuery } from '@/lib/api';
 import { 
   Package, TrendingUp, PlusCircle, Settings, BarChart3, 
-  ChevronRight, Store, AlertCircle, CheckCircle2, Clock, ArrowLeft, Loader2
+  ChevronRight, Store, ChevronDown, Bell, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AreaChart, Area, ResponsiveContainer } from 'recharts';
+import { SellerHeader } from '@/components/seller/SellerHeader';
 
 export default function SellerDashboardPage() {
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
   const { data: store, isLoading, error } = useGetMyStoreQuery();
   const { data: products } = useGetStoreProductsQuery(store?.id || '', { skip: !store?.id });
+  
+  // Date Filter State
+  const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
+  const [activeDateFilter, setActiveDateFilter] = useState('Today');
 
   useEffect(() => {
     if (!isLoading && error && (error as any).status === 404) {
@@ -32,30 +40,56 @@ export default function SellerDashboardPage() {
 
   // Real + Mock data for top level stats
   const dashboardStats = {
-    todayOrders: 0,
-    todayRevenue: 0,
-    activeProducts: products?.length || 0,
-    lowStockItems: 0
+    todayOrders: 24,
+    todayRevenue: 12450,
+    activeProducts: products?.length || 128,
+    lowStockItems: 7
   };
 
   // Mock data for recent orders
+  
   const recentOrders = [
     {
-      id: 'ORD1345',
+      id: '#ORD1345',
       customerName: 'Rohit Kumar',
       itemsCount: 2,
       total: 245,
-      status: 'New',
-      pickupTime: 'Today, 12:00 PM',
+      status: 'NEW',
+      pickupTime: 'Today, 10:30 AM',
+      statusColor: 'text-green-600',
+      statusBg: 'bg-green-50'
     },
     {
-      id: 'ORD1344',
+      id: '#ORD1344',
       customerName: 'Neha Singh',
       itemsCount: 4,
       total: 560,
-      status: 'Preparing',
-      pickupTime: 'Today, 02:00 PM',
+      status: 'PREPARING',
+      pickupTime: 'Yesterday',
+      statusColor: 'text-blue-600',
+      statusBg: 'bg-blue-50'
     }
+  ];
+
+  const filteredRecentOrders = recentOrders.filter(order => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      order.id.toLowerCase().includes(query) ||
+      order.customerName.toLowerCase().includes(query) ||
+      order.pickupTime.toLowerCase().includes(query) ||
+      order.status.toLowerCase().includes(query)
+    );
+  });
+
+  const salesData = [
+    { name: 'Mon', value: 4000 },
+    { name: 'Tue', value: 3000 },
+    { name: 'Wed', value: 5500 },
+    { name: 'Thu', value: 4500 },
+    { name: 'Fri', value: 7000 },
+    { name: 'Sat', value: 6500 },
+    { name: 'Sun', value: 8000 },
   ];
 
   const quickLinks = [
@@ -98,69 +132,121 @@ export default function SellerDashboardPage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#FAF9F6] pb-20 md:pb-0">
-      {/* Header & Stats */}
-      <div className="bg-[#FF5A36] text-white p-6 pt-10 rounded-b-[2.5rem] shadow-sm">
-        <button 
-          onClick={() => router.push('/home')} 
-          className="flex items-center text-white/80 hover:text-white transition-colors mb-6 group w-fit"
-        >
-          <ArrowLeft className="w-5 h-5 mr-1.5 group-hover:-translate-x-1 transition-transform" />
-          <span className="text-sm font-medium">Back to App</span>
-        </button>
-
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Good Morning!</h1>
-            <p className="text-white/80 mt-1">{store.name}</p>
+    <div className="flex flex-col min-h-screen bg-[#FFFFFF] pb-20 md:pb-0">
+      <SellerHeader 
+        showBack={true}
+        onBack={() => router.push('/profile')}
+        hideSearchIcon={true}
+        title={
+          <div className="flex flex-col ml-1">
+            <span className="text-base font-bold text-[#171717] leading-tight">Good morning,</span>
+            <span className="text-base font-bold text-[#171717] leading-tight">{store.name} 👋</span>
           </div>
-          <button onClick={() => router.push('/seller/store')} className="w-12 h-12 bg-white/20 hover:bg-white/30 transition-colors rounded-full flex items-center justify-center cursor-pointer">
-            <Store className="w-6 h-6 text-white" />
-          </button>
+        }
+        rightAction={
+          <div className="flex items-center gap-1.5">
+            <button 
+              onClick={() => setIsDateSelectorOpen(true)}
+              className="flex items-center gap-1.5 bg-[#F9F9F9] pl-3 pr-2 py-1 rounded-full border border-[#E5E2DC]"
+            >
+              <span className="text-xs font-semibold text-[#171717]">{activeDateFilter}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#6B6B6B]" />
+            </button>
+            <button onClick={() => router.push('/seller/notifications')} className="relative transition-opacity hover:opacity-80 p-2">
+              <Bell className="w-6 h-6 text-[#171717]" />
+              <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#FF5A36] rounded-full border-2 border-white"></div>
+            </button>
+          </div>
+        }
+      />
+      
+      {/* Date Selector Modal */}
+      {isDateSelectorOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] w-full max-w-sm rounded-t-3xl sm:rounded-[1.25rem] p-6 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in">
+            <h3 className="text-xl font-bold text-[#171717] mb-4">Select Date Range</h3>
+            
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year'].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => {
+                    setActiveDateFilter(range);
+                    setIsDateSelectorOpen(false);
+                  }}
+                  className={`py-3 px-4 rounded-[1.25rem] border text-sm font-semibold text-center transition-colors ${
+                    activeDateFilter === range 
+                      ? 'bg-[#171717] text-white border-[#171717]' 
+                      : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#E5E2DC] hover:border-[#171717]'
+                  }`}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
+            
+            <button 
+              className="w-full h-12 bg-[#FF5A36] hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
+              onClick={() => setIsDateSelectorOpen(false)}
+            >
+              Apply Filter
+            </button>
+          </div>
         </div>
+      )}
+
+      <div className="max-w-7xl mx-auto w-full px-4 pt-4">
+        {/* Subtitle */}
+        <p className="text-sm text-[#6B6B6B] mb-6 font-medium">
+          Here's how your store is doing today
+        </p>
 
         {/* 2x2 Grid Stats */}
-        <div className="grid grid-cols-2 gap-3 mb-2">
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4">
-            <div className="flex items-center text-white/90 mb-2">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              <span className="text-sm font-medium">Today's Sales</span>
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          <div className="bg-white border border-[#E5E2DC] rounded-[1.25rem] p-4 flex flex-col justify-between">
+            <div>
+              <p className="text-xl font-bold text-[#171717]">₹{dashboardStats.todayRevenue.toLocaleString()}</p>
+              <p className="text-[10px] text-[#6B6B6B] mt-1 font-medium">Today's Sales</p>
             </div>
-            <p className="text-2xl font-bold text-white">₹{dashboardStats.todayRevenue.toLocaleString()}</p>
+            <div className="flex justify-end mt-2">
+              <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md tracking-wide">+10.6%</span>
+            </div>
           </div>
           
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4">
-            <div className="flex items-center text-white/90 mb-2">
-              <Package className="w-4 h-4 mr-2" />
-              <span className="text-sm font-medium">Today's Orders</span>
+          <div className="bg-white border border-[#E5E2DC] rounded-[1.25rem] p-4 flex flex-col justify-between">
+            <div>
+              <p className="text-xl font-bold text-[#171717]">{dashboardStats.todayOrders}</p>
+              <p className="text-[10px] text-[#6B6B6B] mt-1 font-medium">Orders</p>
             </div>
-            <p className="text-2xl font-bold text-white">{dashboardStats.todayOrders}</p>
+            <div className="flex justify-end mt-2">
+              <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md tracking-wide">+12.3%</span>
+            </div>
           </div>
           
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4">
-            <div className="flex items-center text-white/90 mb-2">
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              <span className="text-sm font-medium">Active Products</span>
+          <div className="bg-white border border-[#E5E2DC] rounded-[1.25rem] p-4 flex flex-col justify-between">
+            <div>
+              <p className="text-xl font-bold text-[#171717]">{dashboardStats.activeProducts}</p>
+              <p className="text-[10px] text-[#6B6B6B] mt-1 font-medium">Active Products</p>
             </div>
-            <p className="text-2xl font-bold text-white">{dashboardStats.activeProducts}</p>
+            <div className="h-5 mt-2"></div>
           </div>
           
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4">
-            <div className="flex items-center text-white/90 mb-2">
-              <AlertCircle className="w-4 h-4 mr-2 text-white/90" />
-              <span className="text-sm font-medium">Low Stock Alerts</span>
+          <div className="bg-white border border-[#E5E2DC] rounded-[1.25rem] p-4 flex flex-col justify-between">
+            <div>
+              <p className="text-xl font-bold text-[#171717]">{dashboardStats.lowStockItems}</p>
+              <p className="text-[10px] text-[#6B6B6B] mt-1 font-medium">Low Stock</p>
             </div>
-            <p className="text-2xl font-bold text-white">{dashboardStats.lowStockItems}</p>
+            <div className="flex justify-end mt-2">
+              <Link href="/seller/products" className="text-[10px] font-bold text-blue-600 hover:underline tracking-wide">
+                View details
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Content Body */}
-      <div className="p-4 mt-2 space-y-6 max-w-7xl mx-auto w-full">
-        
         {/* Verification Warnings */}
         {store.status === 'PENDING' && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl p-4 flex items-start gap-3">
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-[1.25rem] p-4 flex items-start gap-3 mb-8">
             <Store className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
             <div>
               <h3 className="font-semibold text-amber-900">Verification in Progress</h3>
@@ -170,7 +256,7 @@ export default function SellerDashboardPage() {
         )}
 
         {store.status === 'REJECTED' && (
-          <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 flex items-start justify-between gap-4">
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-[1.25rem] p-4 flex items-start justify-between gap-4 mb-8">
             <div className="flex gap-3">
               <Store className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
               <div>
@@ -184,90 +270,69 @@ export default function SellerDashboardPage() {
           </div>
         )}
 
-        {/* Recent / Upcoming Orders Section */}
-        <div>
-          <div className="flex justify-between items-center mb-4 px-2">
-            <h2 className="text-lg font-bold text-[#171717]">Recent Orders</h2>
-            <button 
-              onClick={() => router.push('/seller/orders')}
-              className="text-sm font-medium text-[#FF5A36] hover:text-[#e04d2d]"
-            >
-              View All
-            </button>
+        {/* Recent Orders Section */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-[#171717]">Recent Orders</h2>
+            <Link href="/seller/orders" className="text-sm font-semibold text-[#FF5A36] flex items-center hover:opacity-80 transition-opacity">
+              View All <ChevronRight className="w-4 h-4 ml-1" />
+            </Link>
           </div>
           
-          <div className="space-y-3">
-            {recentOrders.map((order) => (
-              <div key={order.id} className="bg-white p-4 rounded-3xl shadow-sm border border-[#E5E2DC]">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <span className="text-xs font-bold text-[#FF5A36] bg-[#FF5A36]/10 px-2 py-1 rounded-md mb-2 inline-block">
-                      {order.id}
-                    </span>
-                    <h3 className="font-bold text-[#171717]">{order.customerName}</h3>
-                    <p className="text-sm text-[#6B6B6B]">{order.itemsCount} Items • ₹{order.total}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
+          <div className="bg-white rounded-[1.25rem] border border-[#E5E2DC] overflow-hidden">
+            {filteredRecentOrders.map((order, index) => (
+              <div key={order.id} className="flex flex-col">
+                <div className="p-4">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="font-bold text-[#171717]">{order.id}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${order.statusColor} ${order.statusBg}`}>
                       {order.status}
                     </span>
                   </div>
-                </div>
-                
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#E5E2DC]">
-                  <div className="flex items-center text-xs font-medium text-[#999999]">
-                    <Clock className="w-3.5 h-3.5 mr-1" />
-                    Pickup: {order.pickupTime}
+                  <h3 className="font-bold text-[#171717] text-[15px] mb-2">{order.customerName}</h3>
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs text-[#6B6B6B]">{order.itemsCount} items • ₹{order.total}</p>
+                    <p className="text-[10px] text-[#999999] font-medium">{order.pickupTime}</p>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-8 rounded-full border-[#FF5A36] text-[#FF5A36] bg-[#FF5A36]/5 hover:bg-[#FF5A36]/10 text-xs px-4"
-                    onClick={() => router.push('/seller/orders')}
-                  >
-                    Manage
-                  </Button>
                 </div>
+                {index < filteredRecentOrders.length - 1 && (
+                  <div className="h-px bg-[#E5E2DC] mx-4"></div>
+                )}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Quick Links Section */}
-        <div>
-          <h2 className="text-lg font-bold text-[#171717] mb-4 px-2">Quick Actions</h2>
-          <div className="bg-white rounded-3xl shadow-sm border border-[#E5E2DC] overflow-hidden">
-            {quickLinks.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <div key={index} className="flex flex-col">
-                  <div 
-                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#FAF9F6] active:bg-[#F2F0EA] transition-colors"
-                    onClick={() => router.push(item.href)}
-                  >
-                    <div className="flex items-center">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-4 ${item.bgColor}`}>
-                        <Icon className={`w-5 h-5 ${item.color}`} />
-                      </div>
-                      <span className="font-medium text-[#171717]">{item.label}</span>
-                    </div>
-                    <div className="flex items-center">
-                      {item.badge && (
-                        <span className="bg-[#FF5A36] text-white text-xs font-bold px-2 py-1 rounded-full mr-3">
-                          {item.badge}
-                        </span>
-                      )}
-                      <ChevronRight className="w-5 h-5 text-[#999999]" />
-                    </div>
-                  </div>
-                  {index < quickLinks.length - 1 && (
-                    <div className="h-px bg-[#E5E2DC] mx-4"></div>
-                  )}
-                </div>
-              );
-            })}
+        {/* Sales Overview Section */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold text-[#171717]">Sales Overview</h2>
+            <button className="text-[11px] font-semibold text-[#171717] flex items-center px-3 py-1.5 rounded-full border border-[#E5E2DC]">
+              This Week <ChevronDown className="w-3.5 h-3.5 ml-1 text-[#6B6B6B]" />
+            </button>
+          </div>
+          
+          <div className="bg-white rounded-[1.25rem] border border-[#E5E2DC] overflow-hidden pt-4 h-[200px] flex flex-col relative">
+             <div className="px-4 mb-2 absolute top-4 left-0">
+               <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md inline-block">₹12,450</div>
+             </div>
+            <div className="flex-1 w-full mt-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={salesData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSales)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
+
+
         
       </div>
     </div>

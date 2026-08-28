@@ -2,64 +2,59 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Search, Filter, Plus, Package, TrendingUp, Archive, Settings, AlertCircle, ChevronDown, Minus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Filter, PlusCircle, MoreVertical, Star, Package } from 'lucide-react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { SellerHeader } from '@/components/seller/SellerHeader';
 
 // Mock Data
 const MOCK_CATEGORIES = [
-  { id: 'all', name: 'All Products', count: 124 },
-  { id: 'grocery', name: 'Grocery', count: 50 },
-  { id: 'electronics', name: 'Electronics', count: 32 },
-  { id: 'clothing', name: 'Clothing', count: 28 },
-  { id: 'home', name: 'Home & Kitchen', count: 14 }
+  { id: 'all', name: 'All' },
+  { id: 'active', name: 'Active' },
+  { id: 'drafts', name: 'Drafts' },
+  { id: 'low_stock', name: 'Low Stock' },
+  { id: 'archived', name: 'Archived' }
 ];
 
 const MOCK_PRODUCTS = [
   {
-    id: '1',
-    name: 'Fortune Sunlite Oil (1L)',
-    categoryId: 'grocery',
-    price: 165,
-    totalStock: 50,
-    availableStock: 5,
-    sold: 40,
+    id: 'TSH-BLK-M',
+    name: 'Premium Cotton T-Shirt',
+    price: 1499,
+    stock: 24,
+    rating: 4.8,
     status: 'Active',
-    image: 'https://images.unsplash.com/photo-1625937286074-9ca519d5d9df?auto=format&fit=crop&q=80&w=200&h=200'
+    categoryId: 'active',
+    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=200&h=200'
   },
   {
-    id: '2',
+    id: 'AATA-5KG',
     name: 'Aashirvaad Atta (5kg)',
-    categoryId: 'grocery',
     price: 295,
-    totalStock: 100,
-    availableStock: 20,
-    sold: 80,
-    status: 'Draft',
+    stock: 20,
+    rating: 4.6,
+    status: 'Active',
+    categoryId: 'active',
     image: 'https://images.unsplash.com/photo-1574316071802-0d684efa7ab5?auto=format&fit=crop&q=80&w=200&h=200'
   },
   {
-    id: '3',
-    name: 'Logitech Wireless Mouse',
-    categoryId: 'electronics',
-    price: 999,
-    totalStock: 200,
-    availableStock: 150,
-    sold: 50,
-    status: 'Active',
-    image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&q=80&w=200&h=200'
+    id: 'OIL-1L',
+    name: 'Fortune Sunlite Oil (1L)',
+    price: 165,
+    stock: 5,
+    rating: 4.4,
+    status: 'Low Stock',
+    categoryId: 'low_stock',
+    image: 'https://images.unsplash.com/photo-1625937286074-9ca519d5d9df?auto=format&fit=crop&q=80&w=200&h=200'
   },
   {
-    id: '4',
-    name: 'Cotton T-Shirt (Blue)',
-    categoryId: 'clothing',
-    price: 499,
-    totalStock: 80,
-    availableStock: 30,
-    sold: 50,
-    status: 'Inactive',
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=200&h=200'
+    id: 'BUT-100G',
+    name: 'Amul Butter (100g)',
+    price: 78,
+    stock: 15,
+    rating: 4.7,
+    status: 'Active',
+    categoryId: 'active',
+    image: 'https://images.unsplash.com/photo-1588195538326-c5b1e9f6e55c?auto=format&fit=crop&q=80&w=200&h=200'
   }
 ];
 
@@ -67,220 +62,109 @@ export default function MyProductsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
-  const [sortBy, setSortBy] = useState('newest'); // newest, stock_low, highest_sales
 
-  // Filter & Sort Logic
+  // Filter Logic
   const filteredProducts = MOCK_PRODUCTS.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.includes(searchQuery);
-    const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory;
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory || p.status.toLowerCase().replace(' ', '_') === activeCategory;
     return matchesSearch && matchesCategory;
-  }).sort((a, b) => {
-    if (sortBy === 'stock_low') return a.availableStock - b.availableStock;
-    if (sortBy === 'highest_sales') return b.sold - a.sold;
-    return 0; // default for newest (mock)
   });
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-gray-50 pb-24">
-      <div className="flex items-center justify-between p-4 bg-white sticky top-0 z-10 border-b border-gray-100">
-        <h1 className="text-xl font-bold text-gray-900">
-          SKU Management
-        </h1>
-      </div>
+    <div className="flex flex-col min-h-[100dvh] bg-white pb-24">
+      {/* Top Header */}
+      <SellerHeader 
+        title="Products" 
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        rightAction={<PlusCircle className="w-6 h-6" onClick={() => router.push('/seller/products/add')} />}
+      />
 
-      {/* Top Level Analytics */}
-      <div className="p-4 bg-white border-b border-gray-100">
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-3">
-            <div className="flex items-center gap-2 text-blue-600 mb-1">
-              <Package className="w-4 h-4" />
-              <span className="text-xs font-semibold uppercase tracking-wider">Total</span>
-            </div>
-            <p className="text-xl font-bold text-gray-900">124</p>
-          </div>
-          <div className="bg-green-50/50 border border-green-100 rounded-2xl p-3">
-            <div className="flex items-center gap-2 text-green-600 mb-1">
-              <TrendingUp className="w-4 h-4" />
-              <span className="text-xs font-semibold uppercase tracking-wider">This Mth</span>
-            </div>
-            <p className="text-xl font-bold text-gray-900">+15</p>
-          </div>
-          <div className="bg-orange-50/50 border border-orange-100 rounded-2xl p-3">
-            <div className="flex items-center gap-2 text-orange-600 mb-1">
-              <Archive className="w-4 h-4" />
-              <span className="text-xs font-semibold uppercase tracking-wider">Past Mth</span>
-            </div>
-            <p className="text-xl font-bold text-gray-900">+22</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Category Tags */}
-      <div className="bg-white border-b border-gray-100 py-3">
-        <div className="flex overflow-x-auto hide-scrollbar px-4 gap-2">
+      {/* Category Tags & Filter */}
+      <div className="bg-white border-b border-[#E5E2DC] flex items-center justify-between px-4">
+        <div className="flex overflow-x-auto no-scrollbar py-3 gap-6 flex-1">
           {MOCK_CATEGORIES.map(category => (
             <button
               key={category.id}
               onClick={() => setActiveCategory(category.id)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`text-sm font-semibold whitespace-nowrap transition-colors px-5 py-1.5 rounded-full ${
                 activeCategory === category.id 
-                  ? 'bg-gray-900 text-white' 
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-[#171717] text-white' 
+                  : 'text-[#6B6B6B] bg-transparent'
               }`}
             >
               {category.name}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                activeCategory === category.id
-                  ? 'bg-gray-700 text-gray-200'
-                  : 'bg-white text-gray-500'
-              }`}>
-                {category.count}
-              </span>
             </button>
           ))}
         </div>
-      </div>
-
-      {/* Search & Sort Filters */}
-      <div className="p-4 bg-white border-b border-gray-100 space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Search by Name or SKU ID..." 
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-gray-900 transition-all text-sm"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <button className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors">
-            <Filter className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-500 font-medium">Sort by:</span>
-          <select 
-            className="bg-transparent font-semibold text-gray-900 outline-none"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-          >
-            <option value="newest">Newest Added</option>
-            <option value="stock_low">Lowest Stock</option>
-            <option value="highest_sales">Highest Sales</option>
-          </select>
-        </div>
+        <button className="p-2 ml-2 bg-[#F9F9F9] rounded-full text-[#171717] hover:bg-gray-200 transition-colors shrink-0">
+          <Filter className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Product List */}
-      <div className="flex-1 p-4 space-y-4">
-        {filteredProducts.map(product => {
-          const isLowStock = product.availableStock <= 10;
-          
-          return (
-            <div 
-              key={product.id} 
-              className={`bg-white p-4 rounded-2xl flex flex-col shadow-sm border ${
-                isLowStock ? 'border-red-200' : 'border-gray-100'
-              }`}
-            >
-              <div 
-                className="flex gap-4 cursor-pointer"
-                onClick={() => router.push(`/seller/products/${product.id}`)}
-              >
-                <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden relative shrink-0">
-                  <Image 
-                    src={product.image} 
-                    alt={product.name}
-                    fill
-                    className="object-cover"
-                  />
-                  {isLowStock && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-red-600/90 text-white text-[10px] font-bold uppercase text-center py-0.5">
-                      Low Stock
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex-1 flex flex-col justify-between py-1">
-                  <div>
-                    <h3 className="font-bold text-gray-900 leading-tight line-clamp-2 mb-1">
-                      {product.name}
-                    </h3>
-                    <div className="flex gap-2 items-center">
-                      <span className="text-xs text-gray-500 font-medium">SKU: {product.id}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md inline-block uppercase tracking-wider ${
-                        product.status === 'Active' ? 'bg-green-100 text-green-700' : 
-                        product.status === 'Inactive' ? 'bg-gray-100 text-gray-600' :
-                        'bg-orange-100 text-orange-700'
-                      }`}>
-                        {product.status}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="font-bold text-gray-900 text-lg mt-2">
-                    ₹{product.price}
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Stock Updater & Status Bar */}
-              <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                <div className="flex items-center gap-4 text-center">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Total</span>
-                    <span className="text-sm font-semibold text-gray-900">{product.totalStock}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Avail</span>
-                    <span className={`text-sm font-semibold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
-                      {product.availableStock}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Sold</span>
-                    <span className="text-sm font-semibold text-blue-600">{product.sold}</span>
-                  </div>
-                </div>
-                
-                {/* Quick Edit Stock */}
-                <div className="flex items-center bg-gray-50 rounded-xl border border-gray-200">
-                  <button className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-l-xl">
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="w-8 text-center text-sm font-bold text-gray-900">
-                    {product.availableStock}
-                  </span>
-                  <button className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-r-xl">
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
+      <div className="flex-1 bg-white">
+        {filteredProducts.map((product, idx) => (
+          <div 
+            key={product.id} 
+            className={`p-4 flex gap-4 ${idx !== filteredProducts.length - 1 ? 'border-b border-[#F2EFE9]' : ''}`}
+            onClick={() => router.push(`/seller/products/${product.id}`)}
+          >
+            {/* Image */}
+            <div className="w-24 h-24 bg-[#F2EFE9] rounded-2xl overflow-hidden relative shrink-0">
+              <Image 
+                src={product.image} 
+                alt={product.name}
+                fill
+                className="object-cover"
+              />
             </div>
-          );
-        })}
+            
+            {/* Details */}
+            <div className="flex-1 flex flex-col justify-between py-0.5">
+              <div>
+                <div className="flex justify-between items-start">
+                  <h3 className="font-bold text-[#171717] text-[15px] leading-tight pr-2 line-clamp-2">
+                    {product.name}
+                  </h3>
+                  <button className="shrink-0 p-1 -mr-1 -mt-1 text-[#6B6B6B] active:bg-gray-100 rounded-full" onClick={(e) => e.stopPropagation()}>
+                    <MoreVertical className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-xs text-[#6B6B6B] mt-1 uppercase tracking-wider font-medium">SKU: {product.id}</p>
+              </div>
+              
+              <div className="font-bold text-[#171717] text-lg mt-1">
+                ₹{product.price}
+              </div>
+              
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center gap-4 text-xs font-medium">
+                  <span className="text-[#6B6B6B]">Stock: {product.stock}</span>
+                  <div className="flex items-center gap-1 text-[#6B6B6B]">
+                    <Star className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>{product.rating}</span>
+                  </div>
+                </div>
+                <span className={`text-xs font-bold ${
+                  product.status === 'Active' ? 'text-green-500' : 'text-orange-500'
+                }`}>
+                  {product.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
 
         {filteredProducts.length === 0 && (
           <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
               <Package className="w-8 h-8 text-gray-400" />
             </div>
             <h3 className="font-semibold text-gray-900">No products found</h3>
             <p className="text-sm text-gray-500 mt-1">Try adjusting your category or search filters.</p>
           </div>
         )}
-      </div>
-
-      {/* Fixed Add Button */}
-      <div className="fixed bottom-[72px] right-4 z-10 md:hidden pb-safe">
-        <Button 
-          className="w-14 h-14 bg-gray-900 hover:bg-black text-white rounded-full shadow-lg flex items-center justify-center"
-          onClick={() => router.push('/seller/products/add')}
-        >
-          <Plus className="w-6 h-6" />
-        </Button>
       </div>
     </div>
   );

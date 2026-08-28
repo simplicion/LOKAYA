@@ -3,7 +3,6 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Palette, 
   Clock, 
   Wallet, 
   CreditCard, 
@@ -16,12 +15,6 @@ export default function StoreSettingsMenuPage() {
   const router = useRouter();
 
   const settingsLinks = [
-    {
-      title: 'Store Customization',
-      description: 'Colors, themes, and branding',
-      icon: <Palette className="w-6 h-6 text-indigo-500" />,
-      href: '/seller/store/customization',
-    },
     {
       title: 'Store Hours',
       description: 'Opening, closing, and working days',
