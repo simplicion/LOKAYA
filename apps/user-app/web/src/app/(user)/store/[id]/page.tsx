@@ -142,7 +142,7 @@ export default function StoreProfilePage() {
         {activeTab === 'products' ? (
           <div className="grid grid-cols-2 gap-x-3 gap-y-6">
             {PRODUCTS.map(product => (
-              <ProductOverlayCard key={product.id} {...product} />
+              <ProductOverlayCard key={product.id} product={{ name: product.title, image: product.image, price: product.price }} />
             ))}
           </div>
         ) : (
