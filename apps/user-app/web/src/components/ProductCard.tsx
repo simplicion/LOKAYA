@@ -60,8 +60,12 @@ export function ProductCard({
     return (
       <div className="flex items-center justify-between py-1">
         <Link href={`/home/product?id=${id}`} className="flex items-center gap-4 flex-1">
-          <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl border border-gray-100 shrink-0 shadow-sm">
-            {image}
+          <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl border border-gray-100 shrink-0 shadow-sm overflow-hidden relative">
+            {image.startsWith('http') || image.startsWith('/') ? (
+              <img src={image} alt={name} className="w-full h-full object-cover" />
+            ) : (
+              image
+            )}
           </div>
           <div className="flex flex-col">
             <h4 className="font-bold text-gray-900 text-[14px] leading-tight mb-1">{name}</h4>
@@ -103,7 +107,11 @@ export function ProductCard({
     <Link href={`/home/product?id=${id}`} className="block">
       <Card className="p-3 border border-gray-100 shadow-sm hover:shadow-md transition-shadow rounded-[20px] flex flex-col h-full bg-white">
         <div className="w-full aspect-square bg-gray-50/80 rounded-2xl flex items-center justify-center text-5xl mb-3 relative overflow-hidden">
-          {image}
+            {image.startsWith('http') || image.startsWith('/') ? (
+              <img src={image} alt={name} className="w-full h-full object-cover" />
+            ) : (
+              image
+            )}
         </div>
         <h4 className="font-bold text-gray-900 text-[14px] leading-tight mb-1">{name}</h4>
         {storeName && (
