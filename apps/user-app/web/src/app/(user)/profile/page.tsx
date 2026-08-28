@@ -66,7 +66,7 @@ export default function ProfilePage() {
                 {user?.name || 'PRINCE'}
               </h2>
               <p className="text-sm font-medium text-[#6B6B6B] mt-0.5">
-                @{user?.username || 'prince123'}
+                @{(user as any)?.username || 'prince123'}
               </p>
             </div>
           </div>
