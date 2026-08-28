@@ -25,35 +25,27 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
     }
 
     if (allowedRoles && !allowedRoles.includes(user.role)) {
-      // Try to self-heal stale roles by forcing a token refresh before rejecting
-      const refreshToken = store.getState().auth.refreshToken;
-      if (refreshToken) {
-        fetch('http://localhost:4002/api/v1/auth/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.token && data.user) {
-            store.dispatch(setCredentials({ token: data.token, refreshToken, user: data.user }));
-            if (allowedRoles.includes(data.user.role)) {
-              setIsAuthorized(true);
-              return; // Success, role is now valid
-            }
+      // Try to self-heal stale roles by forcing a refresh check
+      fetch('http://localhost:4002/api/v1/identity/me', {
+        method: 'GET',
+        credentials: 'include'
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.user) {
+          store.dispatch(setCredentials({ user: data.user }));
+          if (allowedRoles.includes(data.user.role)) {
+            setIsAuthorized(true);
+            return; // Success, role is now valid
           }
-          toast.error('You do not have permission to access this page');
-          router.push('/');
-        })
-        .catch(() => {
-          toast.error('You do not have permission to access this page');
-          router.push('/');
-        });
-        return;
-      }
-
-      toast.error('You do not have permission to access this page');
-      router.push('/');
+        }
+        toast.error('You do not have permission to access this page');
+        router.push('/');
+      })
+      .catch(() => {
+        toast.error('You do not have permission to access this page');
+        router.push('/');
+      });
       return;
     }
 

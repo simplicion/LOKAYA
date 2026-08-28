@@ -28,8 +28,15 @@ const PRODUCTS = [
   { id: '4', title: 'Summer Shirt', price: '₹1299', image: 'https://images.unsplash.com/photo-1596755094514-f87e32f85e2c?q=80&w=400', store: 'Urban Threads', category: 'Shirts' },
 ];
 
-export default function StoreProfilePage() {
+import { use } from 'react';
+
+
+
+export default function StoreProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
   const router = useRouter();
+  // TODO: Use resolvedParams.id to fetch store data if needed
+  
   const [activeTab, setActiveTab] = useState<'products'|'reels'>('products');
   const [isFollowing, setIsFollowing] = useState(false);
 

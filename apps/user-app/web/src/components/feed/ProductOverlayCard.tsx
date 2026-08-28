@@ -1,10 +1,12 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 
 export interface ProductOverlayCardProps {
   product: {
+    id?: string;
     name: string;
     image: string;
     price: string;
@@ -15,7 +17,7 @@ export interface ProductOverlayCardProps {
 
 export function ProductOverlayCard({ product }: ProductOverlayCardProps) {
   return (
-    <div className="bg-white rounded-[14px] p-2 flex items-center gap-3 shadow-lg cursor-pointer active:scale-[0.98] transition-transform w-full">
+    <Link href={product.id ? `/product/${product.id}` : '#'} className="bg-white rounded-[14px] p-2 flex items-center gap-3 shadow-lg cursor-pointer active:scale-[0.98] transition-transform w-full">
       <div className="w-[52px] h-[52px] rounded-[10px] overflow-hidden bg-gray-100 flex-shrink-0">
         <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
       </div>
@@ -32,6 +34,6 @@ export function ProductOverlayCard({ product }: ProductOverlayCardProps) {
         </div>
       </div>
       <ChevronRight className="w-5 h-5 text-[#6B6B6B] mr-1 shrink-0" />
-    </div>
+    </Link>
   );
 }

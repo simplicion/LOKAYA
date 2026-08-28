@@ -13,6 +13,7 @@ export const errorHandler = (err: Error, req: Request, res: Response, next: Next
 
   return res.status(500).json({
     status: 'error',
-    message: 'Internal server error',
+    message: err.message || 'Internal server error',
+    stack: err.stack
   });
 };

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Heart, ShoppingCart, Search, Camera, TrendingUp, SlidersHorizontal, ChevronDown, MoreVertical, Star, BadgeCheck, LayoutGrid } from 'lucide-react';
 import { ExploreProductCard } from '@/components/explore/ExploreProductCard';
+import { MOCK_PRODUCTS as LIB_PRODUCTS } from '@/lib/mock/products';
 import { cn } from '@/lib/utils';
 
 const MOCK_CATEGORIES = [
@@ -26,100 +27,18 @@ const MOCK_TRENDING = [
   { id: 6, text: 'Sunglasses' },
 ];
 
-const MOCK_PRODUCTS = [
-  {
-    id: 'p1',
-    title: 'Waffle Knit Shirt',
-    image: 'https://images.unsplash.com/photo-1596755094514-f87e32f85e2c?q=80&w=600&auto=format&fit=crop',
-    price: '1,499',
-    originalPrice: '2,499',
-    discount: '-40%',
-    tag: { text: 'Bestseller', bg: 'bg-[#FF9800]' },
-    store: { name: 'Urban Threads', isVerified: true },
-    rating: '4.7',
-    reviews: '(1.2K)'
-  },
-  {
-    id: 'p2',
-    title: 'Urban Runner Sneakers',
-    image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=600&auto=format&fit=crop',
-    price: '2,999',
-    originalPrice: '3,999',
-    discount: '-25%',
-    tag: { text: 'New', bg: 'bg-[#16845B]' },
-    store: { name: 'Sneak Peak', isVerified: true },
-    rating: '4.8',
-    reviews: '(856)'
-  },
-  {
-    id: 'p3',
-    title: 'Classic Chrono Watch',
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=600&auto=format&fit=crop',
-    price: '3,499',
-    originalPrice: '4,999',
-    discount: '-30%',
-    store: { name: 'Time Craft', isVerified: true },
-    rating: '4.6',
-    reviews: '(723)'
-  },
-  {
-    id: 'p4',
-    title: 'Modern Table Lamp',
-    image: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?q=80&w=600&auto=format&fit=crop',
-    price: '1,899',
-    originalPrice: '2,700',
-    discount: '-32%',
-    store: { name: 'Luxe Living', isVerified: true },
-    rating: '4.9',
-    reviews: '(312)'
-  },
-  {
-    id: 'p5',
-    title: 'Floral Maxi Dress',
-    image: 'https://images.unsplash.com/photo-1515347619362-790176378e9b?q=80&w=600&auto=format&fit=crop',
-    price: '2,199',
-    originalPrice: '3,299',
-    discount: '-33%',
-    tag: { text: 'Sale', bg: 'bg-[#FF5A36]' },
-    store: { name: 'Bloom Style', isVerified: true },
-    rating: '4.5',
-    reviews: '(512)'
-  },
-  {
-    id: 'p6',
-    title: 'Leather Tote Bag',
-    image: 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?q=80&w=600&auto=format&fit=crop',
-    price: '4,599',
-    originalPrice: '6,000',
-    discount: '-23%',
-    store: { name: 'Chic Bags', isVerified: true },
-    rating: '4.8',
-    reviews: '(420)'
-  },
-  {
-    id: 'p7',
-    title: 'Essential Oversized Tee',
-    image: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=600&auto=format&fit=crop',
-    price: '799',
-    originalPrice: '1,299',
-    discount: '-38%',
-    store: { name: 'Basics', isVerified: false },
-    rating: '4.4',
-    reviews: '(890)'
-  },
-  {
-    id: 'p8',
-    title: 'Vitamin C Serum',
-    image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?q=80&w=600&auto=format&fit=crop',
-    price: '899',
-    originalPrice: '1,499',
-    discount: '-40%',
-    tag: { text: 'New', bg: 'bg-[#16845B]' },
-    store: { name: 'Glow Beauty', isVerified: true },
-    rating: '4.7',
-    reviews: '(654)'
-  }
-];
+const MOCK_PRODUCTS = Object.values(LIB_PRODUCTS).map((product, index) => ({
+  id: product.id,
+  title: product.title,
+  image: product.images[0],
+  price: product.price.toLocaleString(),
+  originalPrice: product.originalPrice?.toLocaleString(),
+  discount: product.discountLabel,
+  tag: index === 0 ? { text: 'Bestseller', bg: 'bg-[#FF9800]' } : index === 1 ? { text: 'New', bg: 'bg-[#16845B]' } : undefined,
+  store: { name: product.store.name, isVerified: product.store.verified },
+  rating: product.rating?.score.toString() || '4.5',
+  reviews: product.rating?.count ? `(${product.rating.count})` : '(0)',
+}));
 
 export default function ExplorePage() {
   const [activeBanner, setActiveBanner] = useState(0);

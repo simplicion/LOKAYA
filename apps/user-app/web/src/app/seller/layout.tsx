@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
+import { Logo } from "@/components/ui/logo";
 
 export default function SellerLayout({ children }: { children: React.ReactNode }) {
   const user = useSelector((state: any) => state.auth.user);
@@ -17,23 +18,18 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[#FAF9F6] flex flex-col">
       {/* Seller Top Navigation Bar */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+      <header className="bg-white border-b border-[#E5E2DC] px-6 py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <span className="text-xl font-black text-indigo-600 tracking-tight">LOKAYA</span>
-          <span className="text-gray-400">|</span>
-          <span className="text-sm font-semibold text-gray-700 tracking-wide uppercase">Seller Workspace</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
-            {user.name?.[0]?.toUpperCase() || 'U'}
-          </div>
+          <Logo className="text-xl text-[#171717]" />
+          <span className="text-[#E5E2DC]">|</span>
+          <span className="text-sm font-semibold text-[#6B6B6B] tracking-wide uppercase">Seller Workspace</span>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-0 md:px-6 py-4 md:py-6">
         {children}
       </main>
     </div>

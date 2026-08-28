@@ -1,4 +1,4 @@
-package com.snapick.app;
+package com.lokaya.app;
 
 import com.getcapacitor.BridgeActivity;
 

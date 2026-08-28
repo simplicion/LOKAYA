@@ -2,7 +2,7 @@ import { prisma } from '@workspace/db';
 import bcrypt from 'bcryptjs';
 
 async function setupAdmin() {
-  const adminEmail = 'admin@snapick.com';
+  const adminEmail = 'admin@lokaya.com';
   const password = await bcrypt.hash('admin123', 10);
 
   let admin = await prisma.user.findUnique({ where: { email: adminEmail } });

@@ -4,33 +4,20 @@ import { logout, setCredentials } from './features/authSlice';
 
 const baseQuery = fetchBaseQuery({ 
   baseUrl: 'http://localhost:4002/api/v1',
-  prepareHeaders: (headers, { getState }) => {
-    // @ts-ignore
-    const token = getState().auth.token;
-    if (token) {
-      headers.set('authorization', `Bearer ${token}`);
-    }
-    return headers;
-  },
+  credentials: 'include',
 });
 
 const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (args, api, extraOptions) => {
   let result = await baseQuery(args, api, extraOptions);
   
   if (result.error && result.error.status === 401) {
-    // @ts-ignore
-    const refreshToken = api.getState().auth.refreshToken;
-    
-    if (refreshToken) {
-      const refreshResult = await baseQuery({ url: '/identity/refresh', method: 'POST', body: { refreshToken } }, api, extraOptions);
-      if (refreshResult.data) {
-        // @ts-ignore
-        const user = (refreshResult.data as any).user || api.getState().auth.user;
-        api.dispatch(setCredentials({ token: (refreshResult.data as any).token, refreshToken, user }));
-        result = await baseQuery(args, api, extraOptions);
-      } else {
-        api.dispatch(logout());
-      }
+    // If it's a 401, we dispatch logout because the backend handles token refreshing automatically via cookies if possible,
+    // or we can attempt to call a refresh endpoint if the backend requires explicit refresh calls.
+    // Assuming backend handles refresh transparently or we need to call refresh:
+    // Let's call refresh explicitly just in case:
+    const refreshResult = await baseQuery('/identity/refresh', api, extraOptions);
+    if (refreshResult.data) {
+      result = await baseQuery(args, api, extraOptions);
     } else {
       api.dispatch(logout());
     }
@@ -43,6 +30,10 @@ export const api = createApi({
   baseQuery: baseQueryWithReauth,
   tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment'],
   endpoints: (builder) => ({
+    checkAuth: builder.query<any, void>({
+      query: () => '/identity/me',
+      providesTags: ['User'],
+    }),
     login: builder.mutation<any, any>({
       query: (credentials) => ({
         url: '/identity/login',
@@ -150,6 +141,13 @@ export const api = createApi({
       }),
       invalidatesTags: ['User'],
     }),
+    sendRegistrationOtp: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/identity/send-otp',
+        method: 'POST',
+        body,
+      }),
+    }),
     forgotPasswordOtp: builder.mutation<any, any>({
       query: (body) => ({
         url: '/identity/forgot-password',
@@ -254,6 +252,7 @@ export const api = createApi({
 });
 
 export const { 
+  useCheckAuthQuery,
   useLoginMutation,
   useRegisterMutation,
   useGoogleLoginMutation,
@@ -271,6 +270,7 @@ export const {
   useVerifyPaymentMutation,
   useGetPresignedUrlMutation,
   useUpdateProfileMutation,
+  useSendRegistrationOtpMutation,
   useForgotPasswordOtpMutation,
   useVerifyForgotPasswordOtpMutation,
   useResetPasswordMutation,

@@ -2,11 +2,17 @@ import { prisma } from '@workspace/db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { AppError } from '../../../shared/errors/AppError';
+import { redisClient } from '../../../shared/services/redis.service';
+import { EmailService } from '../../notification/application/email.service';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-dev';
+const mapUserWithRole = (user: any) => {
+  const { password, ...userWithoutPassword } = user;
+  return { ...userWithoutPassword, role: user.isSystemAdmin ? 'SYSTEM_ADMIN' : 'USER' };
+};
 
 export class AuthService {
   private generateTokens(user: any) {
+    const JWT_SECRET = process.env.JWT_SECRET || 'secret';
     const payload = { 
       id: user.id, 
       email: user.email,
@@ -17,12 +23,68 @@ export class AuthService {
     return { token, refreshToken };
   }
 
-  async registerUser(data: { email?: string, phone?: string, password?: string, name?: string }) {
+  async refreshToken(token: string) {
+    const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+      if (!user) throw new AppError('User not found', 404);
+      
+      const tokens = this.generateTokens(user);
+      return { ...tokens, user: mapUserWithRole(user) };
+    } catch (e) {
+      throw new AppError('Invalid or expired refresh token', 401);
+    }
+  }
+
+  async sendRegistrationOtp(identifier: string, isPhone: boolean) {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const redisKey = `otp:register:${identifier}`;
+    
+    // Store OTP in Redis for 5 minutes
+    try {
+      await redisClient.setex(redisKey, 300, otp);
+      console.log(`[OTP] Stored OTP for ${identifier} in Redis`);
+    } catch (redisErr) {
+      console.error('[OTP] Redis setex failed:', redisErr);
+      throw new AppError('Failed to store verification code. Please try again.', 500);
+    }
+
+    // Send OTP via email or phone
+    try {
+      if (!isPhone) {
+        const emailService = new EmailService();
+        await emailService.sendOtp(identifier, otp, 'EMAIL');
+        console.log(`[OTP] Email sent to ${identifier}`);
+      } else {
+        // Mock MSG91 for now by logging
+        console.log(`[MOCK MSG91] Sending OTP ${otp} to phone ${identifier}`);
+      }
+    } catch (sendErr) {
+      console.error('[OTP] Failed to send OTP:', sendErr);
+      throw new AppError('Failed to send verification code. Please try again.', 500);
+    }
+
+    return { success: true, message: 'OTP sent successfully' };
+  }
+
+  async registerUser(data: { email?: string, phone?: string, password?: string, name?: string, otp?: string }) {
     if (!data.email && !data.phone) {
       throw new AppError('Email or phone is required', 400);
     }
     if (!data.password) {
       throw new AppError('Password is required', 400);
+    }
+    if (!data.otp) {
+      throw new AppError('OTP is required', 400);
+    }
+
+    const identifier = data.email || data.phone;
+    const redisKey = `otp:register:${identifier}`;
+    const storedOtp = await redisClient.get(redisKey);
+
+    if (!storedOtp || storedOtp !== data.otp) {
+      throw new AppError('Invalid or expired OTP', 400);
     }
 
     if (data.email) {
@@ -35,6 +97,9 @@ export class AuthService {
       if (existingUser) throw new AppError('Phone already registered', 400);
     }
 
+    // Delete the OTP after successful verification
+    await redisClient.del(redisKey);
+
     const hashedPassword = await bcrypt.hash(data.password, 10);
     
     const user = await prisma.user.create({
@@ -46,10 +111,9 @@ export class AuthService {
       },
     });
 
-    const { password: _, ...userWithoutPassword } = user;
     const tokens = this.generateTokens(user);
 
-    return { ...tokens, user: userWithoutPassword };
+    return { ...tokens, user: mapUserWithRole(user) };
   }
 
   async loginUser(data: { email?: string, phone?: string, password?: string }) {
@@ -72,8 +136,7 @@ export class AuthService {
     }
 
     const tokens = this.generateTokens(user);
-    const { password: _, ...userWithoutPassword } = user;
-    return { ...tokens, user: userWithoutPassword };
+    return { ...tokens, user: mapUserWithRole(user) };
   }
 
   async googleLogin(payload: any) {
@@ -99,8 +162,7 @@ export class AuthService {
     }
 
     const tokens = this.generateTokens(user);
-    const { password: _, ...userWithoutPassword } = user;
-    return { ...tokens, user: userWithoutPassword, isNewUser };
+    return { ...tokens, user: mapUserWithRole(user), isNewUser };
   }
 
   async loginWithPhone(phone: string) {
@@ -116,7 +178,6 @@ export class AuthService {
     }
 
     const tokens = this.generateTokens(user);
-    const { password: _, ...userWithoutPassword } = user;
-    return { ...tokens, user: userWithoutPassword };
+    return { ...tokens, user: mapUserWithRole(user) };
   }
 }

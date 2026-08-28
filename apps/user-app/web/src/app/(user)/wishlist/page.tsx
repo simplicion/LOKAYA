@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSelector } from 'react-redux';
 import { ArrowLeft, Bookmark } from 'lucide-react';
 import { ExploreProductCard } from '@/components/explore/ExploreProductCard';
 
@@ -56,6 +57,15 @@ const WISHLIST_PRODUCTS = [
 
 export default function WishlistPage() {
   const router = useRouter();
+  const user = useSelector((state: any) => state.auth.user);
+
+  useEffect(() => {
+    if (!user) {
+      router.push('/login?redirect=/wishlist');
+    }
+  }, [user, router]);
+
+  if (!user) return null;
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FAF9F6] pb-24">

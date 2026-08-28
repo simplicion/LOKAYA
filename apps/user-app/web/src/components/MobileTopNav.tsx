@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Heart, ShoppingCart, Bell, Settings, ChevronDown, Check, ArrowLeft, Bookmark } from 'lucide-react';
+import { Logo } from "@/components/ui/logo";
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { cn } from '@/lib/utils';
@@ -15,7 +16,7 @@ export function MobileTopNav() {
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
 
   // Hide TopNav on these routes (they have their own headers or are full screen)
-  const hideOnRoutes = ['/search', '/home/reels', '/home/checkout', '/home/order', '/explore/nearby', '/wishlist'];
+  const hideOnRoutes = ['/search', '/home/reels', '/home/checkout', '/home/order', '/explore/nearby', '/wishlist', '/product', '/store'];
   const shouldHide = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(`${route}/`));
 
   const [isVisible, setIsVisible] = useState(true);
@@ -49,7 +50,7 @@ export function MobileTopNav() {
   let rightContent = null;
 
   if (pathname === '/home') {
-    leftContent = <h1 className="text-2xl font-black text-[#171717] tracking-tight">LOKAYA</h1>;
+    leftContent = <h1><Logo className="text-2xl text-[#171717]" /></h1>;
     centerContent = (
       <div className="absolute left-1/2 -translate-x-1/2">
         <button 
@@ -138,7 +139,7 @@ export function MobileTopNav() {
     );
   } else {
     // Default fallback
-    leftContent = <h1 className="text-xl font-black text-[#171717]">LOKAYA</h1>;
+    leftContent = <h1><Logo className="text-xl text-[#171717]" /></h1>;
   }
 
   return (

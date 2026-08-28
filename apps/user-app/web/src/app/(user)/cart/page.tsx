@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSelector } from 'react-redux';
 import Image from 'next/image';
 import { 
   Heart, 
@@ -26,6 +27,16 @@ import { CartProductCard } from '@/components/cart/CartProductCard';
 export default function CartPage() {
   const router = useRouter();
   const [selectAll, setSelectAll] = useState(false);
+  const user = useSelector((state: any) => state.auth.user);
+
+  const handleCheckout = () => {
+    if (!user) {
+      router.push('/login?redirect=/cart');
+    } else {
+      // Proceed to checkout logic
+      router.push('/checkout');
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FAF9F6] pb-32">
@@ -283,7 +294,10 @@ export default function CartPage() {
             </div>
           </div>
           
-          <button className="bg-[#FF5A36] text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-between hover:bg-[#e04d2d] transition-colors shadow-sm min-w-[150px]">
+          <button 
+            onClick={handleCheckout}
+            className="bg-[#FF5A36] text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-between hover:bg-[#e04d2d] transition-colors shadow-sm min-w-[150px]"
+          >
             <div className="flex flex-col text-center flex-1 leading-tight">
               <span className="text-[13px]">Proceed to</span>
               <span className="text-[13px]">Checkout</span>

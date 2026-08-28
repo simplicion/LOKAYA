@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Heart, Star, BadgeCheck, MoreVertical } from 'lucide-react';
 
 export interface ExploreProductCardProps {
@@ -20,7 +21,7 @@ export interface ExploreProductCardProps {
 
 export function ExploreProductCard({ product }: ExploreProductCardProps) {
   return (
-    <div className="flex flex-col bg-white rounded-2xl overflow-hidden cursor-pointer shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-[#E5E2DC]/60">
+    <Link href={`/product/${product.id}`} className="flex flex-col bg-white rounded-2xl overflow-hidden cursor-pointer shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-[#E5E2DC]/60">
       {/* Product Image */}
       <div className="relative aspect-[4/5] bg-[#F9F6F0]">
         <img src={product.image} alt={product.title} className="w-full h-full object-cover mix-blend-multiply" />
@@ -31,7 +32,7 @@ export function ExploreProductCard({ product }: ExploreProductCardProps) {
           </div>
         )}
         
-        <button className="absolute top-2.5 right-2.5 p-1">
+        <button onClick={(e) => e.preventDefault()} className="absolute top-2.5 right-2.5 p-1 z-10">
           <Heart className="w-[18px] h-[18px] text-[#171717] stroke-[1.5]" />
         </button>
       </div>
@@ -63,11 +64,11 @@ export function ExploreProductCard({ product }: ExploreProductCardProps) {
             <span className="text-[11px] font-bold text-[#171717] truncate max-w-[90px]">{product.store.name}</span>
             {product.store.isVerified && <BadgeCheck className="w-[14px] h-[14px] text-[#3B82F6] fill-[#3B82F6] text-white flex-shrink-0" />}
           </div>
-          <button>
+          <button onClick={(e) => e.preventDefault()} className="z-10">
             <MoreVertical className="w-[14px] h-[14px] text-[#999999]" />
           </button>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

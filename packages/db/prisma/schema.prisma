@@ -54,6 +54,7 @@ model User {
   phone        String?      @unique
   password     String?
   name         String
+  avatarUrl    String?
   googleId     String?      @unique
   authProvider AuthProvider @default(LOCAL)
   
@@ -98,6 +99,9 @@ model Store {
   logoUrl       String?
   title         String?
   description   String?
+  contactPhone  String?
+  gstOrLicenseUrl String?
+  shopPhotos    String[]    @default([])
   isActive      Boolean     @default(true)
   openingTime   String?
   closingTime   String?

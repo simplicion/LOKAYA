@@ -18,9 +18,7 @@ export function StoryItem({ id, label, imageUrl, type, hasUnseen = true }: Story
         {/* Border Ring */}
         <div className={cn(
           "w-full aspect-square rounded-full flex items-center justify-center p-[2px]",
-          type === 'live' ? "bg-gradient-to-tr from-[#FF5A36] via-pink-500 to-[#FF5A36]" : "",
-          type !== 'live' && hasUnseen ? "border-[2px] border-[#FF5A36]" : "",
-          type !== 'live' && !hasUnseen ? "border-[2px] border-[#E5E2DC]" : ""
+          hasUnseen ? "bg-gradient-to-b from-[#FF6B00] to-[#FF0000]" : "bg-[#E5E2DC]"
         )}>
           {/* Inner white circle for spacing */}
           <div className="w-full h-full bg-[#FAF9F6] rounded-full p-[2px]">

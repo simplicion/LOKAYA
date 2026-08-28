@@ -10,9 +10,12 @@ import { socialRoutes } from '../modules/social/interfaces/social.routes';
 import { cartRoutes } from '../modules/cart/interfaces/cart.routes';
 import { orderRoutes } from '../modules/order/interfaces/order.routes';
 import { paymentRoutes } from '../modules/payment/interfaces/payment.routes';
+import { sellerRouter as sellerRoutes } from '../modules/seller/interfaces/seller.routes';
 import { initSocket } from './socket';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { errorHandler } from '../shared/middleware/errorHandler';
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -32,8 +35,13 @@ export function startApiServer() {
   // Init socket.io
   initSocket(httpServer);
 
-  app.use(cors());
+  // Allow credentials for cookies
+  app.use(cors({
+    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
+    credentials: true,
+  }));
   app.use(express.json());
+  app.use(cookieParser());
 
   // Rate Limiting (apply to all API routes)
   app.use('/api', apiLimiter);
@@ -47,6 +55,7 @@ export function startApiServer() {
   app.use('/api/v1/cart', cartRoutes);
   app.use('/api/v1/orders', orderRoutes);
   app.use('/api/v1/payments', paymentRoutes);
+  app.use('/api/v1/seller', sellerRoutes);
 
   app.get('/health', (req, res) => {
     res.json({ 
@@ -55,6 +64,9 @@ export function startApiServer() {
       config: getSharedConfig() 
     });
   });
+
+  // Global Error Handler
+  app.use(errorHandler);
 
   httpServer.listen(port, () => {
     console.log(`[API] Server is running on port ${port}`);

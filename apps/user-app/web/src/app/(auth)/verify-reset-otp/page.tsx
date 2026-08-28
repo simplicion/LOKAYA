@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { useVerifyForgotPasswordOtpMutation, useForgotPasswordOtpMutation } from '@/lib/api';
+import { OtpInput } from '@/components/ui/otp-input';
 
 function VerifyOtpContent() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const otpString = otp.join('');
   const [timer, setTimer] = useState(30);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const router = useRouter();
@@ -109,28 +111,15 @@ function VerifyOtpContent() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
-          <div className="flex justify-between mb-8 gap-2">
-            {otp.map((digit, index) => (
-              <input
-                key={index}
-                ref={(el) => { inputRefs.current[index] = el; }}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleChange(index, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(index, e)}
-                onPaste={handlePaste}
-                className="w-12 h-14 text-center text-xl font-bold rounded-2xl bg-gray-50 border border-transparent focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-600/10 transition-all outline-none"
-              />
-            ))}
+          <div className="mb-8">
+            <OtpInput value={otpString} onChange={(val) => setOtp(val.split(''))} length={6} disabled={isLoading} />
           </div>
 
           <div className="mt-2 mb-6">
             <Button 
               type="submit" 
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl h-14 text-lg font-medium shadow-[0_8px_30px_rgb(79,70,229,0.2)] transition-all active:scale-[0.98]" 
-              disabled={isLoading || otp.join('').length !== 6}
+              disabled={isLoading || otpString.length !== 6}
             >
               {isLoading ? 'Verifying...' : 'Verify OTP'}
             </Button>

@@ -13,7 +13,7 @@ import { Eye, EyeOff, Phone, Lock, CheckCircle2, User } from 'lucide-react';
 import { CountrySelector } from '@/components/ui/country-selector';
 
 export default function OnboardingPage() {
-  const { user, token } = useSelector((state: any) => state.auth);
+  const { user } = useSelector((state: any) => state.auth);
   
   const [name, setName] = useState(user?.name || '');
   const [identifier, setIdentifier] = useState('');
@@ -45,7 +45,7 @@ export default function OnboardingPage() {
         
       const updatedUser = await updateProfile(payload).unwrap();
       // Update redux with the new user info
-      dispatch(setCredentials({ token, user: updatedUser }));
+      dispatch(setCredentials({ user: updatedUser }));
       
       toast.success('Onboarding complete!');
       router.push('/allow-location');

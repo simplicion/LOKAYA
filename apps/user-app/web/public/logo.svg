@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80">
+  <defs>
+    <linearGradient id="lokayaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B00" />
+      <stop offset="100%" stop-color="#FF0000" />
+    </linearGradient>
+  </defs>
+  <text x="0" y="62" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="64" fill="#171717" letter-spacing="-2">L</text>
+  <text x="36" y="62" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="64" fill="url(#lokayaGrad)" letter-spacing="-2">O</text>
+  <text x="86" y="62" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="64" fill="#171717" letter-spacing="-2">KAYA</text>
+</svg>
