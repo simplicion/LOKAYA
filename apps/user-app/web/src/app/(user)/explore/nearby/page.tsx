@@ -55,6 +55,17 @@ export default function StoresNearbyPage() {
   return (
     <div className="h-[100dvh] w-full bg-[#FAF9F6] overflow-hidden relative">
       <div className="absolute inset-0 z-10 bg-gray-100">
+      {/* Map Header */}
+      <div className="absolute top-4 inset-x-4 z-[500] flex items-center justify-between pointer-events-none">
+        <button onClick={() => router.back()} className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-sm flex items-center justify-center text-gray-700 pointer-events-auto hover:bg-white transition-colors">
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+        <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-full shadow-sm pointer-events-auto">
+          <h1 className="font-bold text-gray-900 text-sm">Nearby Stores</h1>
+        </div>
+        <div className="w-10 h-10"></div> {/* Spacer for balance */}
+      </div>
+
          <NearbyMap />
          {/* Radius Info Pill */}
          <div className="absolute bottom-[28%] inset-x-0 flex justify-center z-[400] pointer-events-none transition-all duration-300">

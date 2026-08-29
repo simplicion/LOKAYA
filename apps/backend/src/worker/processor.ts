@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { getSharedConfig } from '../shared/config';
 import { prisma, OrderStatus } from '@workspace/db';
+import { mediaWorker } from '../modules/media/application/media-worker.service';
 
 export function startWorker() {
   const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -35,6 +36,9 @@ export function startWorker() {
   worker.on('failed', (job, err) => {
     console.log(`[Worker] Job ${job?.id} has failed: ${err.message}`);
   });
+
+  mediaWorker.on('completed', job => console.log(`[MediaWorker] Job ${job.id} completed`));
+  mediaWorker.on('failed', (job, err) => console.log(`[MediaWorker] Job ${job?.id} failed: ${err.message}`));
 
   console.log(`[Worker] Initialized and waiting for jobs...`);
 }

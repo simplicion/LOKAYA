@@ -186,7 +186,7 @@ export default function SellerDashboardPage() {
             </div>
             
             <button 
-              className="w-full h-12 bg-[#FF5A36] hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
+              className="w-full h-12 bg-brand-orange hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
               onClick={() => setIsDateSelectorOpen(false)}
             >
               Apply Filter

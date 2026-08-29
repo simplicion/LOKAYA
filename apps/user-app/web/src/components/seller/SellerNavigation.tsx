@@ -34,8 +34,8 @@ export function SellerSidebar() {
               className={cn(
                 'flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200',
                 isActive
-                  ? 'bg-[#FF5A36] text-white shadow-md'
-                  : 'text-[#6B6B6B] hover:bg-[#FAF9F6] hover:text-[#171717]'
+                  ? 'bg-brand-navy text-white shadow-md'
+                  : 'text-[#6B6B6B] hover:bg-[#FAF9F6] hover:text-brand-navy'
               )}
             >
               <item.icon className={cn('w-5 h-5', isActive ? 'text-white' : 'text-[#999999]')} />
@@ -65,13 +65,13 @@ export function SellerBottomNav() {
               <item.icon
                 className={cn(
                   'w-6 h-6 transition-colors duration-200',
-                  isActive ? 'text-[#FF5A36]' : 'text-[#999999]'
+                  isActive ? 'text-brand-navy' : 'text-[#999999]'
                 )}
               />
               <span
                 className={cn(
                   'text-[10px] font-medium transition-colors duration-200',
-                  isActive ? 'text-[#FF5A36]' : 'text-[#6B6B6B]'
+                  isActive ? 'text-brand-navy' : 'text-[#6B6B6B]'
                 )}
               >
                 {item.name}

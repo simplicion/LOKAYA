@@ -74,23 +74,23 @@ export default function LoginPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white text-[#171717] px-6 py-8">
-      <div className="w-full flex flex-col flex-1 mt-8">
+      <div className="w-full flex flex-col flex-1 mt-4">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-8">
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-6">
             <button onClick={() => router.push('/')} className="h-10 w-10 flex items-center justify-center rounded-full border border-[#E5E2DC] text-[#6B6B6B] hover:bg-gray-50 transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <Logo className="text-2xl" />
             <div className="w-10" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#171717] mb-2">Welcome Back</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-[#171717] mb-2">Welcome Back</h1>
           <p className="text-[#6B6B6B] font-medium">Please enter your details to sign in.</p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col">
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="identifier" className="text-[#171717] font-bold ml-1">Email Address or Phone Number</Label>
               <div className="flex gap-3">
@@ -105,7 +105,7 @@ export default function LoginPage() {
                     id="identifier"
                     type={isPhoneInput ? "tel" : "text"}
                     placeholder="Enter email or phone number"
-                    className="pl-10 h-14 rounded-2xl bg-[#FAF9F6] border-[#E5E2DC] focus:border-[#FF5A36] focus:bg-white focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-medium text-base text-[#171717] placeholder:text-[#999999]"
+                    className="pl-10 h-12 rounded-xl bg-[#FAF9F6] border-[#E5E2DC] focus:border-[#FF5A36] focus:bg-white focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-medium text-base text-[#171717] placeholder:text-[#999999]"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     required
@@ -129,7 +129,7 @@ export default function LoginPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
-                  className="pl-10 pr-12 h-14 rounded-2xl bg-[#FAF9F6] border-[#E5E2DC] focus:border-[#FF5A36] focus:bg-white focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-medium text-base text-[#171717] placeholder:text-[#999999]"
+                  className="pl-10 pr-12 h-12 rounded-xl bg-[#FAF9F6] border-[#E5E2DC] focus:border-[#FF5A36] focus:bg-white focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-medium text-base text-[#171717] placeholder:text-[#999999]"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -146,10 +146,10 @@ export default function LoginPage() {
 
           </div>
 
-          <div className="mt-8 mb-6">
+          <div className="mt-4 mb-6">
             <Button 
               type="submit" 
-              className="w-full bg-[#FF5A36] hover:bg-[#e04d2d] text-white rounded-2xl h-14 text-lg font-bold shadow-[0_8px_30px_rgba(255,90,54,0.2)] transition-all active:scale-[0.98] flex items-center justify-center gap-2" 
+              className="w-full bg-[#FF5A36] hover:bg-[#e04d2d] text-white rounded-xl h-12 text-base font-bold shadow-[0_8px_30px_rgba(255,90,54,0.2)] transition-all active:scale-[0.98] flex items-center justify-center gap-2" 
               disabled={isLoading}
             >
               {isLoading ? 'Processing...' : (
@@ -177,7 +177,7 @@ export default function LoginPage() {
           <Button
             type="button"
             variant="outline"
-            className="w-full h-14 rounded-2xl border-[#E5E2DC] bg-white hover:bg-[#FAF9F6] text-[#171717] font-bold text-base mb-6 transition-colors shadow-sm"
+            className="w-full h-12 rounded-xl border-[#E5E2DC] bg-white hover:bg-[#FAF9F6] text-[#171717] font-bold text-base mb-6 transition-colors shadow-sm"
             onClick={() => handleGoogleLogin()}
             disabled={isGoogleLoading}
           >

@@ -1,153 +1,140 @@
 'use client';
 
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '@/lib/store';
-import { addToCart, updateQuantity, removeFromCart } from '@/lib/features/cartSlice';
-import { Card } from '@/components/ui/card';
-import { MapPin } from 'lucide-react';
+import React from 'react';
 import Link from 'next/link';
+import { Heart, Star, Plus } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { addToCart } from '@/lib/features/cartSlice';
+import { RootState } from '@/lib/store';
 
-type ProductCardProps = {
-  id: string;
-  name: string;
-  price: number | string;
-  image: string;
-  storeName?: string;
-  storeId?: string;
-  variant?: 'grid' | 'list';
-};
+export interface ProductCardProps {
+  product: {
+    id: string;
+    title: string;
+    image: string;
+    price: string;
+    originalPrice?: string;
+    discount?: string;
+    tag?: { text: string; bg: string };
+    store: { id?: string; name: string; isVerified: boolean };
+    rating: string;
+    reviews: string;
+  };
+}
 
-export function ProductCard({
-  id,
-  name,
-  price,
-  image,
-  storeName,
-  storeId = '1',
-  variant = 'grid'
-}: ProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
   const dispatch = useDispatch();
   const cartItems = useSelector((state: RootState) => state.cart.items);
-  const qty = cartItems.find(item => item.id === id)?.quantity || 0;
+  
+  // Find if item is already in cart to show count or just "Add"
+  const cartItem = cartItems.find(item => item.id === product.id);
+  const quantity = cartItem?.quantity || 0;
 
-  const numericPrice = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.-]+/g, '')) : price;
-  const displayPrice = typeof price === 'string' ? price : `₹${price}`;
-
-  const handleUpdateCart = (e: React.MouseEvent, delta: number) => {
+  const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    const newQty = qty + delta;
-    
-    if (newQty > 0) {
-      if (qty === 0) {
-        dispatch(addToCart({
-          id,
-          name,
-          price: numericPrice,
-          quantity: 1,
-          storeId,
-        }));
-      } else {
-        dispatch(updateQuantity({ id, quantity: newQty }));
-      }
-    } else {
-      dispatch(removeFromCart(id));
-    }
+    dispatch(addToCart({
+      id: product.id,
+      name: product.title,
+      price: parseFloat(product.price.replace(/,/g, '')), // Handle comma strings like "1,499"
+      quantity: 1,
+      storeId: product.store.id || 'unknown-store'
+    }));
   };
 
-  if (variant === 'list') {
-    return (
-      <div className="flex items-center justify-between py-1">
-        <Link href={`/home/product?id=${id}`} className="flex items-center gap-4 flex-1">
-          <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl border border-gray-100 shrink-0 shadow-sm overflow-hidden relative">
-            {image.startsWith('http') || image.startsWith('/') ? (
-              <img src={image} alt={name} className="w-full h-full object-cover" />
-            ) : (
-              image
-            )}
-          </div>
-          <div className="flex flex-col">
-            <h4 className="font-bold text-gray-900 text-[14px] leading-tight mb-1">{name}</h4>
-            <span className="text-gray-600 font-bold text-[13px]">{displayPrice}</span>
-          </div>
-        </Link>
-        
-        <div className="ml-2">
-          {qty > 0 ? (
-            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden h-9 shadow-sm">
-              <button 
-                onClick={(e) => handleUpdateCart(e, -1)}
-                className="w-8 h-full flex items-center justify-center text-gray-600 font-bold hover:bg-gray-100"
-              >
-                -
-              </button>
-              <div className="w-8 text-center text-[14px] font-bold text-gray-900">{qty}</div>
-              <button 
-                onClick={(e) => handleUpdateCart(e, 1)}
-                className="w-8 h-full flex items-center justify-center text-indigo-600 font-bold hover:bg-gray-100"
-              >
-                +
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={(e) => handleUpdateCart(e, 1)}
-              className="w-9 h-9 rounded-xl border border-gray-200 bg-white flex items-center justify-center text-indigo-600 hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <span className="font-bold text-lg leading-none">+</span>
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <Link href={`/home/product?id=${id}`} className="block">
-      <Card className="p-3 border border-gray-100 shadow-sm hover:shadow-md transition-shadow rounded-[20px] flex flex-col h-full bg-white">
-        <div className="w-full aspect-square bg-gray-50/80 rounded-2xl flex items-center justify-center text-5xl mb-3 relative overflow-hidden">
-            {image.startsWith('http') || image.startsWith('/') ? (
-              <img src={image} alt={name} className="w-full h-full object-cover" />
-            ) : (
-              image
-            )}
-        </div>
-        <h4 className="font-bold text-gray-900 text-[14px] leading-tight mb-1">{name}</h4>
-        {storeName && (
-          <div className="flex items-center gap-1 text-[11px] text-gray-500 font-medium mb-3 truncate">
-            <MapPin className="w-3 h-3 text-gray-400" /> {storeName}
+    <Link href={`/product/${product.id}`} className="flex flex-col bg-white rounded-[18px] overflow-hidden cursor-pointer border border-gray-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_25px_-5px_rgba(0,0,0,0.1)] transition-all duration-300 relative group">
+      {/* Product Image */}
+      <div className="relative aspect-[4/5] bg-gray-50 p-4 flex items-center justify-center overflow-hidden">
+        <img src={product.image} alt={product.title} className="w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105" />
+        
+        {product.tag && (
+          <div className={`absolute top-3 left-3 ${product.tag.bg} text-white text-[10px] font-extrabold px-2 py-1 rounded shadow-sm tracking-wider uppercase`}>
+            {product.tag.text}
           </div>
         )}
-        <div className="mt-auto flex items-center justify-between">
-          <span className="font-bold text-[15px] text-indigo-600">{displayPrice}</span>
-          
-          {qty > 0 ? (
-            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden h-8 shadow-sm">
-              <button 
-                onClick={(e) => handleUpdateCart(e, -1)}
-                className="w-7 h-full flex items-center justify-center text-gray-600 font-bold hover:bg-gray-100 text-sm"
-              >
-                -
-              </button>
-              <div className="w-6 text-center text-[12px] font-bold text-gray-900">{qty}</div>
-              <button 
-                onClick={(e) => handleUpdateCart(e, 1)}
-                className="w-7 h-full flex items-center justify-center text-indigo-600 font-bold hover:bg-gray-100 text-sm"
-              >
-                +
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={(e) => handleUpdateCart(e, 1)}
-              className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 shadow-sm transition-transform active:scale-95"
-            >
-              +
-            </button>
-          )}
+        
+        <button onClick={(e) => e.preventDefault()} className="absolute top-3 right-3 p-2 z-10 bg-white/70 backdrop-blur-md rounded-full hover:bg-white transition-colors shadow-sm text-gray-500 hover:text-red-500">
+          <Heart className="w-[18px] h-[18px] transition-colors" strokeWidth={2} />
+        </button>
+      </div>
+      
+      {/* Product Details */}
+      <div className="p-3.5 flex flex-col flex-1 bg-white">
+        {/* Rating */}
+        <div className="flex items-center gap-1 mb-1.5">
+          <Star className="w-[13px] h-[13px] fill-[#FF9800] text-[#FF9800]" />
+          <span className="text-[12px] font-bold text-gray-800 leading-none mt-0.5">{product.rating}</span>
+          <span className="text-[11px] text-gray-400 font-medium leading-none mt-0.5">
+            ({product.reviews.replace(/[()]/g, '')})
+          </span>
         </div>
-      </Card>
+
+        {/* Title */}
+        <h3 className="text-[14px] font-semibold text-gray-900 leading-[1.3] line-clamp-2 mb-2 min-h-[36px]">
+          {product.title}
+        </h3>
+        
+        <div className="mt-auto flex items-end justify-between gap-2">
+          {/* Pricing */}
+          <div className="flex flex-col gap-1">
+            {product.discount && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-gray-400 line-through font-medium tabular-nums leading-none">₹{product.originalPrice}</span>
+                <span className="text-[9px] font-bold text-[#FF6B00] bg-[#FF6B00]/10 px-1.5 py-0.5 rounded uppercase tracking-wide leading-none">
+                  {product.discount}
+                </span>
+              </div>
+            )}
+            <span className="text-[17px] font-bold text-gray-900 tabular-nums leading-none">₹{product.price}</span>
+          </div>
+          
+          {/* Add to Cart Button */}
+          <div className="flex-shrink-0">
+            {quantity > 0 ? (
+              <div className="flex items-center justify-between bg-[#FF6B00] text-white rounded-xl h-8 w-[76px] shadow-sm shadow-[#FF6B00]/20 overflow-hidden" onClick={(e) => e.preventDefault()}>
+                <button 
+                  className="w-7 h-full flex items-center justify-center hover:bg-black/15 active:bg-black/25 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (quantity > 1) {
+                      dispatch({ type: 'cart/updateQuantity', payload: { id: product.id, quantity: quantity - 1 }});
+                    } else {
+                      dispatch({ type: 'cart/removeFromCart', payload: product.id });
+                    }
+                  }}
+                >
+                  <span className="text-[16px] font-bold leading-none mb-0.5">-</span>
+                </button>
+                <span className="font-bold text-[13px]">{quantity}</span>
+                <button 
+                  className="w-7 h-full flex items-center justify-center hover:bg-black/15 active:bg-black/25 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dispatch(addToCart({
+                      id: product.id,
+                      name: product.title,
+                      price: parseFloat(product.price.replace(/,/g, '')),
+                      quantity: 1,
+                      storeId: product.store.id || 'unknown-store'
+                    }));
+                  }}
+                >
+                  <span className="text-[15px] font-bold leading-none mb-0.5">+</span>
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={handleAddToCart}
+                className="h-8 px-4 bg-white border border-gray-200 text-[#FF6B00] font-bold text-[12px] tracking-wide rounded-xl hover:border-[#FF6B00] hover:bg-[#FF6B00]/5 hover:shadow-sm transition-all active:scale-95 flex items-center justify-center"
+              >
+                ADD
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </Link>
   );
 }

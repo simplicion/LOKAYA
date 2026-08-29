@@ -40,11 +40,31 @@ enum MediaType {
   VIDEO
 }
 
+enum MediaProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+
 enum PaymentStatus {
   PENDING
   SUCCESS
   FAILED
   REFUNDED
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  ARCHIVED
+}
+
+enum VariantStatus {
+  ACTIVE
+  INACTIVE
 }
 
 // User & Identity
@@ -136,45 +156,83 @@ model Product {
   id            String   @id @default(uuid())
   storeId       String
   name          String
+  slug          String?  @unique
   brand         String?
+  brandId       String?
   description   String?
   category      String?
   categoryId    String?
   categoryModel Category? @relation(fields: [categoryId], references: [id])
   sku           String   @unique
   qrUuid        String?  @unique
-  mrp           Float
-  sellingPrice  Float
+  
+  // Legacy fields (kept for backward compatibility during v1 -> v2 transition)
+  mrp           Float    @default(0)
+  sellingPrice  Float    @default(0)
   stockCount    Int      @default(0)
   imageUrl      String?
 
+  // V2 Fields
+  productType   String?  @default("PHYSICAL")
+  status        ProductStatus @default(DRAFT)
+  hasVariants   Boolean  @default(false)
+  isAvailableForDelivery Boolean @default(true)
+  isAvailableForPickup   Boolean @default(true)
+  processingTime String?
+
   store         Store    @relation(fields: [storeId], references: [id])
   variants      ProductVariant[]
+  media         ProductMedia[]
+  attributes    ProductAttributeValue[]
+  
   orderItems    OrderItem[]
   inventoryLogs InventoryLog[]
   cartItems     CartItem[]
   productLinks  ProductLink[]
   reviews       Review[] @relation("ProductReviews")
 
-  isActive      Boolean  @default(true)
+  isActive      Boolean  @default(true) // Legacy status flag
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
 
-model ProductVariant {
+model ProductMedia {
   id          String   @id @default(uuid())
   productId   String
-  name        String
-  sku         String   @unique
-  price       Float
-  stockCount  Int      @default(0)
+  url         String
+  type        MediaType @default(IMAGE)
+  displayOrder Int      @default(0)
+  isPrimary   Boolean  @default(false)
   
-  product     Product  @relation(fields: [productId], references: [id])
-  orderItems  OrderItem[]
-  cartItems   CartItem[]
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model ProductVariant {
+  id             String   @id @default(uuid())
+  productId      String
+  name           String
+  sku            String   @unique
+  barcode        String?
+  price          Float
+  compareAtPrice Float?
+  costPrice      Float?
+  weight         Float?
+  
+  // Legacy
+  stockCount     Int      @default(0)
+  
+  status         VariantStatus @default(ACTIVE)
+  
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventory      Inventory[]
+  orderItems     OrderItem[]
+  cartItems      CartItem[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Category {
@@ -188,15 +246,61 @@ model Category {
   
   store         Store     @relation(fields: [storeId], references: [id])
   products      Product[]
+  attributes    CategoryAttribute[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
 
+model CategoryAttribute {
+  id          String    @id @default(uuid())
+  categoryId  String
+  name        String    // e.g., "Size", "Color"
+  type        String    @default("TEXT") // TEXT, NUMBER, SELECT
+  options     String[]  @default([]) // e.g., ["S", "M", "L"]
+  isRequired  Boolean   @default(false)
+  
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  productValues ProductAttributeValue[]
+
+  createdAt   DateTime  @default(now())
+}
+
+model ProductAttributeValue {
+  id          String    @id @default(uuid())
+  productId   String
+  attributeId String
+  value       String
+  
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attribute   CategoryAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  
+  @@unique([productId, attributeId])
+}
+
 // Inventory
+model Inventory {
+  id          String   @id @default(uuid())
+  variantId   String
+  locationId  String?  // Nullable for now, default to store's main location
+  available   Int      @default(0)
+  reserved    Int      @default(0)
+  threshold   Int      @default(10)
+  
+  variant     ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([variantId, locationId])
+}
+
 model InventoryLog {
   id        String   @id @default(uuid())
   productId String
+  variantId String?
   change    Int
   reason    String
   
@@ -290,8 +394,15 @@ model Payment {
 // Content (Posts & Reels)
 model MediaAsset {
   id          String    @id @default(uuid())
-  url         String
+  url         String    // Final CDN URL (or placeholder if pending)
   type        MediaType
+  
+  status      MediaProcessingStatus @default(PENDING)
+  originalUrl String?   // Raw S3 URL
+  posterUrl   String?   // Video thumbnail
+  duration    Int?      // In seconds
+  sizeBytes   Int?
+  errorMsg    String?
   
   post        Post?     @relation(fields: [postId], references: [id])
   postId      String?
@@ -299,6 +410,7 @@ model MediaAsset {
   reelId      String?
   
   createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Post {

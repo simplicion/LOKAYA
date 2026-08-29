@@ -1,35 +1,93 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, Image as ImageIcon, Edit2, Plus, Star, Trash2 } from 'lucide-react';
+import { Settings, Image as ImageIcon, Edit2, Plus, Star, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import { SellerHeader } from '@/components/seller/SellerHeader';
-
-const MOCK_CATEGORIES = [
-  { id: '1', name: 'Fruits', icon: '🍎' },
-  { id: '2', name: 'Vegetables', icon: '🥦' },
-  { id: '3', name: 'Dairy', icon: '🥛' },
-  { id: '4', name: 'Snacks', icon: '🍪' },
-  { id: '5', name: 'Beverages', icon: '🥤' },
-];
-
-const MOCK_PRODUCTS = [
-  { id: 'p1', name: 'Fresh Apples', price: 120, image: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6fac6?w=400&q=80' },
-  { id: 'p2', name: 'Bananas', price: 60, image: 'https://images.unsplash.com/photo-1603833665858-e61d17a86224?w=400&q=80' },
-  { id: 'p3', name: 'Milk 1L', price: 65, image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400&q=80' },
-  { id: 'p4', name: 'Potato chips', price: 20, image: 'https://images.unsplash.com/photo-1566478989037-e987e91ebdf0?w=400&q=80' },
-];
+import { 
+  useGetMyStoreQuery, 
+  useGetStoreProductsQuery, 
+  useGetStoreCategoriesQuery,
+  useGetPresignedUrlMutation,
+  useUpdateStoreProfileMutation
+} from '@/lib/api';
+import { ProductCard } from '@/components/ProductCard';
 
 export default function StorePreviewPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
 
+  const { data: storeData } = useGetMyStoreQuery();
+  const { data: products = [] } = useGetStoreProductsQuery(storeData?.id ?? '', {
+    skip: !storeData?.id,
+  });
+  const { data: categories = [] } = useGetStoreCategoriesQuery(storeData?.id ?? '', {
+    skip: !storeData?.id,
+  });
+
+  const [getPresignedUrl] = useGetPresignedUrlMutation();
+  const [updateStoreProfile] = useUpdateStoreProfileMutation();
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'banner' | 'logo') => {
+    const file = e.target.files?.[0];
+    if (!file || !storeData?.id) return;
+
+    try {
+      if (type === 'banner') setIsUploadingBanner(true);
+      else setIsUploadingLogo(true);
+
+      // Get presigned URL
+      const { uploadUrl, key } = await getPresignedUrl({
+        contentType: file.type,
+        filename: file.name,
+      }).unwrap();
+
+      if (!uploadUrl) {
+        throw new Error('No upload URL returned');
+      }
+
+      // Upload to R2
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(`Failed to upload to R2: ${uploadRes.status} ${uploadRes.statusText}`);
+      }
+
+      // Update store profile
+      const publicUrl = `https://pub-9735c0214aaa423b89c9c5f647cc184c.r2.dev/${key}`;
+      
+      await updateStoreProfile({
+        storeId: storeData.id,
+        body: {
+          [type]: publicUrl
+        }
+      }).unwrap();
+
+    } catch (error: any) {
+      console.error(`Failed to upload ${type}:`, error.message || error);
+    } finally {
+      if (type === 'banner') setIsUploadingBanner(false);
+      else setIsUploadingLogo(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-[#FFFFFF] pb-24">
+    <div className="flex flex-col min-h-[100dvh] bg-gray-50 pb-24">
       
       <SellerHeader 
-        title="My Store"
+        title={storeData?.name || "My Store"}
         hideSearchIcon={true}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -45,103 +103,145 @@ export default function StorePreviewPage() {
 
       <div className="flex-1 overflow-y-auto">
         
-        {/* Banner Section */}
-        <div className="relative w-full h-48 bg-indigo-500 group">
-          {/* Mock Banner Image - we use a solid color or gradient for now, can be an image */}
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500" />
-          
-          {/* Edit Banner Button */}
-          <button className="absolute bottom-4 right-4 bg-white/20 backdrop-blur-md hover:bg-white/30 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-colors border border-white/30 shadow-sm">
-            <ImageIcon className="w-4 h-4" />
-            Update Banner
-          </button>
-        </div>
-
-        {/* Store Info Profile Section */}
-        <div className="relative px-4 pb-6 bg-white border-b border-gray-100 shadow-sm">
-          {/* Logo overlapping the banner */}
-          <div className="relative w-24 h-24 -mt-12 mb-3 rounded-full bg-white p-1 shadow-md">
-            <div className="w-full h-full rounded-full bg-green-600 border-2 border-white flex items-center justify-center overflow-hidden">
-              <span className="text-white font-bold text-sm text-center leading-tight">SHARMA<br/>KIRANA</span>
-            </div>
+        <div className="bg-white shadow-sm mb-4 pb-6 rounded-b-3xl">
+          {/* Banner Section - Strict 16:9 */}
+          <div className="relative w-full aspect-[16/9] bg-indigo-500 group overflow-hidden">
+            {storeData?.banner ? (
+              <img src={storeData.banner} alt="Store Banner" className="w-full h-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-tr from-violet-600 via-indigo-600 to-purple-600" />
+            )}
             
-            {/* Edit Logo Button */}
-            <button className="absolute bottom-0 right-0 bg-white p-1.5 rounded-full shadow-md text-gray-700 hover:text-indigo-600 border border-gray-100">
-              <Edit2 className="w-4 h-4" />
+            <input 
+              type="file" 
+              ref={bannerInputRef} 
+              onChange={(e) => handleUpload(e, 'banner')} 
+              accept="image/*" 
+              className="hidden" 
+            />
+            
+            {/* Edit Banner Button */}
+            <button 
+              onClick={() => bannerInputRef.current?.click()}
+              disabled={isUploadingBanner}
+              className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-colors border border-white/20 shadow-lg"
+            >
+              {isUploadingBanner ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <ImageIcon className="w-4 h-4" />
+              )}
+              {isUploadingBanner ? 'Uploading...' : 'Update Banner'}
             </button>
           </div>
 
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Sharma Kirana Store</h2>
-            <p className="text-gray-500 text-sm mt-1">Har Ghar Ki Zaroorat • Grocery & Essentials</p>
-            
-            <div className="flex items-center gap-4 mt-3">
-              <div className="flex items-center text-sm font-medium text-gray-700">
-                <Star className="w-4 h-4 text-amber-400 fill-current mr-1" />
-                4.8 (120+ ratings)
+          {/* Store Info Profile Section */}
+          <div className="px-5 -mt-12 relative z-10">
+            <div className="flex flex-col">
+              {/* Logo */}
+              <div className="relative w-24 h-24 rounded-full bg-white shadow-lg border-4 border-white mb-3">
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center overflow-hidden">
+                  {storeData?.logo ? (
+                    <img src={storeData.logo} alt={storeData.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-white font-bold text-3xl leading-tight">
+                      {storeData?.name ? storeData.name.charAt(0).toUpperCase() : "S"}
+                    </span>
+                  )}
+                </div>
+                
+                <input 
+                  type="file" 
+                  ref={logoInputRef} 
+                  onChange={(e) => handleUpload(e, 'logo')} 
+                  accept="image/*" 
+                  className="hidden" 
+                />
+
+                {/* Edit Logo Button */}
+                <button 
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={isUploadingLogo}
+                  className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-lg text-gray-700 hover:text-indigo-600 border border-gray-100 transition-colors"
+                >
+                  {isUploadingLogo ? (
+                    <span className="w-4 h-4 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin block" />
+                  ) : (
+                    <Edit2 className="w-4 h-4" />
+                  )}
+                </button>
               </div>
-              <div className="text-sm font-medium text-green-600">
-                Open until 10:00 PM
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-black text-gray-900 leading-tight">{storeData?.name || 'Your Store Name'}</h2>
+                </div>
+                <p className="text-gray-500 text-sm mt-1 mb-4">{storeData?.description || 'Add a description in settings to tell customers about your store.'}</p>
+                
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center text-xs font-bold text-gray-700 bg-gray-100 px-2.5 py-1.5 rounded-lg">
+                    <Star className="w-3.5 h-3.5 text-amber-500 fill-current mr-1.5" />
+                    4.8 (120+ Reviews)
+                  </div>
+                  <div className="text-xs font-bold text-green-700 bg-green-100 px-2.5 py-1.5 rounded-lg">
+                    Open until 10:00 PM
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Categories Loop */}
-        <div className="mt-4 bg-white py-4 shadow-sm border-y border-gray-100">
-          <div className="px-4 flex items-center justify-between mb-3">
-            <h3 className="text-lg font-bold text-gray-900">Categories</h3>
+        <div className="bg-white rounded-3xl py-6 shadow-sm mb-4">
+          <div className="px-5 flex items-center justify-between mb-4">
+            <h3 className="text-lg font-black text-gray-900">Categories</h3>
             <button 
               onClick={() => router.push('/seller/store/categories')}
-              className="text-sm font-bold text-indigo-600 hover:text-indigo-700"
+              className="text-sm font-bold text-indigo-600 hover:text-indigo-700 flex items-center"
             >
-              View All
+              Manage <ChevronRight className="w-4 h-4 ml-0.5" />
             </button>
           </div>
           
-          <div className="flex overflow-x-auto no-scrollbar px-4 pb-2 gap-4">
+          <div className="flex overflow-x-auto no-scrollbar px-5 pb-2 gap-4">
             
             {/* Add New Category Button */}
             <button 
               onClick={() => router.push('/seller/store/categories/add')}
               className="flex flex-col items-center gap-2 min-w-[72px]"
             >
-              <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm transition-transform active:scale-95">
-                <Plus className="w-8 h-8" />
+              <div className="w-16 h-16 rounded-2xl bg-indigo-50/80 border border-indigo-100/50 flex items-center justify-center text-indigo-600 shadow-sm transition-transform active:scale-95">
+                <Plus className="w-7 h-7" />
               </div>
-              <span className="text-xs font-medium text-indigo-600 text-center">Add<br/>Category</span>
+              <span className="text-[11px] font-bold text-indigo-600 text-center uppercase tracking-wide">Add<br/>New</span>
             </button>
 
             {/* Existing Categories */}
-            {MOCK_CATEGORIES.map((cat) => (
+            {categories.map((cat: any) => (
               <div key={cat.id} className="relative flex flex-col items-center gap-2 min-w-[72px]">
-                <div className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-3xl shadow-sm">
-                  {cat.icon}
+                <div className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-3xl shadow-sm overflow-hidden">
+                  {cat.image ? (
+                    <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-[10px] font-medium uppercase tracking-wider">No img</div>
+                  )}
                 </div>
-                <span className="text-xs font-medium text-gray-600 text-center truncate w-full">{cat.name}</span>
-                <button 
-                  className="absolute -top-1.5 -right-1.5 bg-white text-red-500 border border-gray-100 p-1.5 rounded-full shadow-md z-10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Handle delete
-                  }}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <span className="text-[11px] font-bold text-gray-700 text-center truncate w-full">{cat.name}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Products Preview */}
-        <div className="mt-4 px-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">All Products</h3>
+        <div className="bg-white rounded-t-3xl pt-6 px-5 min-h-[400px]">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-lg font-black text-gray-900">All Products</h3>
             <button 
               onClick={() => router.push('/seller/products')}
-              className="text-sm font-bold text-indigo-600 hover:text-indigo-700"
+              className="text-sm font-bold text-indigo-600 hover:text-indigo-700 flex items-center"
             >
-              View All
+              Manage <ChevronRight className="w-4 h-4 ml-0.5" />
             </button>
           </div>
           
@@ -149,30 +249,28 @@ export default function StorePreviewPage() {
             {/* Add Product Card */}
             <button 
               onClick={() => router.push('/seller/products/add')}
-              className="bg-indigo-50 rounded-2xl border border-indigo-100 shadow-sm flex flex-col items-center justify-center p-4 aspect-[4/5] transition-transform active:scale-95 group"
+              className="bg-indigo-50/50 rounded-2xl border border-indigo-100 border-dashed flex flex-col items-center justify-center p-4 aspect-[4/5] transition-transform active:scale-95 group hover:bg-indigo-50"
             >
-              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-indigo-600 mb-3 shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                <Plus className="w-8 h-8" />
+              <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-indigo-600 mb-3 shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                <Plus className="w-6 h-6" />
               </div>
-              <span className="font-semibold text-indigo-600 text-sm">Add Product</span>
+              <span className="font-bold text-indigo-600 text-sm">Add Product</span>
             </button>
 
-            {MOCK_PRODUCTS.map((product) => (
-              <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-                <div className="relative aspect-square w-full bg-gray-100">
-                  <Image 
-                    src={product.image} 
-                    alt={product.name}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 50vw, 33vw"
-                  />
-                </div>
-                <div className="p-3 flex-1 flex flex-col">
-                  <h4 className="font-semibold text-gray-900 text-sm mb-1">{product.name}</h4>
-                  <p className="text-indigo-600 font-bold mt-auto">₹{product.price}</p>
-                </div>
-              </div>
+            {products.map((product: any) => (
+              <ProductCard
+                key={product.id}
+                product={{
+                  id: product.id,
+                  title: product.name,
+                  image: product.media?.[0]?.url || 'https://placehold.co/400x400/png?text=No+Image',
+                  price: product.sellingPrice?.toString() || '0',
+                  originalPrice: product.mrp ? product.mrp.toString() : undefined,
+                  store: { name: storeData?.name || 'Store', isVerified: true },
+                  rating: "4.5",
+                  reviews: "0"
+                }}
+              />
             ))}
           </div>
         </div>

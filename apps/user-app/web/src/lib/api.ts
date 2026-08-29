@@ -198,6 +198,22 @@ export const api = createApi({
     }),
     
     // New Content & Social Endpoints (Phase 1)
+    createPost: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/content/posts',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Post'],
+    }),
+    createReel: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/content/reels',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Reel'],
+    }),
     getReels: builder.query<any[], { page?: number; limit?: number } | void>({
       query: (params) => {
         let qs = '';
@@ -269,6 +285,7 @@ export const {
   useCreatePaymentOrderMutation,
   useVerifyPaymentMutation,
   useGetPresignedUrlMutation,
+  useProcessMediaMutation,
   useUpdateProfileMutation,
   useSendRegistrationOtpMutation,
   useForgotPasswordOtpMutation,
@@ -279,6 +296,8 @@ export const {
   useGetStoreCategoriesQuery,
   useDeleteCategoryMutation,
   
+  useCreatePostMutation,
+  useCreateReelMutation,
   useGetReelsQuery,
   useGetPostsQuery,
   useLikeReelMutation,

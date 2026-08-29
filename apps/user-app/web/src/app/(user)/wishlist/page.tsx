@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { ArrowLeft, Bookmark } from 'lucide-react';
-import { ExploreProductCard } from '@/components/explore/ExploreProductCard';
+import { ProductCard } from '@/components/ProductCard';
 
 const WISHLIST_PRODUCTS = [
   {
@@ -87,7 +87,7 @@ export default function WishlistPage() {
         {WISHLIST_PRODUCTS.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {WISHLIST_PRODUCTS.map((product) => (
-              <ExploreProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (

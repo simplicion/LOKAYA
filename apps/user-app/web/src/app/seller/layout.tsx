@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { Logo } from "@/components/ui/logo";
 import { SellerSidebar, SellerBottomNav } from '@/components/seller/SellerNavigation';
+import { FloatingCartBar } from '@/components/cart/FloatingCartBar';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
@@ -45,19 +46,22 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
     );
   }
 
+  const isHiddenFooterPage = pathname === '/seller/products/add' || pathname === '/seller/store/categories/add';
+
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row">
       <SellerSidebar />
       
-      <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-0">
+      <div className={cn("flex-1 flex flex-col min-w-0 md:pb-0", !isHiddenFooterPage && "pb-20")}>
 
 
         <main className="flex-1 w-full mx-auto overflow-x-hidden">
           {children}
         </main>
       </div>
-
-      <SellerBottomNav />
+      
+      <FloatingCartBar />
+      {!isHiddenFooterPage && <SellerBottomNav />}
     </div>
   );
 }

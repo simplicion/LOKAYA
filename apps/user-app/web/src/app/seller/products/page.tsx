@@ -89,7 +89,7 @@ export default function MyProductsPage() {
               onClick={() => setActiveCategory(category.id)}
               className={`text-sm font-semibold whitespace-nowrap transition-colors px-5 py-1.5 rounded-full ${
                 activeCategory === category.id 
-                  ? 'bg-[#171717] text-white' 
+                  ? 'bg-brand-navy text-white' 
                   : 'text-[#6B6B6B] bg-transparent'
               }`}
             >

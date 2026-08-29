@@ -113,10 +113,10 @@ export default function RegisterPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white text-[#171717] px-6 py-8">
-      <div className="w-full flex flex-col flex-1 mt-8 max-w-md mx-auto">
+      <div className="w-full flex flex-col flex-1 mt-4 max-w-md mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-8">
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-6">
             <button 
               onClick={() => step === 2 ? setStep(1) : router.push('/')} 
               className="h-10 w-10 flex items-center justify-center rounded-full border border-[#E5E2DC] text-[#6B6B6B] hover:bg-gray-50 transition-colors"
@@ -126,7 +126,7 @@ export default function RegisterPage() {
             <Logo className="text-2xl" />
             <div className="w-10" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#171717] mb-2">
+          <h1 className="text-2xl font-bold tracking-tight text-[#171717] mb-2">
             {step === 1 ? 'Create Account' : 'Verify Code'}
           </h1>
           <p className="text-[#6B6B6B] font-medium">
@@ -137,7 +137,7 @@ export default function RegisterPage() {
         {/* Form */}
         {step === 1 ? (
           <form onSubmit={handleSendOtp} className="flex flex-col">
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-[#171717] font-bold ml-1">Full Name</Label>
                 <div className="relative">
@@ -148,7 +148,7 @@ export default function RegisterPage() {
                     id="name"
                     type="text"
                     placeholder="Enter your full name"
-                    className="pl-10 h-14 rounded-2xl bg-[#FAF9F6] border-[#E5E2DC] focus:border-[#FF5A36] focus:bg-white focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-medium text-base text-[#171717] placeholder:text-[#999999]"
+                    className="pl-10 h-12 rounded-xl bg-[#FAF9F6] border-[#E5E2DC] focus:border-[#FF5A36] focus:bg-white focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-medium text-base text-[#171717] placeholder:text-[#999999]"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
@@ -170,7 +170,7 @@ export default function RegisterPage() {
                       id="identifier"
                       type={isPhoneInput && identifier.length > 0 ? "tel" : "text"}
                       placeholder="Enter email or phone number"
-                      className="pl-10 h-14 rounded-2xl bg-[#FAF9F6] border-[#E5E2DC] focus:border-[#FF5A36] focus:bg-white focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-medium text-base text-[#171717] placeholder:text-[#999999]"
+                      className="pl-10 h-12 rounded-xl bg-[#FAF9F6] border-[#E5E2DC] focus:border-[#FF5A36] focus:bg-white focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-medium text-base text-[#171717] placeholder:text-[#999999]"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
                       required
@@ -189,7 +189,7 @@ export default function RegisterPage() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Create a strong password"
-                    className="pl-10 pr-10 h-14 rounded-2xl bg-[#FAF9F6] border-[#E5E2DC] focus:border-[#FF5A36] focus:bg-white focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-medium text-base text-[#171717] placeholder:text-[#999999]"
+                    className="pl-10 pr-10 h-12 rounded-xl bg-[#FAF9F6] border-[#E5E2DC] focus:border-[#FF5A36] focus:bg-white focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-medium text-base text-[#171717] placeholder:text-[#999999]"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -206,10 +206,10 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="mt-8 mb-6">
+            <div className="mt-4 mb-6">
               <Button 
                 type="submit" 
-                className="w-full bg-[#FF5A36] hover:bg-[#e04d2d] text-white rounded-2xl h-14 text-lg font-bold shadow-[0_8px_30px_rgba(255,90,54,0.2)] transition-all active:scale-[0.98] flex items-center justify-center gap-2" 
+                className="w-full bg-[#FF5A36] hover:bg-[#e04d2d] text-white rounded-xl h-12 text-base font-bold shadow-[0_8px_30px_rgba(255,90,54,0.2)] transition-all active:scale-[0.98] flex items-center justify-center gap-2" 
                 disabled={isSendingOtp}
               >
                 {isSendingOtp ? 'Sending code...' : (
@@ -223,14 +223,14 @@ export default function RegisterPage() {
           </form>
         ) : (
           <form onSubmit={handleVerifyAndRegister} className="flex flex-col flex-1">
-            <div className="mb-8">
+            <div className="mb-6">
               <OtpInput value={otp} onChange={setOtp} length={6} disabled={isRegistering} />
             </div>
 
             <div className="mt-2 mb-6">
               <Button 
                 type="submit" 
-                className="w-full bg-[#FF5A36] hover:bg-[#e04d2d] text-white rounded-2xl h-14 text-lg font-bold shadow-[0_8px_30px_rgba(255,90,54,0.2)] transition-all active:scale-[0.98]" 
+                className="w-full bg-[#FF5A36] hover:bg-[#e04d2d] text-white rounded-xl h-12 text-base font-bold shadow-[0_8px_30px_rgba(255,90,54,0.2)] transition-all active:scale-[0.98]" 
                 disabled={isRegistering || otp.length !== 6}
               >
                 {isRegistering ? 'Creating Account...' : 'Verify & Complete'}
@@ -273,7 +273,7 @@ export default function RegisterPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full h-14 rounded-2xl border-[#E5E2DC] bg-white hover:bg-[#FAF9F6] text-[#171717] font-bold text-base mb-6 transition-colors shadow-sm"
+              className="w-full h-12 rounded-xl border-[#E5E2DC] bg-white hover:bg-[#FAF9F6] text-[#171717] font-bold text-base mb-6 transition-colors shadow-sm"
               onClick={() => handleGoogleLogin()}
               disabled={isGoogleLoading}
             >

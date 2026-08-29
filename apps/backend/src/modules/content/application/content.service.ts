@@ -24,8 +24,15 @@ export class ContentService {
           data: data.media.map((m: any) => ({
             url: m.url,
             type: m.type,
-            postId: post.id
+            postId: post.id,
+            status: 'READY'
           }))
+        });
+      }
+      if (data.mediaIds && data.mediaIds.length > 0) {
+        await tx.mediaAsset.updateMany({
+          where: { id: { in: data.mediaIds } },
+          data: { postId: post.id }
         });
       }
 
@@ -70,8 +77,15 @@ export class ContentService {
           data: data.media.map((m: any) => ({
             url: m.url,
             type: m.type,
-            reelId: reel.id
+            reelId: reel.id,
+            status: 'READY'
           }))
+        });
+      }
+      if (data.mediaIds && data.mediaIds.length > 0) {
+        await tx.mediaAsset.updateMany({
+          where: { id: { in: data.mediaIds } },
+          data: { reelId: reel.id }
         });
       }
 

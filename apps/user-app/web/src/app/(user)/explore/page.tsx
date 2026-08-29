@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Heart, ShoppingCart, Search, Camera, TrendingUp, SlidersHorizontal, ChevronDown, MoreVertical, Star, BadgeCheck, LayoutGrid } from 'lucide-react';
-import { ExploreProductCard } from '@/components/explore/ExploreProductCard';
+import { ProductCard } from '@/components/ProductCard';
 import { MOCK_PRODUCTS as LIB_PRODUCTS } from '@/lib/mock/products';
 import { cn } from '@/lib/utils';
 
@@ -175,7 +175,7 @@ export default function ExplorePage() {
       {/* 7. Product Grid */}
       <div className="grid grid-cols-2 gap-3 p-4 bg-[#FAF9F6]">
         {MOCK_PRODUCTS.map((product) => (
-          <ExploreProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product} />
         ))}
       </div>
 

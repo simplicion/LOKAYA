@@ -8,22 +8,30 @@ export const getPresignedUrlSchema = z.object({
 });
 
 const mediaAssetSchema = z.object({
-  url: z.string().url(),
+  url: z.string(),
   type: z.enum(['IMAGE', 'VIDEO'])
 });
 
 export const createPostSchema = z.object({
   body: z.object({
     caption: z.string().optional().nullable(),
-    media: z.array(mediaAssetSchema).min(1, 'At least one media asset is required'),
+    media: z.array(mediaAssetSchema).optional(),
+    mediaIds: z.array(z.string().uuid()).optional(),
     productIds: z.array(z.string().uuid()).optional()
+  }).refine(data => (data.media && data.media.length > 0) || (data.mediaIds && data.mediaIds.length > 0), {
+    message: 'Either media or mediaIds is required',
+    path: ['media']
   })
 });
 
 export const createReelSchema = z.object({
   body: z.object({
     caption: z.string().optional().nullable(),
-    media: z.array(mediaAssetSchema).min(1, 'At least one media asset is required').max(1, 'Reels can only have one video'),
+    media: z.array(mediaAssetSchema).optional(),
+    mediaIds: z.array(z.string().uuid()).optional(),
     productIds: z.array(z.string().uuid()).optional()
+  }).refine(data => (data.media && data.media.length > 0) || (data.mediaIds && data.mediaIds.length > 0), {
+    message: 'Either media or mediaIds is required',
+    path: ['media']
   })
 });

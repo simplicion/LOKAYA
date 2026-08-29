@@ -85,12 +85,19 @@ export class CatalogService {
       category: data.category,
       categoryId: data.categoryId,
       sku: data.sku,
-      mrp: data.mrp,
-      sellingPrice: data.sellingPrice,
-      stockCount: data.stockCount,
+      mrp: data.mrp || 0,
+      sellingPrice: data.sellingPrice || 0,
+      stockCount: data.stockCount || 0,
       imageUrl: data.imageUrl,
       isActive: data.isActive,
-      qrUuid
+      qrUuid,
+      // V2 fields
+      productType: data.productType || 'PHYSICAL',
+      status: data.status || 'DRAFT',
+      hasVariants: data.hasVariants || false,
+      isAvailableForDelivery: data.isAvailableForDelivery ?? true,
+      isAvailableForPickup: data.isAvailableForPickup ?? true,
+      processingTime: data.processingTime
     };
 
     return await prisma.$transaction(async (tx) => {
@@ -98,22 +105,49 @@ export class CatalogService {
         data: productData
       });
 
-      // Handle variants if provided
-      if (data.variants && data.variants.length > 0) {
-        await tx.productVariant.createMany({
-          data: data.variants.map((v: any) => ({
+      // Handle media if provided
+      if (data.media && data.media.length > 0) {
+        await tx.productMedia.createMany({
+          data: data.media.map((m: any) => ({
             productId: product.id,
-            name: v.name,
-            sku: v.sku,
-            price: v.price,
-            stockCount: v.stockCount
+            url: m.url,
+            type: m.type,
+            isPrimary: m.isPrimary,
+            displayOrder: m.displayOrder
           }))
         });
       }
 
+      // Handle variants if provided
+      if (data.variants && data.variants.length > 0) {
+        // Create variants
+        for (const v of data.variants) {
+          const variant = await tx.productVariant.create({
+            data: {
+              productId: product.id,
+              name: v.name,
+              sku: v.sku,
+              price: v.price,
+              stockCount: v.stockCount,
+              status: 'ACTIVE'
+            }
+          });
+          
+          // Also create initial inventory for each variant
+          await tx.inventory.create({
+            data: {
+              variantId: variant.id,
+              available: v.stockCount,
+              reserved: 0,
+              threshold: 5
+            }
+          });
+        }
+      }
+
       return await tx.product.findUnique({
         where: { id: product.id },
-        include: { variants: true }
+        include: { variants: true, media: true }
       });
     });
   }
@@ -124,7 +158,7 @@ export class CatalogService {
       throw new AppError('Product not found', 404);
     }
 
-    const { variants, ...updateData } = data;
+    const { variants, media, ...updateData } = data;
 
     return await prisma.$transaction(async (tx) => {
       // Update core product details
@@ -132,6 +166,22 @@ export class CatalogService {
         where: { id },
         data: updateData
       });
+
+      // Handle media update (delete all old, insert new)
+      if (media) {
+        await tx.productMedia.deleteMany({ where: { productId: id } });
+        if (media.length > 0) {
+          await tx.productMedia.createMany({
+            data: media.map((m: any) => ({
+              productId: id,
+              url: m.url,
+              type: m.type,
+              isPrimary: m.isPrimary,
+              displayOrder: m.displayOrder
+            }))
+          });
+        }
+      }
 
       // Handle variants update (upsert)
       if (variants) {
@@ -160,13 +210,22 @@ export class CatalogService {
               }
             });
           } else {
-            await tx.productVariant.create({
+            const newVar = await tx.productVariant.create({
               data: {
                 productId: id,
                 name: variant.name,
                 sku: variant.sku,
                 price: variant.price,
-                stockCount: variant.stockCount
+                stockCount: variant.stockCount,
+                status: 'ACTIVE'
+              }
+            });
+            await tx.inventory.create({
+              data: {
+                variantId: newVar.id,
+                available: variant.stockCount,
+                reserved: 0,
+                threshold: 5
               }
             });
           }
@@ -175,7 +234,7 @@ export class CatalogService {
 
       return await tx.product.findUnique({
         where: { id },
-        include: { variants: true }
+        include: { variants: true, media: true }
       });
     });
   }
@@ -183,7 +242,7 @@ export class CatalogService {
   static async getProductsByStore(storeId: string) {
     return await prisma.product.findMany({
       where: { storeId },
-      include: { variants: true },
+      include: { variants: true, media: true },
       orderBy: { createdAt: 'desc' }
     });
   }
@@ -193,6 +252,7 @@ export class CatalogService {
       where: { qrUuid },
       include: { 
         variants: true,
+        media: true,
         store: {
           select: {
             id: true,

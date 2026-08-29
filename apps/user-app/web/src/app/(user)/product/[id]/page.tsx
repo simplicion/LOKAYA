@@ -67,14 +67,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         
         <div className="h-4 bg-gray-50"></div>
         
-        {/* 9. About the Store footer summary */}
-        <div className="px-4 py-6">
-          <h3 className="font-bold text-gray-900 text-[15px] mb-4">About the Store</h3>
-          <StoreHeader store={product.store} />
-          <div className="mt-3 text-sm text-gray-500">
-            {product.store.positivePercentage} Positive Seller Ratings
-          </div>
-        </div>
       </div>
 
       {/* 10. Sticky Bottom Bar */}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Share2, Star, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
+import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
 import { use } from 'react';
 
 // Dummy data
@@ -41,6 +42,7 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const router = useRouter();
   
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   const filteredProducts = selectedCategory 
     ? PRODUCTS.filter(p => p.category === selectedCategory)
@@ -60,7 +62,10 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
             <button onClick={() => router.back()} className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 active:bg-white/30 transition">
               <ArrowLeft className="w-5 h-5" strokeWidth={2.5} />
             </button>
-            <button className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 active:bg-white/30 transition">
+            <button 
+              onClick={() => setIsShareOpen(true)}
+              className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 active:bg-white/30 transition"
+            >
               <Share2 className="w-5 h-5" strokeWidth={2.5} />
             </button>
           </div>
@@ -69,15 +74,15 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
         {/* Store Info Profile Section */}
         <div className="relative px-4 pb-6 bg-white border-b border-gray-100 shadow-sm">
           {/* Logo overlapping the banner */}
-          <div className="relative w-24 h-24 -mt-12 mb-3 rounded-full bg-white p-1 shadow-md">
+          <div className="relative w-24 h-24 -mt-12 mb-3 rounded-full bg-white p-1 shadow-md flex-shrink-0">
             <img src={STORE.avatar} alt={STORE.name} className="w-full h-full rounded-full object-cover border-2 border-white" />
           </div>
 
-          <div className="flex justify-between items-start">
-            <div className="w-full">
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-1.5">
+          <div className="flex justify-between items-start gap-2">
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-1.5 leading-tight">
                 {STORE.name}
-                <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-50" />
+                <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-50 flex-shrink-0" />
               </h2>
               <p className="text-gray-500 text-sm mt-1">{STORE.address} • {STORE.category}</p>
               
@@ -91,6 +96,9 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
                 </div>
               </div>
             </div>
+            <button className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 hover:bg-indigo-100 transition-colors whitespace-nowrap flex-shrink-0 mt-1">
+              Visit Profile
+            </button>
           </div>
         </div>
 
@@ -150,11 +158,15 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
               filteredProducts.map(product => (
                 <ProductCard 
                   key={product.id} 
-                  id={product.id}
-                  name={product.title} 
-                  image={product.image} 
-                  price={product.price}
-                  storeName={product.store}
+                  product={{
+                    id: product.id,
+                    title: product.title,
+                    image: product.image,
+                    price: product.price.toString(),
+                    store: { name: product.store, isVerified: true },
+                    rating: '4.5',
+                    reviews: '(0)'
+                  }}
                 />
               ))
             ) : (
@@ -166,6 +178,12 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
         </div>
 
       </div>
+
+      <ShareBottomSheet 
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        title={`Check out ${STORE.name} on Lokaya!`}
+      />
     </div>
   );
 }
