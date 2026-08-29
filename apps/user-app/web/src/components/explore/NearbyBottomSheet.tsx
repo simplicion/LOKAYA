@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, SlidersHorizontal, MapPin, Heart, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { StoreCard, Store } from '@/components/StoreCard';
 
 const CATEGORIES = [
   { id: 'all', label: 'All' },
@@ -11,6 +12,31 @@ const CATEGORIES = [
   { id: 'beauty', label: 'Beauty' },
   { id: 'electronics', label: 'Electronics' },
   { id: 'food', label: 'Food' },
+];
+
+const MOCK_STORES: Store[] = [
+  {
+    id: '1',
+    name: 'Urban Threads',
+    image: 'https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?q=80&w=200&auto=format&fit=crop',
+    isOpen: true,
+    rating: 4.8,
+    reviews: 230,
+    category: "Men's Fashion",
+    distance: '0.6 km away',
+    productCount: 12
+  },
+  {
+    id: '2',
+    name: 'Luxe Beauty',
+    image: 'https://images.unsplash.com/photo-1571781537459-07446554b574?q=80&w=200&auto=format&fit=crop',
+    isOpen: true,
+    rating: 4.7,
+    reviews: 186,
+    category: "Beauty & Skincare",
+    distance: '0.8 km away',
+    productCount: 24
+  }
 ];
 
 export function NearbyBottomSheet() {
@@ -95,60 +121,10 @@ export function NearbyBottomSheet() {
             </div>
           </div>
 
-          {/* Store Card 1 */}
-          <div className="bg-white rounded-2xl p-3 flex gap-4 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] relative group" onClick={() => router.push('/store/1')}>
-             <div className="w-[84px] h-[92px] bg-gray-100 rounded-xl overflow-hidden shrink-0 border border-black/5">
-               <img src="https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?q=80&w=200&auto=format&fit=crop" className="w-full h-full object-cover" alt="Store" />
-             </div>
-             <div className="flex flex-col justify-center flex-1 py-1">
-               <div className="flex items-center gap-2">
-                 <h3 className="font-bold text-[14px] text-gray-900">Urban Threads</h3>
-                 <span className="text-[8px] font-bold text-green-700 bg-green-100/80 px-1.5 py-0.5 rounded-sm uppercase tracking-widest">Open</span>
-               </div>
-               <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 font-medium">
-                 <span className="text-amber-500 font-bold tracking-tight">★ 4.8</span> (230) <span className="text-gray-300 text-[8px]">●</span> Men's Fashion
-               </p>
-               <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1 font-medium">
-                 <MapPin className="w-[11px] h-[11px]" /> 0.6 km away
-               </p>
-               <div className="mt-2.5">
-                 <span className="text-[9px] font-bold text-[#FF5A36] bg-[#FF5A36]/10 px-2 py-1 rounded tracking-wide">12 Products</span>
-               </div>
-             </div>
-             <button className="absolute top-3 right-3 text-gray-300 hover:text-red-500 transition-colors" onClick={(e) => e.stopPropagation()}>
-               <Heart className="w-4 h-4" strokeWidth={2.5} />
-             </button>
-             <button className="absolute bottom-3 right-3 text-gray-300">
-               <ChevronRight className="w-[18px] h-[18px]" strokeWidth={2.5} />
-             </button>
-          </div>
-
-          {/* Store Card 2 */}
-          <div className="bg-white rounded-2xl p-3 flex gap-4 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] relative group" onClick={() => router.push('/store/2')}>
-             <div className="w-[84px] h-[92px] bg-gray-100 rounded-xl overflow-hidden shrink-0 border border-black/5">
-               <img src="https://images.unsplash.com/photo-1571781537459-07446554b574?q=80&w=200&auto=format&fit=crop" className="w-full h-full object-cover" alt="Store" />
-             </div>
-             <div className="flex flex-col justify-center flex-1 py-1">
-               <div className="flex items-center gap-2">
-                 <h3 className="font-bold text-[14px] text-gray-900">Luxe Beauty</h3>
-                 <span className="text-[8px] font-bold text-green-700 bg-green-100/80 px-1.5 py-0.5 rounded-sm uppercase tracking-widest">Open</span>
-               </div>
-               <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 font-medium">
-                 <span className="text-amber-500 font-bold tracking-tight">★ 4.7</span> (186) <span className="text-gray-300 text-[8px]">●</span> Beauty & Skincare
-               </p>
-               <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1 font-medium">
-                 <MapPin className="w-[11px] h-[11px]" /> 0.8 km away
-               </p>
-               <div className="mt-2.5">
-                 <span className="text-[9px] font-bold text-[#FF5A36] bg-[#FF5A36]/10 px-2 py-1 rounded tracking-wide">24 Products</span>
-               </div>
-             </div>
-             <button className="absolute top-3 right-3 text-gray-300 hover:text-red-500 transition-colors" onClick={(e) => e.stopPropagation()}>
-               <Heart className="w-4 h-4" strokeWidth={2.5} />
-             </button>
-             <button className="absolute bottom-3 right-3 text-gray-300">
-               <ChevronRight className="w-[18px] h-[18px]" strokeWidth={2.5} />
-             </button>
+          <div className="flex flex-col gap-3">
+            {MOCK_STORES.map((store) => (
+              <StoreCard key={store.id} store={store} />
+            ))}
           </div>
           
           <div className="h-20" /> {/* Bottom spacer for scrolling past nav */}

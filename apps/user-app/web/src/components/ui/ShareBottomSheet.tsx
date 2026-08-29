@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, Copy, Check, MessageCircle, Instagram, Facebook } from 'lucide-react';
+import { X, Copy, Check, Share2, MessageCircle, Instagram, Facebook } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ShareBottomSheetProps {
@@ -48,7 +48,32 @@ export function ShareBottomSheet({ isOpen, onClose, url = '', title = 'Check thi
     }
   };
 
+  
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Check out this post on Snapick',
+          url: url
+        });
+        onClose();
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      handleCopy();
+    }
+  };
+
   const shareOptions = [
+    {
+      id: 'native',
+      name: 'Share via...',
+      icon: <Share2 className="w-6 h-6 text-white" />,
+      bg: 'bg-[#FF5A36]',
+      textColor: 'text-[#171717]',
+      onClick: handleNativeShare
+    },
     {
       id: 'whatsapp',
       name: 'WhatsApp',
@@ -78,7 +103,7 @@ export function ShareBottomSheet({ isOpen, onClose, url = '', title = 'Check thi
     {
       id: 'copy',
       name: isCopied ? 'Copied!' : 'Copy Link',
-      icon: isCopied ? <Check className="w-6 h-6 text-gray-700" /> : <Copy className="w-6 h-6 text-gray-700" />,
+      icon: isCopied ? <Check className="w-6 h-6 text-[#FF5A36]" /> : <Copy className="w-6 h-6 text-[#FF5A36]" />,
       bg: 'bg-gray-100 border border-gray-200',
       textColor: 'text-gray-900',
       onClick: handleCopy

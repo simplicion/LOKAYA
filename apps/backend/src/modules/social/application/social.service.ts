@@ -150,4 +150,40 @@ export class SocialService {
       }
     });
   }
+  // ==========================================
+  // Likes List
+  // ==========================================
+
+  static async getPostLikes(postId: string) {
+    return await prisma.like.findMany({
+      where: { postId },
+      include: {
+        user: { select: { id: true, name: true, avatarUrl: true } }
+      }
+    });
+  }
+
+  static async getReelLikes(reelId: string) {
+    return await prisma.like.findMany({
+      where: { reelId },
+      include: {
+        user: { select: { id: true, name: true, avatarUrl: true } }
+      }
+    });
+  }
+
+  // ==========================================
+  // Reporting
+  // ==========================================
+
+  static async reportContent(userId: string, targetId: string, targetType: 'POST' | 'REEL', reason: string) {
+    return await prisma.report.create({
+      data: {
+        userId,
+        reason,
+        ...(targetType === 'POST' ? { postId: targetId } : { reelId: targetId })
+      }
+    });
+  }
+
 }

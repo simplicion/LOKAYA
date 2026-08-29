@@ -28,7 +28,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment'],
+  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist'],
   endpoints: (builder) => ({
     checkAuth: builder.query<any, void>({
       query: () => '/identity/me',
@@ -128,7 +128,15 @@ export const api = createApi({
     }),
     getPresignedUrl: builder.mutation<any, any>({
       query: (body) => ({
-        url: `/content/upload/presigned-url`,
+        url: '/media/presigned-url',
+        method: 'POST',
+        body,
+      }),
+    }),
+
+    processMedia: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/media/process',
         method: 'POST',
         body,
       }),
@@ -196,6 +204,24 @@ export const api = createApi({
       }),
       invalidatesTags: ['Category'],
     }),
+    // New Global Search
+    searchGlobal: builder.query<{ users: any[], stores: any[], products: any[] }, string>({
+      query: (q) => `/search?q=${encodeURIComponent(q)}`,
+    }),
+    
+    // Wishlist
+    getWishlist: builder.query<{ success: boolean; data: any[] }, void>({
+      query: () => '/wishlist',
+      providesTags: ['Wishlist'],
+    }),
+    toggleWishlist: builder.mutation<{ success: boolean; data: { status: string } }, { productId: string }>({
+      query: (body) => ({
+        url: '/wishlist/toggle',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Wishlist'],
+    }),
     
     // New Content & Social Endpoints (Phase 1)
     createPost: builder.mutation<any, any>({
@@ -256,6 +282,32 @@ export const api = createApi({
       query: (reelId) => `/social/comment/reel/${reelId}`,
       providesTags: ['Comment'],
     }),
+
+    getPostComments: builder.query<any[], string>({
+      query: (postId) => `/social/comment/post/${postId}`,
+      providesTags: ['Comment'],
+    }),
+    addPostComment: builder.mutation<any, { postId: string; content: string }>({
+      query: ({ postId, content }) => ({
+        url: `/social/comment/post/${postId}`,
+        method: 'POST',
+        body: { content },
+      }),
+      invalidatesTags: ['Comment'],
+    }),
+    getPostLikes: builder.query<any[], string>({
+      query: (postId) => `/social/like/post/${postId}`,
+    }),
+    getReelLikes: builder.query<any[], string>({
+      query: (reelId) => `/social/like/reel/${reelId}`,
+    }),
+    reportContent: builder.mutation<any, { targetId: string; targetType: 'POST' | 'REEL'; reason: string }>({
+      query: (body) => ({
+        url: '/social/report',
+        method: 'POST',
+        body,
+      }),
+    }),
     addReelComment: builder.mutation<any, { reelId: string; content: string }>({
       query: ({ reelId, content }) => ({
         url: `/social/comment/reel/${reelId}`,
@@ -300,9 +352,18 @@ export const {
   useCreateReelMutation,
   useGetReelsQuery,
   useGetPostsQuery,
+  useGetWishlistQuery,
+  useToggleWishlistMutation,
   useLikeReelMutation,
   useLikePostMutation,
   useFollowUserMutation,
+  useSearchGlobalQuery,
   useGetReelCommentsQuery,
-  useAddReelCommentMutation
+  useAddReelCommentMutation,
+
+  useGetPostCommentsQuery,
+  useAddPostCommentMutation,
+  useGetPostLikesQuery,
+  useGetReelLikesQuery,
+  useReportContentMutation,
 } = api;

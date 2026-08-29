@@ -3,6 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Search, X, Clock, MapPin, Store, ShoppingBag } from 'lucide-react';
+import { useSearchGlobalQuery } from '@/lib/api';
+import { StoreProfileCard } from '@/components/StoreProfileCard';
+import { StoreCard } from '@/components/StoreCard';
+import { ProductCard } from '@/components/ProductCard';
 
 const SEARCH_FILTERS = [
   { id: 'all', label: 'All', icon: Search },
@@ -21,6 +25,7 @@ const RECENT_SEARCHES = [
 export default function SearchPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -31,10 +36,95 @@ export default function SearchPage() {
     }
   }, []);
 
+  // Debounce the search query to prevent hitting the API on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 400); // 400ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const { data: searchResponse, isLoading, isFetching } = useSearchGlobalQuery(debouncedQuery, {
+    skip: debouncedQuery.length < 2,
+  });
+
+  const searchData = searchResponse || { users: [], stores: [], products: [] };
+  const showResults = debouncedQuery.length >= 2;
+  const isSearchLoading = isLoading || isFetching;
+
+  // Filter results based on active tab
+  const renderResults = () => {
+    if (isSearchLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[50vh] text-center">
+          <div className="w-16 h-16 bg-[#F2EFE9] rounded-full flex items-center justify-center mb-4 animate-pulse">
+            <Search className="w-8 h-8 text-[#999999]" />
+          </div>
+          <h3 className="text-[16px] font-bold text-[#171717] mb-1">Searching...</h3>
+        </div>
+      );
+    }
+
+    const { users, stores, products } = searchData;
+    
+    if (users.length === 0 && stores.length === 0 && products.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[50vh] text-center">
+          <div className="w-16 h-16 bg-[#F2EFE9] rounded-full flex items-center justify-center mb-4">
+            <Search className="w-8 h-8 text-[#999999]" />
+          </div>
+          <h3 className="text-[16px] font-bold text-[#171717] mb-1">No results found</h3>
+          <p className="text-[13px] text-[#6B6B6B] max-w-[250px]">
+            Try adjusting your search or using different keywords.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col gap-6 pb-20">
+        {/* Users (Profiles) */}
+        {activeFilter === 'all' && users.length > 0 && (
+          <div>
+            <h4 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">Profiles</h4>
+            {users.map((user: any) => (
+              <StoreProfileCard key={`user-${user.id}`} type="user" data={user} />
+            ))}
+          </div>
+        )}
+
+        {/* Stores */}
+        {(activeFilter === 'all' || activeFilter === 'stores' || activeFilter === 'brands') && stores.length > 0 && (
+          <div>
+            <h4 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">Stores</h4>
+            <div className="flex flex-col gap-3">
+              {stores.map((store: any) => (
+                <StoreProfileCard key={`store-${store.id}`} type="store" data={store} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Products */}
+        {(activeFilter === 'all' || activeFilter === 'products') && products.length > 0 && (
+          <div>
+            <h4 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">Products</h4>
+            <div className="grid grid-cols-2 gap-3">
+              {products.map((product: any) => (
+                <ProductCard key={`prod-${product.id}`} product={product}  />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col min-h-screen bg-[#FDFCF8]">
       {/* Header with Search Input */}
-      <div className="flex items-center gap-3 px-4 pt-4 pb-3 sticky top-0 bg-white z-50 border-b border-[#E5E2DC]">
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3 sticky top-0 bg-[#FDFCF8] z-50 border-b border-[#E5E2DC]">
         <button 
           onClick={() => router.back()}
           className="w-10 h-10 flex items-center justify-center -ml-2 text-[#171717]"
@@ -54,7 +144,10 @@ export default function SearchPage() {
           />
           {searchQuery && (
             <button 
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setDebouncedQuery('');
+              }}
               className="w-6 h-6 flex items-center justify-center rounded-full bg-[#E5E2DC] text-[#171717]"
             >
               <X className="w-4 h-4" />
@@ -64,7 +157,7 @@ export default function SearchPage() {
       </div>
 
       {/* Chips Filter */}
-      <div className="pt-3 pb-3 border-b border-[#E5E2DC]">
+      <div className="pt-3 pb-3 border-b border-[#E5E2DC] bg-white">
         <div className="flex overflow-x-auto no-scrollbar px-4 gap-2">
           {SEARCH_FILTERS.map((filter) => {
             const Icon = filter.icon;
@@ -89,7 +182,7 @@ export default function SearchPage() {
 
       {/* Content Area */}
       <div className="flex-1 p-4">
-        {!searchQuery ? (
+        {!showResults ? (
           /* Recent Searches */
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -113,16 +206,7 @@ export default function SearchPage() {
             </div>
           </div>
         ) : (
-          /* Search Results Placeholder */
-          <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-            <div className="w-16 h-16 bg-[#F2EFE9] rounded-full flex items-center justify-center mb-4">
-              <Search className="w-8 h-8 text-[#999999]" />
-            </div>
-            <h3 className="text-[16px] font-bold text-[#171717] mb-1">Searching for "{searchQuery}"</h3>
-            <p className="text-[13px] text-[#6B6B6B] max-w-[250px]">
-              We are looking across {SEARCH_FILTERS.find(f => f.id === activeFilter)?.label.toLowerCase()} for the best matches.
-            </p>
-          </div>
+          renderResults()
         )}
       </div>
     </div>

@@ -4,6 +4,12 @@ import React, { useState } from 'react';
 import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProductOverlayCard } from './ProductOverlayCard';
+import { ShareBottomSheet } from '../ui/ShareBottomSheet';
+import { LikesBottomSheet } from '../ui/LikesBottomSheet';
+import { CommentsBottomSheet } from '../ui/CommentsBottomSheet';
+import { ReportBottomSheet } from '../ui/ReportBottomSheet';
+import { OptionsBottomSheet } from '../ui/OptionsBottomSheet';
+
 
 export interface SocialPostProps {
   id: string;
@@ -33,6 +39,7 @@ export interface SocialPostProps {
 }
 
 export function SocialPost({
+  id,
   storeName,
   storeAvatar,
   isVerified,
@@ -47,7 +54,16 @@ export function SocialPost({
   likedByAvatars,
   product,
 }: SocialPostProps) {
+
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isLikesOpen, setIsLikesOpen] = useState(false);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  
+  const postUrl = typeof window !== 'undefined' ? `${window.location.origin}/post/${id}` : '';
+
 
   return (
     <div className="flex flex-col w-full bg-white mb-6 border-b border-[#E5E2DC] pb-4">
@@ -71,7 +87,7 @@ export function SocialPost({
             <span className="text-[#6B6B6B] text-[11px] font-medium mt-0.5">{timeAgo}</span>
           </div>
         </div>
-        <button className="text-[#171717] p-1">
+        <button onClick={() => setIsOptionsOpen(true)} className="text-[#171717] p-1 active:bg-gray-100 rounded-full transition-colors">
           <MoreHorizontal className="w-5 h-5" />
         </button>
       </div>
@@ -147,15 +163,15 @@ export function SocialPost({
       {/* Actions Row */}
       <div className="flex items-center justify-between px-4 mt-4">
         <div className="flex items-center gap-5">
-          <button className="flex items-center gap-1.5 group">
+          <button onClick={() => setIsLikesOpen(true)} className="flex items-center gap-1.5 group">
             <Heart className="w-6 h-6 text-[#171717] group-active:scale-90 transition-transform" strokeWidth={1.5} />
             <span className="font-bold text-[13px] text-[#171717] tabular-nums">{likes}</span>
           </button>
-          <button className="flex items-center gap-1.5 group">
+          <button onClick={() => setIsCommentsOpen(true)} className="flex items-center gap-1.5 group">
             <MessageCircle className="w-6 h-6 text-[#171717] group-active:scale-90 transition-transform" strokeWidth={1.5} />
             <span className="font-bold text-[13px] text-[#171717] tabular-nums">{comments}</span>
           </button>
-          <button className="flex items-center gap-1.5 group">
+          <button onClick={() => setIsShareOpen(true)} className="flex items-center gap-1.5 group">
             <Send className="w-6 h-6 text-[#171717] group-active:scale-90 transition-transform" strokeWidth={1.5} />
             <span className="font-bold text-[13px] text-[#171717] tabular-nums">{shares}</span>
           </button>
@@ -175,8 +191,8 @@ export function SocialPost({
         </p>
         
         {likedByText && likedByAvatars && (
-          <div className="flex items-center gap-2 mt-2">
-            <div className="flex -space-x-1.5">
+          <button onClick={() => setIsLikesOpen(true)} className="flex items-center gap-2 mt-2 group">
+            <div className="flex -space-x-1.5 group-active:scale-95 transition-transform">
               {likedByAvatars.map((av, idx) => (
                 <div key={idx} className="w-5 h-5 rounded-full border border-white overflow-hidden">
                   <img src={av} alt="Liked by" className="w-full h-full object-cover" />
@@ -184,9 +200,14 @@ export function SocialPost({
               ))}
             </div>
             <span className="text-[#171717] text-[12px] font-medium">{likedByText}</span>
-          </div>
+          </button>
         )}
       </div>
+      <ShareBottomSheet isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} url={postUrl} />
+      <LikesBottomSheet isOpen={isLikesOpen} onClose={() => setIsLikesOpen(false)} targetId={id} type="post" />
+      <CommentsBottomSheet isOpen={isCommentsOpen} onClose={() => setIsCommentsOpen(false)} targetId={id} type="post" />
+      <ReportBottomSheet isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} targetId={id} type="post" />
+      <OptionsBottomSheet isOpen={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} url={postUrl} onReport={() => setIsReportOpen(true)} />
     </div>
   );
 }

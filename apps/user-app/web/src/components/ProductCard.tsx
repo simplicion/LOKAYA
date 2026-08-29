@@ -2,9 +2,10 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Heart, Star, Plus } from 'lucide-react';
+import { Bookmark, Star } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '@/lib/features/cartSlice';
+import { useGetWishlistQuery, useToggleWishlistMutation } from '@/lib/api';
 import { RootState } from '@/lib/store';
 
 export interface ProductCardProps {
@@ -29,6 +30,21 @@ export function ProductCard({ product }: ProductCardProps) {
   // Find if item is already in cart to show count or just "Add"
   const cartItem = cartItems.find(item => item.id === product.id);
   const quantity = cartItem?.quantity || 0;
+
+  const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: false }); // Or skip if not logged in
+  const [toggleWishlist] = useToggleWishlistMutation();
+
+  const isSaved = wishlistData?.data?.some((item: any) => item.productId === product.id);
+
+  const handleToggleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await toggleWishlist({ productId: product.id }).unwrap();
+    } catch (error) {
+      console.error('Failed to toggle wishlist', error);
+    }
+  };
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -55,8 +71,14 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         )}
         
-        <button onClick={(e) => e.preventDefault()} className="absolute top-3 right-3 p-2 z-10 bg-white/70 backdrop-blur-md rounded-full hover:bg-white transition-colors shadow-sm text-gray-500 hover:text-red-500">
-          <Heart className="w-[18px] h-[18px] transition-colors" strokeWidth={2} />
+        <button 
+          onClick={handleToggleWishlist} 
+          className="absolute top-3 right-3 p-2 z-10 bg-white/70 backdrop-blur-md rounded-full hover:bg-white transition-colors shadow-sm text-gray-500 hover:text-black"
+        >
+          <Bookmark 
+            className={`w-[18px] h-[18px] transition-colors ${isSaved ? 'fill-black text-black' : ''}`} 
+            strokeWidth={2} 
+          />
         </button>
       </div>
       
@@ -76,7 +98,7 @@ export function ProductCard({ product }: ProductCardProps) {
           {product.title}
         </h3>
         
-        <div className="mt-auto flex items-end justify-between gap-2">
+        <div className="mt-auto flex flex-col gap-3">
           {/* Pricing */}
           <div className="flex flex-col gap-1">
             {product.discount && (
@@ -91,11 +113,11 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
           
           {/* Add to Cart Button */}
-          <div className="flex-shrink-0">
+          <div className="w-full">
             {quantity > 0 ? (
-              <div className="flex items-center justify-between bg-[#FF6B00] text-white rounded-xl h-8 w-[76px] shadow-sm shadow-[#FF6B00]/20 overflow-hidden" onClick={(e) => e.preventDefault()}>
+              <div className="flex items-center justify-between bg-[#FF6B00] text-white rounded-xl h-9 w-full shadow-sm shadow-[#FF6B00]/20 overflow-hidden" onClick={(e) => e.preventDefault()}>
                 <button 
-                  className="w-7 h-full flex items-center justify-center hover:bg-black/15 active:bg-black/25 transition-colors"
+                  className="w-10 h-full flex items-center justify-center hover:bg-black/15 active:bg-black/25 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (quantity > 1) {
@@ -105,11 +127,11 @@ export function ProductCard({ product }: ProductCardProps) {
                     }
                   }}
                 >
-                  <span className="text-[16px] font-bold leading-none mb-0.5">-</span>
+                  <span className="text-[18px] font-bold leading-none mb-0.5">-</span>
                 </button>
-                <span className="font-bold text-[13px]">{quantity}</span>
+                <span className="font-bold text-[14px]">{quantity}</span>
                 <button 
-                  className="w-7 h-full flex items-center justify-center hover:bg-black/15 active:bg-black/25 transition-colors"
+                  className="w-10 h-full flex items-center justify-center hover:bg-black/15 active:bg-black/25 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     dispatch(addToCart({
@@ -121,13 +143,13 @@ export function ProductCard({ product }: ProductCardProps) {
                     }));
                   }}
                 >
-                  <span className="text-[15px] font-bold leading-none mb-0.5">+</span>
+                  <span className="text-[18px] font-bold leading-none mb-0.5">+</span>
                 </button>
               </div>
             ) : (
               <button 
                 onClick={handleAddToCart}
-                className="h-8 px-4 bg-white border border-gray-200 text-[#FF6B00] font-bold text-[12px] tracking-wide rounded-xl hover:border-[#FF6B00] hover:bg-[#FF6B00]/5 hover:shadow-sm transition-all active:scale-95 flex items-center justify-center"
+                className="w-full h-9 px-4 bg-white border border-gray-200 text-[#FF6B00] font-bold text-[13px] tracking-wide rounded-xl hover:border-[#FF6B00] hover:bg-[#FF6B00]/5 hover:shadow-sm transition-all active:scale-95 flex items-center justify-center"
               >
                 ADD
               </button>

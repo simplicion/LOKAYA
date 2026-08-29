@@ -29,6 +29,7 @@ export default function CreatePostPage() {
   
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<{url: string, type: string}[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -139,7 +140,7 @@ export default function CreatePostPage() {
         <button 
           onClick={handleShare}
           disabled={mediaPreviews.length === 0 || isPosting}
-          className="bg-blue-600 text-white px-4 py-1.5 rounded-full font-semibold text-sm disabled:opacity-50 disabled:bg-gray-200 disabled:text-gray-500 transition-colors flex items-center gap-2"
+          className="bg-[#FF5A36] text-white px-4 py-1.5 rounded-full font-semibold text-sm disabled:opacity-50 disabled:bg-gray-200 disabled:text-gray-500 transition-colors flex items-center gap-2"
         >
           {isPosting && <Loader2 className="w-4 h-4 animate-spin" />}
           {isPosting ? 'Posting...' : 'Share'}
@@ -171,44 +172,71 @@ export default function CreatePostPage() {
         </div>
 
         {/* Media Upload Area */}
-        <div className="px-4 mb-4">
+        <div className="px-4 mb-4 relative group">
           {mediaPreviews.length > 0 ? (
-            <div className={cn(
-              "flex overflow-x-auto snap-x snap-mandatory no-scrollbar rounded-2xl bg-[#F9F6F0] overflow-hidden shadow-inner",
-              isReel ? "aspect-[9/16]" : "aspect-[4/5]"
-            )}>
-              {mediaPreviews.map((preview, index) => (
-                <div key={index} className="w-full shrink-0 relative snap-center flex items-center justify-center">
-                  {preview.type === 'video' ? (
-                    <video src={preview.url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
-                  ) : (
-                    <img src={preview.url} alt="Preview" className="w-full h-full object-cover" />
-                  )}
-                  <button 
-                    onClick={() => removeMedia(index)}
-                    className="absolute top-3 right-3 bg-black/60 backdrop-blur-md p-2 rounded-full text-white z-10 hover:bg-black/80 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+            <>
+              <div 
+                className={cn(
+                  "flex overflow-x-auto snap-x snap-mandatory no-scrollbar rounded-2xl bg-[#F9F6F0] overflow-hidden shadow-inner",
+                  isReel ? "aspect-[9/16]" : "aspect-[4/5]"
+                )}
+                onScroll={(e) => {
+                  const width = e.currentTarget.clientWidth;
+                  const scrollLeft = e.currentTarget.scrollLeft;
+                  setActiveIndex(Math.round(scrollLeft / width));
+                }}
+              >
+                {mediaPreviews.map((preview, index) => (
+                  <div key={index} className="w-full shrink-0 relative snap-center flex items-center justify-center">
+                    {mediaPreviews.length > 1 && (
+                      <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[11px] font-bold z-10">
+                        {index + 1} / {mediaPreviews.length}
+                      </div>
+                    )}
+                    {preview.type === 'video' ? (
+                      <video src={preview.url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                    ) : (
+                      <img src={preview.url} alt="Preview" className="w-full h-full object-cover" />
+                    )}
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        removeMedia(index);
+                      }}
+                      className="absolute top-3 right-3 bg-black/60 backdrop-blur-md p-2 rounded-full text-white z-10 hover:bg-black/80 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                
+                {!isReel && mediaPreviews.length < 10 && (
+                   <label className="w-full shrink-0 relative snap-center flex flex-col items-center justify-center cursor-pointer bg-[#F9F9F9] hover:bg-gray-100 transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-2">
+                        <Plus className="w-6 h-6 text-[#171717]" />
+                      </div>
+                      <span className="text-sm font-semibold text-[#171717]">Add More</span>
+                      <input 
+                        type="file" 
+                        accept="image/*,video/*"
+                        multiple
+                        className="hidden" 
+                        onChange={handleMediaChange}
+                      />
+                   </label>
+                )}
+              </div>
               
-              {!isReel && mediaPreviews.length < 10 && (
-                 <label className="w-full shrink-0 relative snap-center flex flex-col items-center justify-center cursor-pointer bg-[#F9F9F9] hover:bg-gray-100 transition-colors">
-                    <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-2">
-                      <Plus className="w-6 h-6 text-[#171717]" />
-                    </div>
-                    <span className="text-sm font-semibold text-[#171717]">Add More</span>
-                    <input 
-                      type="file" 
-                      accept="image/*,video/*"
-                      multiple
-                      className="hidden" 
-                      onChange={handleMediaChange}
-                    />
-                 </label>
+              {/* Pagination Dots */}
+              {(mediaPreviews.length > 1 || (!isReel && mediaPreviews.length > 0 && mediaPreviews.length < 10)) && (
+                <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
+                  {Array.from({ length: mediaPreviews.length + (!isReel && mediaPreviews.length < 10 ? 1 : 0) }).map((_, i) => (
+                    <div key={i} className={cn("h-1.5 rounded-full transition-all duration-300 shadow-sm", i === activeIndex ? "bg-white w-3" : "bg-white/60 w-1.5")} />
+                  ))}
+                </div>
               )}
-            </div>
+            </>
           ) : (
             <div className={cn(
               "flex items-center justify-center relative rounded-2xl border-2 border-dashed border-gray-200 bg-[#F9F9F9] hover:bg-gray-50 transition-colors",

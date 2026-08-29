@@ -90,11 +90,13 @@ model User {
   reels        Reel[]
   likes        Like[]
   comments     Comment[]
+  reports      Report[]
   
   followers    Follow[] @relation("UserFollowers")
   following    Follow[] @relation("UserFollowing")
   
   reviews      Review[]
+  wishlistItems WishlistItem[]
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -190,6 +192,7 @@ model Product {
   cartItems     CartItem[]
   productLinks  ProductLink[]
   reviews       Review[] @relation("ProductReviews")
+  wishlistItems WishlistItem[]
 
   isActive      Boolean  @default(true) // Legacy status flag
   createdAt     DateTime @default(now())
@@ -423,6 +426,7 @@ model Post {
   productLinks ProductLink[]
   likes       Like[]
   comments    Comment[]
+  reports     Report[]
   
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -438,6 +442,7 @@ model Reel {
   productLinks ProductLink[]
   likes       Like[]
   comments    Comment[]
+  reports     Report[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -513,4 +518,34 @@ model Review {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  reason    String
+  userId    String
+  postId    String?
+  reelId    String?
+  status    String   @default("PENDING")
+
+  user      User     @relation(fields: [userId], references: [id])
+  post      Post?    @relation(fields: [postId], references: [id])
+  reel      Reel?    @relation(fields: [reelId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Wishlist
+model WishlistItem {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, productId])
 }

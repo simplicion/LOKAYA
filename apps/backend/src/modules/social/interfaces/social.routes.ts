@@ -42,6 +42,25 @@ router.post('/like/reel/:reelId', requireAuth, async (req: Request, res: Respons
 });
 
 // ==========================================
+
+router.get('/like/post/:postId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const likes = await SocialService.getPostLikes(req.params.postId);
+    res.status(200).json(likes);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/like/reel/:reelId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const likes = await SocialService.getReelLikes(req.params.reelId);
+    res.status(200).json(likes);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Comments
 // ==========================================
 
@@ -76,6 +95,21 @@ router.get('/comment/reel/:reelId', async (req: Request, res: Response, next: Ne
   try {
     const comments = await SocialService.getReelComments(req.params.reelId);
     res.status(200).json(comments);
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+// ==========================================
+// Reporting
+// ==========================================
+
+router.post('/report', requireAuth, validateRequest(require('../domain/schemas').reportSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { targetId, targetType, reason } = req.body;
+    const result = await SocialService.reportContent((req as any).user.id, targetId, targetType, reason);
+    res.status(201).json(result);
   } catch (error) {
     next(error);
   }

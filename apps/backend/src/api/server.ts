@@ -11,6 +11,9 @@ import { cartRoutes } from '../modules/cart/interfaces/cart.routes';
 import { orderRoutes } from '../modules/order/interfaces/order.routes';
 import { paymentRoutes } from '../modules/payment/interfaces/payment.routes';
 import { sellerRouter as sellerRoutes } from '../modules/seller/interfaces/seller.routes';
+import { mediaRouter } from '../modules/media/presentation/media.routes';
+import searchRoutes from '../modules/search/interfaces/search.routes';
+import { wishlistRoutes } from '../modules/wishlist/interfaces/wishlist.routes';
 import { initSocket } from './socket';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -56,6 +59,9 @@ export function startApiServer() {
   app.use('/api/v1/orders', orderRoutes);
   app.use('/api/v1/payments', paymentRoutes);
   app.use('/api/v1/seller', sellerRoutes);
+  app.use('/api/v1/media', mediaRouter);
+  app.use('/api/v1/search', searchRoutes);
+  app.use('/api/v1/wishlist', wishlistRoutes);
 
   app.get('/health', (req, res) => {
     res.json({ 
@@ -72,3 +78,5 @@ export function startApiServer() {
     console.log(`[API] Server is running on port ${port}`);
   });
 }
+
+// trigger nodemon restart
