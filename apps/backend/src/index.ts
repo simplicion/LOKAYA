@@ -1,8 +1,6 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import { startApiServer } from './api/server';
 import { startWorker } from './worker/processor';
-
-dotenv.config();
 
 console.log('Starting Unified Backend...');
 

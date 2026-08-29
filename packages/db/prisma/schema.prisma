@@ -312,12 +312,35 @@ model InventoryLog {
   createdAt DateTime @default(now())
 }
 
+// Coupon
+model Coupon {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  discountType  String    @default("PERCENTAGE") // PERCENTAGE or FIXED
+  discountValue Float
+  minCartValue  Float?
+  maxDiscount   Float?
+  validFrom     DateTime  @default(now())
+  validUntil    DateTime?
+  isActive      Boolean   @default(true)
+  usageLimit    Int?
+  usedCount     Int       @default(0)
+
+  carts         Cart[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
 // Cart
 model Cart {
   id        String     @id @default(uuid())
   userId    String
   user      User       @relation(fields: [userId], references: [id])
   
+  couponId  String?
+  coupon    Coupon?    @relation(fields: [couponId], references: [id])
+
   items     CartItem[]
 
   createdAt DateTime   @default(now())

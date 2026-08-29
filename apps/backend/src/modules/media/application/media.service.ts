@@ -5,15 +5,23 @@ import Redis from 'ioredis';
 import { prisma } from '@workspace/db';
 import { v4 as uuidv4 } from 'uuid';
 
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
+
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'ap-south-1',
+  region: 'auto',
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  forcePathStyle: true,
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
   }
 });
 
-const RAW_BUCKET = process.env.AWS_S3_RAW_BUCKET || 'snapick-raw-media';
+const RAW_BUCKET = process.env.R2_BUCKET_NAME || 'snapick';
 const redisConnection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 export const mediaQueue = new Queue('media-processing', { connection: redisConnection as any });
 

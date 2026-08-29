@@ -1,74 +1,41 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Filter, PlusCircle, MoreVertical, Star, Package } from 'lucide-react';
 import Image from 'next/image';
 import { SellerHeader } from '@/components/seller/SellerHeader';
-
-// Mock Data
-const MOCK_CATEGORIES = [
-  { id: 'all', name: 'All' },
-  { id: 'active', name: 'Active' },
-  { id: 'drafts', name: 'Drafts' },
-  { id: 'low_stock', name: 'Low Stock' },
-  { id: 'archived', name: 'Archived' }
-];
-
-const MOCK_PRODUCTS = [
-  {
-    id: 'TSH-BLK-M',
-    name: 'Premium Cotton T-Shirt',
-    price: 1499,
-    stock: 24,
-    rating: 4.8,
-    status: 'Active',
-    categoryId: 'active',
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=200&h=200'
-  },
-  {
-    id: 'AATA-5KG',
-    name: 'Aashirvaad Atta (5kg)',
-    price: 295,
-    stock: 20,
-    rating: 4.6,
-    status: 'Active',
-    categoryId: 'active',
-    image: 'https://images.unsplash.com/photo-1574316071802-0d684efa7ab5?auto=format&fit=crop&q=80&w=200&h=200'
-  },
-  {
-    id: 'OIL-1L',
-    name: 'Fortune Sunlite Oil (1L)',
-    price: 165,
-    stock: 5,
-    rating: 4.4,
-    status: 'Low Stock',
-    categoryId: 'low_stock',
-    image: 'https://images.unsplash.com/photo-1625937286074-9ca519d5d9df?auto=format&fit=crop&q=80&w=200&h=200'
-  },
-  {
-    id: 'BUT-100G',
-    name: 'Amul Butter (100g)',
-    price: 78,
-    stock: 15,
-    rating: 4.7,
-    status: 'Active',
-    categoryId: 'active',
-    image: 'https://images.unsplash.com/photo-1588195538326-c5b1e9f6e55c?auto=format&fit=crop&q=80&w=200&h=200'
-  }
-];
+import { 
+  useGetMyStoreQuery, 
+  useGetStoreProductsQuery, 
+  useGetStoreCategoriesQuery 
+} from '@/lib/api';
 
 export default function MyProductsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
 
-  // Filter Logic
-  const filteredProducts = MOCK_PRODUCTS.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory || p.status.toLowerCase().replace(' ', '_') === activeCategory;
-    return matchesSearch && matchesCategory;
+  // Fetch real data
+  const { data: storeData } = useGetMyStoreQuery();
+  const { data: products = [], isLoading: isLoadingProducts } = useGetStoreProductsQuery(storeData?.id ?? '', {
+    skip: !storeData?.id,
   });
+  const { data: categories = [], isLoading: isLoadingCategories } = useGetStoreCategoriesQuery(storeData?.id ?? '', {
+    skip: !storeData?.id,
+  });
+
+  // Filter Logic
+  const filteredProducts = useMemo(() => {
+    return products.filter((p: any) => {
+      const matchesSearch = 
+        (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || 
+        (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchQuery, activeCategory]);
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-white pb-24">
@@ -83,7 +50,19 @@ export default function MyProductsPage() {
       {/* Category Tags & Filter */}
       <div className="bg-white border-b border-[#E5E2DC] flex items-center justify-between px-4">
         <div className="flex overflow-x-auto no-scrollbar py-3 gap-6 flex-1">
-          {MOCK_CATEGORIES.map(category => (
+          {/* Always show All tab */}
+          <button
+            onClick={() => setActiveCategory('all')}
+            className={`text-sm font-semibold whitespace-nowrap transition-colors px-5 py-1.5 rounded-full ${
+              activeCategory === 'all' 
+                ? 'bg-brand-navy text-white' 
+                : 'text-[#6B6B6B] bg-transparent'
+            }`}
+          >
+            All
+          </button>
+          
+          {categories.map((category: any) => (
             <button
               key={category.id}
               onClick={() => setActiveCategory(category.id)}
@@ -104,66 +83,82 @@ export default function MyProductsPage() {
 
       {/* Product List */}
       <div className="flex-1 bg-white">
-        {filteredProducts.map((product, idx) => (
-          <div 
-            key={product.id} 
-            className={`p-4 flex gap-4 ${idx !== filteredProducts.length - 1 ? 'border-b border-[#F2EFE9]' : ''}`}
-            onClick={() => router.push(`/seller/products/${product.id}`)}
-          >
-            {/* Image */}
-            <div className="w-24 h-24 bg-[#F2EFE9] rounded-2xl overflow-hidden relative shrink-0">
-              <Image 
-                src={product.image} 
-                alt={product.name}
-                fill
-                className="object-cover"
-              />
-            </div>
-            
-            {/* Details */}
-            <div className="flex-1 flex flex-col justify-between py-0.5">
-              <div>
-                <div className="flex justify-between items-start">
-                  <h3 className="font-bold text-[#171717] text-[15px] leading-tight pr-2 line-clamp-2">
-                    {product.name}
-                  </h3>
-                  <button className="shrink-0 p-1 -mr-1 -mt-1 text-[#6B6B6B] active:bg-gray-100 rounded-full" onClick={(e) => e.stopPropagation()}>
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                </div>
-                <p className="text-xs text-[#6B6B6B] mt-1 uppercase tracking-wider font-medium">SKU: {product.id}</p>
-              </div>
+        {isLoadingProducts ? (
+          <div className="flex items-center justify-center h-48">
+             <div className="w-8 h-8 border-4 border-brand-navy border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <>
+            {filteredProducts.map((product: any, idx: number) => {
+              const primaryMedia = product.media?.find((m: any) => m.isPrimary) || product.media?.[0];
+              const imageUrl = primaryMedia?.url || 'https://placehold.co/400x400/png?text=No+Image';
+              const stock = product.stockCount ?? 0;
               
-              <div className="font-bold text-[#171717] text-lg mt-1">
-                ₹{product.price}
-              </div>
-              
-              <div className="flex items-center justify-between mt-2">
-                <div className="flex items-center gap-4 text-xs font-medium">
-                  <span className="text-[#6B6B6B]">Stock: {product.stock}</span>
-                  <div className="flex items-center gap-1 text-[#6B6B6B]">
-                    <Star className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>{product.rating}</span>
+              return (
+                <div 
+                  key={product.id} 
+                  className={`p-4 flex gap-4 ${idx !== filteredProducts.length - 1 ? 'border-b border-[#F2EFE9]' : ''}`}
+                  onClick={() => router.push(`/seller/products/${product.id}`)}
+                >
+                  {/* Image */}
+                  <div className="w-24 h-24 bg-[#F2EFE9] rounded-2xl overflow-hidden relative shrink-0">
+                    <Image 
+                      src={imageUrl} 
+                      alt={product.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  
+                  {/* Details */}
+                  <div className="flex-1 flex flex-col justify-between py-0.5">
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-bold text-[#171717] text-[15px] leading-tight pr-2 line-clamp-2">
+                          {product.name}
+                        </h3>
+                        <button className="shrink-0 p-1 -mr-1 -mt-1 text-[#6B6B6B] active:bg-gray-100 rounded-full" onClick={(e) => e.stopPropagation()}>
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-[#6B6B6B] mt-1 uppercase tracking-wider font-medium">SKU: {product.sku || 'N/A'}</p>
+                    </div>
+                    
+                    <div className="font-bold text-[#171717] text-lg mt-1">
+                      ₹{product.sellingPrice || 0}
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-4 text-xs font-medium">
+                        <span className="text-[#6B6B6B]">Stock: {stock}</span>
+                        <div className="flex items-center gap-1 text-[#6B6B6B]">
+                          <Star className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>4.5</span>
+                        </div>
+                      </div>
+                      <span className={`text-xs font-bold ${
+                        product.isActive 
+                          ? stock > 10 ? 'text-green-500' : 'text-orange-500' 
+                          : 'text-gray-400'
+                      }`}>
+                        {!product.isActive ? 'Inactive' : stock > 10 ? 'Active' : stock > 0 ? 'Low Stock' : 'Out of Stock'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <span className={`text-xs font-bold ${
-                  product.status === 'Active' ? 'text-green-500' : 'text-orange-500'
-                }`}>
-                  {product.status}
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
+              );
+            })}
 
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Package className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="font-semibold text-gray-900">No products found</h3>
-            <p className="text-sm text-gray-500 mt-1">Try adjusting your category or search filters.</p>
-          </div>
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Package className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="font-semibold text-gray-900">No products found</h3>
+                <p className="text-sm text-gray-500 mt-1">Try adjusting your category or search filters, or add a new product.</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

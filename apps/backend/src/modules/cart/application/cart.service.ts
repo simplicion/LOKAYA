@@ -110,9 +110,90 @@ export class CartService {
 
   static async clearCart(userId: string) {
     const cart = await prisma.cart.findFirst({ where: { userId } });
-    if (cart) {
-      await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+    if (!cart) throw new AppError('Cart not found', 404);
+
+    await prisma.cartItem.deleteMany({
+      where: { cartId: cart.id }
+    });
+    
+    // Also remove coupon if cart is cleared
+    await prisma.cart.update({
+      where: { id: cart.id },
+      data: { couponId: null }
+    });
+
+    return { success: true, message: 'Cart cleared' };
+  }
+
+  static async applyCoupon(userId: string, code: string) {
+    const cart = await prisma.cart.findFirst({
+      where: { userId },
+      include: { items: { include: { product: true } } }
+    });
+
+    if (!cart || cart.items.length === 0) {
+      throw new AppError('Cart is empty', 400);
     }
-    return { success: true };
+
+    const coupon = await prisma.coupon.findUnique({
+      where: { code }
+    });
+
+    if (!coupon || !coupon.isActive) {
+      throw new AppError('Invalid or expired coupon', 400);
+    }
+
+    if (coupon.validUntil && coupon.validUntil < new Date()) {
+      throw new AppError('Coupon has expired', 400);
+    }
+
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+      throw new AppError('Coupon usage limit reached', 400);
+    }
+
+    const subtotal = cart.items.reduce((sum, item) => sum + (item.product.sellingPrice * item.quantity), 0);
+
+    if (coupon.minCartValue && subtotal < coupon.minCartValue) {
+      throw new AppError(`Cart minimum value must be ₹${coupon.minCartValue}`, 400);
+    }
+
+    const updatedCart = await prisma.cart.update({
+      where: { id: cart.id },
+      data: { couponId: coupon.id },
+      include: {
+        coupon: true,
+        items: {
+          include: {
+            product: {
+              select: { id: true, name: true, imageUrl: true, sellingPrice: true, storeId: true }
+            },
+            variant: true
+          }
+        }
+      }
+    });
+
+    return updatedCart;
+  }
+
+  static async removeCoupon(userId: string) {
+    const cart = await prisma.cart.findFirst({ where: { userId } });
+    if (!cart) throw new AppError('Cart not found', 404);
+
+    return await prisma.cart.update({
+      where: { id: cart.id },
+      data: { couponId: null },
+      include: {
+        coupon: true,
+        items: {
+          include: {
+            product: {
+              select: { id: true, name: true, imageUrl: true, sellingPrice: true, storeId: true }
+            },
+            variant: true
+          }
+        }
+      }
+    });
   }
 }

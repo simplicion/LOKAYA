@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <input type="file" id="file" />
+  <script>
+    document.getElementById('file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      const res = await fetch('http://localhost:4002/api/media/presigned-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // mocked user ID for testing
+        body: JSON.stringify({ filename: file.name, contentType: file.type })
+      });
+      const data = await res.json();
+      console.log("Presigned URL:", data.signedUrl);
+      
+      const uploadRes = await fetch(data.signedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type }
+      });
+      console.log("Upload status:", uploadRes.status);
+    });
+  </script>
+</body>
+</html>

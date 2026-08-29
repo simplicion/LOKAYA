@@ -316,6 +316,57 @@ export const api = createApi({
       }),
       invalidatesTags: ['Comment'],
     }),
+
+    // Cart Endpoints
+    getCart: builder.query<any, void>({
+      query: () => '/cart',
+      providesTags: ['Order'], // Using 'Order' tag or can use 'Cart'
+    }),
+    addToCart: builder.mutation<any, { productId: string; variantId?: string; quantity: number }>({
+      query: (body) => ({
+        url: '/cart/items',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Order'],
+    }),
+    updateCartItem: builder.mutation<any, { itemId: string; quantity: number }>({
+      query: ({ itemId, quantity }) => ({
+        url: `/cart/items/${itemId}`,
+        method: 'PUT',
+        body: { quantity },
+      }),
+      invalidatesTags: ['Order'],
+    }),
+    removeFromCart: builder.mutation<any, string>({
+      query: (itemId) => ({
+        url: `/cart/items/${itemId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Order'],
+    }),
+    clearCart: builder.mutation<any, void>({
+      query: () => ({
+        url: '/cart',
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Order'],
+    }),
+    applyCoupon: builder.mutation<any, string>({
+      query: (code) => ({
+        url: '/cart/coupon',
+        method: 'POST',
+        body: { code },
+      }),
+      invalidatesTags: ['Order'],
+    }),
+    removeCoupon: builder.mutation<any, void>({
+      query: () => ({
+        url: '/cart/coupon',
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Order'],
+    }),
   }),
 });
 
@@ -366,4 +417,13 @@ export const {
   useGetPostLikesQuery,
   useGetReelLikesQuery,
   useReportContentMutation,
+
+  // Cart Hooks
+  useGetCartQuery,
+  useAddToCartMutation,
+  useUpdateCartItemMutation,
+  useRemoveFromCartMutation,
+  useClearCartMutation,
+  useApplyCouponMutation,
+  useRemoveCouponMutation,
 } = api;

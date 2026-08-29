@@ -54,4 +54,26 @@ router.delete('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+router.post('/coupon', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      return res.status(400).json({ success: false, message: 'Coupon code is required' });
+    }
+    const result = await CartService.applyCoupon((req as any).user.id, code);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/coupon', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await CartService.removeCoupon((req as any).user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export const cartRoutes = router;

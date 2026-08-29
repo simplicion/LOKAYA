@@ -159,13 +159,15 @@ export default function ManualAddProductPage() {
       
       try {
         // 1. Get presigned URL
-        const presignedResponse = await getPresignedUrl({
+        const { signedUrl, fileKey } = await getPresignedUrl({
           filename: file.name,
           contentType: file.type,
         }).unwrap();
         
+        if (!signedUrl) throw new Error('No upload URL returned');
+        
         // 2. Upload file directly to R2
-        await fetch(presignedResponse.uploadUrl, {
+        const uploadRes = await fetch(signedUrl, {
           method: 'PUT',
           body: file,
           headers: {
@@ -173,14 +175,17 @@ export default function ManualAddProductPage() {
           },
         });
         
+        if (!uploadRes.ok) throw new Error('Upload failed');
+        
         // 3. Update form media state
+        const publicUrl = `https://pub-9735c0214aaa423b89c9c5f647cc184c.r2.dev/${fileKey}`;
         const currentMedia = form.getValues('media') || [];
         const isPrimary = currentMedia.length === 0;
         
         setValue('media', [
           ...currentMedia,
           {
-            url: presignedResponse.publicUrl,
+            url: publicUrl,
             type: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
             isPrimary,
             displayOrder: currentMedia.length
