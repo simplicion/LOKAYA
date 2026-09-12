@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { WishlistController } from './wishlist.controller';
 import { requireAuth } from '../../../shared/middleware/auth';
 
-const router = Router();
+const router: Router = Router();
 const controller = new WishlistController();
 
 router.use(requireAuth);
