@@ -16,13 +16,16 @@ export const onboardSellerSchema = z.object({
 
 export const updateStoreProfileSchema = z.object({
   body: z.object({
+    name: z.string().optional(),
     title: z.string().optional(),
     description: z.string().optional(),
+    category: z.string().optional(),
+    contactPhone: z.string().optional(),
     isActive: z.boolean().optional(),
     openingTime: z.string().optional(),
     closingTime: z.string().optional(),
-    bannerUrl: z.string().optional(),
-    logoUrl: z.string().optional(),
+    bannerUrl: z.string().optional().nullable(),
+    logoUrl: z.string().optional().nullable(),
     themeColor: z.string().optional(),
     secondaryColor: z.string().optional(),
     workingDays: z.array(z.number()).optional(),

@@ -37,7 +37,7 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const storeAddress = store?.address;
   const storeCategory = store?.category;
   const bannerUrl = store?.bannerUrl;
-  const logoUrl = store?.logoUrl;
+  const logoUrl = store?.logoUrl || store?.users?.[0]?.user?.avatarUrl;
   const isVerified = store?.status === 'VERIFIED';
   const isOpen = storeSummary?.isOpen ?? true;
   const timingLabel = storeSummary?.timingLabel || (isOpen ? 'Open Now' : 'Closed');
@@ -93,20 +93,22 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
     <div className="flex flex-col min-h-[100dvh] bg-[#FAF9F6] pb-24">
       <div className="flex-1 overflow-y-auto">
         
-        {/* Banner Section */}
-        <div className="relative w-full aspect-[16/9] max-h-60 group overflow-hidden bg-gradient-to-tr from-violet-600 via-indigo-600 to-purple-600">
-          {bannerUrl ? (
-            <img 
-              src={getMediaUrl(bannerUrl)} 
-              alt={storeName} 
-              className="w-full h-full object-cover" 
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-tr from-[#171717] via-[#2A2A2A] to-[#FF5A36]/60 flex items-center justify-center">
-              <span className="text-white/20 font-black text-4xl uppercase tracking-widest">{storeName}</span>
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/20" />
+        {/* Banner Section (Facebook-style Cover Photo) */}
+        <div className="relative w-full aspect-[21/9] sm:aspect-[16/9] min-h-[180px] max-h-64 bg-gradient-to-tr from-violet-600 via-indigo-600 to-purple-600">
+          <div className="w-full h-full overflow-hidden">
+            {bannerUrl ? (
+              <img 
+                src={getMediaUrl(bannerUrl)} 
+                alt={storeName} 
+                className="w-full h-full object-cover" 
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-tr from-[#171717] via-[#2A2A2A] to-[#FF5A36]/60 flex items-center justify-center">
+                <span className="text-white/20 font-black text-4xl uppercase tracking-widest">{storeName}</span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/25 pointer-events-none" />
+          </div>
           
           {/* Top Floating Navigation Bar */}
           <div className="absolute top-0 left-0 right-0 p-4 pt-safe-offset-4 flex justify-between items-center z-10">
@@ -123,25 +125,27 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
               <Share2 className="w-5 h-5" strokeWidth={2.5} />
             </button>
           </div>
+
+          {/* Facebook-style Store Logo: Anchored overlapping the bottom mid-left of banner */}
+          <div className="absolute -bottom-12 left-5 z-20">
+            <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-white shadow-xl bg-white overflow-hidden ring-1 ring-black/5 flex-shrink-0">
+              {logoUrl ? (
+                <img 
+                  src={getMediaUrl(logoUrl)} 
+                  alt={storeName} 
+                  className="w-full h-full object-cover" 
+                />
+              ) : (
+                <div className="w-full h-full rounded-full bg-gradient-to-tr from-[#FF6B00] to-[#FF0000] text-white font-black text-3xl sm:text-4xl flex items-center justify-center shadow-inner">
+                  {storeName ? storeName.charAt(0).toUpperCase() : 'S'}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Store Profile Identity Card */}
-        <div className="relative px-4 pb-6 bg-white border-b border-gray-100 shadow-sm">
-          {/* Logo overlapping the banner */}
-          <div className="relative w-24 h-24 -mt-12 mb-3 rounded-full bg-white p-1 shadow-lg flex-shrink-0">
-            {logoUrl ? (
-              <img 
-                src={getMediaUrl(logoUrl)} 
-                alt={storeName} 
-                className="w-full h-full rounded-full object-cover border-2 border-white" 
-              />
-            ) : (
-              <div className="w-full h-full rounded-full bg-gradient-to-tr from-[#FF6B00] to-[#FF0000] text-white font-black text-3xl flex items-center justify-center border-2 border-white shadow-inner">
-                {storeName ? storeName.charAt(0).toUpperCase() : 'S'}
-              </div>
-            )}
-          </div>
-
+        {/* Store Profile Identity Card below banner with clearance for overlapping logo */}
+        <div className="relative pt-15 pb-6 px-5 bg-white border-b border-gray-100 shadow-sm">
           <div className="flex justify-between items-start gap-3">
             <div className="flex-1 min-w-0">
               <h2 className="text-2xl font-black text-gray-900 flex items-center gap-1.5 leading-tight truncate">

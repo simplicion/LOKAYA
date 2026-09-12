@@ -91,6 +91,13 @@ export class SellerService {
       data
     });
 
+    if (data.logoUrl) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { avatarUrl: data.logoUrl }
+      }).catch(err => console.warn('Could not sync user avatarUrl:', err));
+    }
+
     return store;
   }
 

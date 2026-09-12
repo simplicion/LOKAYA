@@ -1,16 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Grid, PlaySquare, MapPin, Plus, CheckCircle2 } from 'lucide-react';
+import { useDispatch } from 'react-redux';
+import { Grid, PlaySquare, MapPin, Plus, CheckCircle2, Camera, Loader2 } from 'lucide-react';
 import { 
   useGetStoreHighlightsQuery, 
   useGetStorePostsQuery, 
   useGetStoreReelsQuery,
   useGetStoryArchiveQuery,
-  useGetStoreSummaryQuery
+  useGetStoreSummaryQuery,
+  useUploadMediaMutation,
+  useGetPresignedUrlMutation,
+  useUpdateStoreProfileMutation,
+  useUpdateProfileMutation
 } from '@/lib/api';
+import { setCredentials } from '@/lib/features/authSlice';
+import { toast } from 'sonner';
 import { CreateHighlightModal } from './CreateHighlightModal';
 import { StoryViewerModal } from '../feed/StoryViewerModal';
 import { cn, getMediaUrl } from '@/lib/utils';
@@ -18,6 +25,15 @@ import Link from 'next/link';
 
 export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
   const router = useRouter();
+  const dispatch = useDispatch();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const [uploadMedia] = useUploadMediaMutation();
+  const [getPresignedUrl] = useGetPresignedUrlMutation();
+  const [updateStoreProfile] = useUpdateStoreProfileMutation();
+  const [updateProfile] = useUpdateProfileMutation();
+
   const [activeTab, setActiveTab] = useState<'posts' | 'reels'>('posts');
   const [isCreateHighlightOpen, setIsCreateHighlightOpen] = useState(false);
   
@@ -32,6 +48,66 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
   const { data: storePosts } = useGetStorePostsQuery(myStore.id, { skip: !myStore?.id });
   const { data: storeReels } = useGetStoreReelsQuery(myStore.id, { skip: !myStore?.id });
   const { data: archiveStories } = useGetStoryArchiveQuery();
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !myStore?.id) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image must be less than 10MB');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      let finalUrl = '';
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await uploadMedia(formData).unwrap();
+        finalUrl = res.publicUrl || res.url;
+      } catch (directErr) {
+        const ext = file.name.split('.').pop() || 'jpg';
+        const { uploadUrl, signedUrl, publicUrl } = await getPresignedUrl({
+          contentType: file.type,
+          filename: `avatar-${Date.now()}.${ext}`,
+        }).unwrap();
+        const targetUrl = uploadUrl || signedUrl;
+        await fetch(targetUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+        finalUrl = publicUrl;
+      }
+
+      if (!finalUrl) throw new Error('Upload failed');
+
+      await updateStoreProfile({
+        storeId: myStore.id,
+        body: { logoUrl: finalUrl }
+      }).unwrap();
+
+      try {
+        const userRes = await updateProfile({ avatarUrl: finalUrl }).unwrap();
+        if (userRes?.user) {
+          dispatch(setCredentials({ user: userRes.user }));
+        }
+      } catch (uErr) {
+        console.warn('Could not sync user avatar:', uErr);
+      }
+
+      toast.success('Profile picture updated!');
+    } catch (err: any) {
+      console.error('Avatar update failed:', err);
+      toast.error(err?.data?.message || err?.message || 'Failed to update profile picture');
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
+  const resolvedAvatar = myStore?.logoUrl || user?.avatarUrl;
 
   const avgRating = storeSummary?.avgRating ?? 0;
   const reviewCount = storeSummary?.reviewCount ?? 0;
@@ -110,14 +186,49 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
       {/* Profile Header Info */}
       <div className="px-4 pt-2 pb-4">
         <div className="flex items-center justify-between mb-4">
-          <div className="w-20 h-20 rounded-full overflow-hidden bg-white border border-gray-200 p-0.5 shadow-sm shrink-0">
-            {myStore.logoUrl ? (
-              <Image src={myStore.logoUrl} alt={myStore.name} width={80} height={80} className="w-full h-full rounded-full object-cover" unoptimized />
-            ) : (
-              <div className="w-full h-full rounded-full flex items-center justify-center bg-green-600 text-white font-bold text-[10px] text-center leading-tight px-1">
-                {myStore.name.split(' ').slice(0,2).join('\n').toUpperCase()}
-              </div>
-            )}
+          <div className="relative group">
+            <input 
+              type="file" 
+              ref={avatarInputRef} 
+              onChange={handleAvatarChange} 
+              accept="image/*" 
+              className="hidden" 
+            />
+            <div 
+              onClick={() => avatarInputRef.current?.click()}
+              className="w-20 h-20 rounded-full overflow-hidden bg-white border-2 border-gray-200 p-0.5 shadow-sm shrink-0 cursor-pointer relative"
+              title="Change Profile Picture"
+            >
+              {resolvedAvatar ? (
+                <img 
+                  src={getMediaUrl(resolvedAvatar)} 
+                  alt={myStore.name} 
+                  className="w-full h-full rounded-full object-cover" 
+                />
+              ) : (
+                <div className="w-full h-full rounded-full flex items-center justify-center bg-green-600 text-white font-bold text-[10px] text-center leading-tight px-1">
+                  {myStore.name.split(' ').slice(0,2).join('\n').toUpperCase()}
+                </div>
+              )}
+
+              {/* Upload Spinner Overlay */}
+              {isUploadingAvatar && (
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center rounded-full z-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-white" />
+                </div>
+              )}
+            </div>
+
+            {/* Camera badge button anchored on avatar */}
+            <button 
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={isUploadingAvatar}
+              className="absolute bottom-0 right-0 bg-[#FF5A36] text-white p-1.5 rounded-full shadow-md border-2 border-white hover:opacity-90 active:scale-95 transition-all z-10"
+              title="Change Profile Picture"
+            >
+              <Camera className="w-3 h-3" />
+            </button>
           </div>
           
           <div className="flex gap-6 pr-4">
