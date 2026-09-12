@@ -1,8 +1,10 @@
 {
   "name": "@workspace/db",
   "version": "0.1.0",
-  "main": "index.ts",
+  "main": "index.js",
+  "types": "index.ts",
   "scripts": {
+    "build": "tsc index.ts --target es2020 --module commonjs --esModuleInterop --skipLibCheck",
     "generate": "prisma generate",
     "push": "prisma db push",
     "studio": "prisma studio",
