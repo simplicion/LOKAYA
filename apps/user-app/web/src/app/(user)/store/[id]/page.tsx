@@ -226,21 +226,15 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
 
               {/* Dynamic Categories */}
               {categories.map((cat: any) => {
-                const isCatSelected = selectedCategoryId === cat.id;
                 const catImg = cat.imageUrl || cat.image;
 
                 return (
                   <button 
                     key={cat.id} 
-                    onClick={() => setSelectedCategoryId(cat.id)}
-                    className="relative flex flex-col items-center gap-1.5 min-w-[68px] group transition-transform active:scale-95"
+                    onClick={() => router.push(`/store/${storeId}/category/${cat.id}`)}
+                    className="relative flex flex-col items-center gap-1.5 min-w-[68px] group transition-transform active:scale-95 cursor-pointer"
                   >
-                    <div className={cn(
-                      "w-14 h-14 rounded-2xl border flex items-center justify-center shadow-sm overflow-hidden transition-all",
-                      isCatSelected 
-                        ? "border-[#FF5A36] ring-2 ring-[#FF5A36]/20 shadow-md" 
-                        : "border-gray-100 bg-gray-50 hover:bg-gray-100"
-                    )}>
+                    <div className="w-14 h-14 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-gray-100 flex items-center justify-center shadow-xs overflow-hidden transition-all group-hover:border-[#FF5A36] group-hover:ring-2 group-hover:ring-[#FF5A36]/15">
                       {catImg ? (
                         <img 
                           src={getMediaUrl(catImg)} 
@@ -253,10 +247,7 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
                         </span>
                       )}
                     </div>
-                    <span className={cn(
-                      "text-[11px] font-medium text-center truncate w-full max-w-[76px]",
-                      isCatSelected ? "text-[#FF5A36] font-bold" : "text-gray-600"
-                    )}>
+                    <span className="text-[11px] font-medium text-center truncate w-full max-w-[76px] text-gray-600 group-hover:text-[#FF5A36] transition-colors">
                       {cat.name}
                     </span>
                   </button>
