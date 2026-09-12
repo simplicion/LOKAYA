@@ -43,13 +43,13 @@ export const cartSlice = createSlice({
       }
 
       state.lastAddedItem = item;
-      state.isDrawerOpen = true;
+      state.isDrawerOpen = false;
     },
     openCartDrawer: (state, action: PayloadAction<CartItem | undefined>) => {
       if (action.payload) {
         state.lastAddedItem = action.payload;
       }
-      state.isDrawerOpen = true;
+      state.isDrawerOpen = false;
     },
     closeCartDrawer: (state) => {
       state.isDrawerOpen = false;

@@ -37,10 +37,14 @@ export function FloatingCartBar() {
     prevTotalItems.current = totalItems;
   }, [totalItems]);
 
-  // Only show on the explore page
-  const isExplorePage = pathname === '/explore';
+  // Hide on cart, checkout, order success and full-screen reels
+  const isExcludedPage = 
+    pathname?.startsWith('/cart') || 
+    pathname?.startsWith('/checkout') || 
+    pathname?.startsWith('/order-success') || 
+    pathname?.startsWith('/home/reels');
 
-  if (totalItems === 0 || !isExplorePage || isDismissed) {
+  if (totalItems === 0 || isExcludedPage || isDismissed) {
     return null;
   }
 
