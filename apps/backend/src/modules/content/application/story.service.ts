@@ -1,5 +1,7 @@
 import { prisma } from '@workspace/db';
 import { AppError } from '../../../shared/errors/AppError';
+import { processMediaJob } from '../../media/application/media-worker.service';
+import { ContentService } from './content.service';
 
 export class StoryService {
   /**
@@ -44,6 +46,8 @@ export class StoryService {
     // Stories are archived and then permanently purged after 30 days
     const purgeAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+    const isVideo = data.mediaType === 'VIDEO';
+
     const story = await prisma.story.create({
       data: {
         storeId,
@@ -65,6 +69,36 @@ export class StoryService {
         }
       }
     });
+
+    // Trigger zero-latency video transcoding pipeline for story videos
+    if (isVideo) {
+      const fileKey = data.fileKey || ContentService.extractFileKeyFromUrl(data.mediaUrl);
+      if (fileKey) {
+        prisma.mediaAsset.create({
+          data: {
+            url: data.mediaUrl,
+            originalUrl: data.mediaUrl,
+            type: 'VIDEO',
+            status: 'PROCESSING'
+          }
+        }).then((asset) => {
+          processMediaJob({
+            mediaId: asset.id,
+            fileKey,
+            type: 'VIDEO',
+            rawUrl: data.mediaUrl
+          }).then(async () => {
+            const readyAsset = await prisma.mediaAsset.findUnique({ where: { id: asset.id } });
+            if (readyAsset?.url) {
+              await prisma.story.update({
+                where: { id: story.id },
+                data: { mediaUrl: readyAsset.url }
+              }).catch(() => {});
+            }
+          }).catch(err => console.warn('[StoryService] Video story processing background error:', err));
+        }).catch(err => console.warn('[StoryService] MediaAsset create error:', err));
+      }
+    }
 
     return story;
   }

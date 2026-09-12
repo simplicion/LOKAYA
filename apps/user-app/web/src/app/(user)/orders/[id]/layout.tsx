@@ -1,10 +1,4 @@
-import { MOCK_ORDERS } from '@/lib/mock/checkout';
-
-export function generateStaticParams() {
-  return MOCK_ORDERS.map((order) => ({
-    id: order.id,
-  }));
-}
+import React from 'react';
 
 export default function OrderDetailsLayout({
   children,

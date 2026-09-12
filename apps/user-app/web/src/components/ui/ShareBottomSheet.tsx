@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Copy, Check, Share2, MessageCircle, Instagram, Facebook } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface ShareBottomSheetProps {
   isOpen: boolean;
@@ -20,45 +21,34 @@ export function ShareBottomSheet({ isOpen, onClose, url = '', title = 'Check thi
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    if (isOpen) window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [isOpen, onClose]);
-
-  // Lock body scroll
-  useEffect(() => {
     if (isOpen) {
+      document.addEventListener('keydown', handleEsc);
       document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = '';
+      document.removeEventListener('keydown', handleEsc);
+      document.body.style.overflow = 'unset';
     };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy', err);
-    }
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setIsCopied(true);
+    toast.success('Link copied to clipboard!');
+    setTimeout(() => setIsCopied(false), 2000);
   };
-
   
   const handleNativeShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: title || 'Check out this on Lokaya',
-          url: shareUrl
+          title,
+          url: shareUrl,
         });
-        onClose();
-      } catch (err) {
-        console.error('Error sharing:', err);
+      } catch (error) {
+        console.error('Error sharing:', error);
       }
     } else {
       handleCopy();
@@ -68,10 +58,9 @@ export function ShareBottomSheet({ isOpen, onClose, url = '', title = 'Check thi
   const shareOptions = [
     {
       id: 'native',
-      name: 'Share via...',
+      name: 'More',
       icon: <Share2 className="w-6 h-6 text-white" />,
-      bg: 'bg-[#FF5A36]',
-      textColor: 'text-[#171717]',
+      bg: 'bg-black',
       onClick: handleNativeShare
     },
     {
@@ -88,7 +77,7 @@ export function ShareBottomSheet({ isOpen, onClose, url = '', title = 'Check thi
       bg: 'bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF]',
       onClick: () => {
         handleCopy();
-        alert('Link copied! Open Instagram to share.');
+        toast.info('Link copied! Open Instagram to share.');
       }
     },
     {

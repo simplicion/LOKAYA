@@ -21,11 +21,25 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { errorHandler } from '../shared/middleware/errorHandler';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  max: isDev ? 100000 : 3000, // Generous limit in prod, bypassed in dev
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    if (isDev) return true;
+    const url = req.originalUrl || req.url || '';
+    return url.includes('/media') || url.includes('/health');
+  },
+  handler: (req, res) => {
+    console.warn(`[RateLimit 429] IP ${req.ip} exceeded rate limit on ${req.method} ${req.originalUrl}`);
+    res.status(429).json({
+      error: 'Too many requests, please try again later.',
+      statusCode: 429
+    });
+  }
 });
 
 export function startApiServer() {
@@ -66,7 +80,10 @@ export function startApiServer() {
   app.use(express.json());
   app.use(cookieParser());
 
-  // Rate Limiting (apply to all API routes)
+  // Mount media routes first (completely exempt from API rate limiting)
+  app.use('/api/v1/media', mediaRouter);
+
+  // Rate Limiting (apply to remaining API routes)
   app.use('/api', apiLimiter);
 
   // Mount new modular routes
@@ -79,7 +96,6 @@ export function startApiServer() {
   app.use('/api/v1/orders', orderRoutes);
   app.use('/api/v1/payments', paymentRoutes);
   app.use('/api/v1/seller', sellerRoutes);
-  app.use('/api/v1/media', mediaRouter);
   app.use('/api/v1/search', searchRoutes);
   app.use('/api/v1/wishlist', wishlistRoutes);
   app.use('/api/v1/admin', adminRouter);

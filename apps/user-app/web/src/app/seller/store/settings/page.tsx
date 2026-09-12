@@ -22,6 +22,9 @@ export default function StoreSettingsMenuPage() {
   
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [address, setAddress] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [acceptsOnline, setAcceptsOnline] = useState(true);
   const [successMsg, setSuccessMsg] = useState('');
@@ -30,6 +33,9 @@ export default function StoreSettingsMenuPage() {
     if (storeData) {
       setName(storeData.name || '');
       setDescription(storeData.description || '');
+      setCategory(storeData.category || '');
+      setAddress(storeData.address || '');
+      setContactPhone(storeData.contactPhone || '');
       setIsActive(storeData.isActive ?? true);
       setAcceptsOnline(storeData.acceptedPayments?.includes('ONLINE PAYMENT') ?? true);
     }
@@ -43,6 +49,9 @@ export default function StoreSettingsMenuPage() {
         body: { 
           name, 
           description,
+          category: category.trim() || undefined,
+          address: address.trim() || undefined,
+          contactPhone: contactPhone.trim() || undefined,
           isActive,
           acceptedPayments: acceptsOnline ? ['ONLINE PAYMENT', 'CASH'] : ['CASH']
         }
@@ -86,30 +95,69 @@ export default function StoreSettingsMenuPage() {
         {/* Store Profile Section */}
         <section>
           <p className="text-sm font-medium text-gray-500 mb-3 ml-1">Store Profile</p>
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-5">
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 space-y-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
-                <Store className="w-4 h-4 mr-2 text-indigo-500" /> Store Name
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5 flex items-center">
+                <Store className="w-3.5 h-3.5 mr-1.5 text-indigo-500" /> Store Name
               </label>
               <input 
                 type="text" 
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your Store Name"
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-bold text-gray-900"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-bold text-gray-900 text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                Store Category
+              </label>
+              <input 
+                type="text" 
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="e.g. Footwear & Shoes, Grocery, Apparel"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all font-medium text-gray-800 text-sm"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
-                <FileText className="w-4 h-4 mr-2 text-indigo-500" /> Store Description
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5 flex items-center">
+                <FileText className="w-3.5 h-3.5 mr-1.5 text-indigo-500" /> Store Description
               </label>
               <textarea 
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Tell customers about your store..."
                 rows={3}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-sm font-medium resize-none text-gray-800"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-sm font-medium resize-none text-gray-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                Physical Address
+              </label>
+              <input 
+                type="text" 
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Shop number, street, city..."
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-sm font-medium text-gray-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                Contact Phone
+              </label>
+              <input 
+                type="tel" 
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-sm font-medium text-gray-800"
               />
             </div>
 

@@ -15,7 +15,7 @@ import { getMediaUrl } from '@/lib/utils';
 const variantSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'Variant name is required'),
-  sku: z.string().min(1, 'Variant SKU is required'),
+  sku: z.string().optional(),
   price: z.coerce.number().min(0, 'Variant price cannot be negative'),
   stockCount: z.coerce.number().int().min(0, 'Variant stock cannot be negative').optional()
 });
@@ -34,7 +34,7 @@ const productFormSchema = z.object({
   isAvailableForPickup: z.boolean().optional(),
   variants: z.array(variantSchema).optional(),
   media: z.array(z.object({
-    url: z.string().url(),
+    url: z.string().min(1, 'Media URL is required'),
     type: z.enum(['IMAGE', 'VIDEO']).optional(),
     isPrimary: z.boolean().optional(),
     displayOrder: z.number().optional()
@@ -135,6 +135,19 @@ export default function ManualAddProductPage() {
     }
   };
 
+  const onInvalid = (validationErrors: any) => {
+    console.error('Form validation errors:', validationErrors);
+    const errorKeys = Object.keys(validationErrors);
+    if (errorKeys.length > 0) {
+      const firstKey = errorKeys[0];
+      const err = validationErrors[firstKey];
+      const message = err?.message || (typeof err === 'object' && err?.name?.message) || `Please check the ${firstKey} field.`;
+      toast.error(`Validation: ${message}`);
+    } else {
+      toast.error('Please complete all required product fields.');
+    }
+  };
+
   const onSubmit = async (data: ProductFormValues) => {
     if (!storeData?.id) {
       toast.error('Store information not found');
@@ -142,17 +155,68 @@ export default function ManualAddProductPage() {
     }
 
     try {
+      const selectedCategory = categories.find((c: any) => c.id === data.category || c.name === data.category);
+      
+      const payload = {
+        ...data,
+        storeId: storeData.id,
+        category: selectedCategory?.name || data.category || '',
+        categoryId: selectedCategory?.id || (data.category && data.category.includes('-') ? data.category : undefined),
+        status: 'PUBLISHED',
+        imageUrl: data.media?.[0]?.url || undefined,
+        sellingPrice: data.sellingPrice !== undefined ? Number(data.sellingPrice) : 0,
+        mrp: data.mrp !== undefined ? Number(data.mrp) : (data.sellingPrice !== undefined ? Number(data.sellingPrice) : 0),
+        stockCount: data.stockCount !== undefined ? Number(data.stockCount) : 0,
+      };
+
       await addProduct({ 
         storeId: storeData.id, 
-        body: data 
+        body: payload 
       }).unwrap();
       
       toast.success('Product published successfully!');
       localStorage.removeItem('lokaya_product_draft');
       router.push('/seller/products');
-    } catch (error) {
-      toast.error('Failed to publish product. Please check your inputs.');
-      console.error(error);
+    } catch (error: any) {
+      const errorMsg = error?.data?.message || error?.message || 'Failed to publish product. Please check your inputs.';
+      toast.error(errorMsg);
+      console.error('Failed to publish product:', error);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!storeData?.id) {
+      toast.error('Store information not found');
+      return;
+    }
+    const currentValues = form.getValues();
+    try {
+      const selectedCategory = categories.find((c: any) => c.id === currentValues.category || c.name === currentValues.category);
+      const payload = {
+        ...currentValues,
+        name: currentValues.name || 'Untitled Product Draft',
+        storeId: storeData.id,
+        category: selectedCategory?.name || currentValues.category || '',
+        categoryId: selectedCategory?.id || (currentValues.category && currentValues.category.includes('-') ? currentValues.category : undefined),
+        status: 'DRAFT',
+        imageUrl: currentValues.media?.[0]?.url || undefined,
+        sellingPrice: currentValues.sellingPrice !== undefined ? Number(currentValues.sellingPrice) : 0,
+        mrp: currentValues.mrp !== undefined ? Number(currentValues.mrp) : 0,
+        stockCount: currentValues.stockCount !== undefined ? Number(currentValues.stockCount) : 0,
+      };
+
+      await addProduct({ 
+        storeId: storeData.id, 
+        body: payload 
+      }).unwrap();
+      
+      toast.success('Draft saved successfully!');
+      localStorage.removeItem('lokaya_product_draft');
+      router.push('/seller/products');
+    } catch (e) {
+      localStorage.setItem('lokaya_product_draft', JSON.stringify(currentValues));
+      toast.success('Draft saved locally!');
+      router.push('/seller/products');
     }
   };
 
@@ -541,7 +605,9 @@ export default function ManualAddProductPage() {
                   <h3 className="font-bold text-gray-900 text-lg leading-tight pr-4">{watch('name') || 'Product Name'}</h3>
                   <span className="font-bold text-brand-navy text-lg shrink-0">₹{watch('sellingPrice') || '0'}</span>
                 </div>
-                <p className="text-xs font-semibold text-brand-orange uppercase tracking-wider mt-1">{watch('category') || 'Category'}</p>
+                <p className="text-xs font-semibold text-brand-orange uppercase tracking-wider mt-1">
+                  {categories.find((c: any) => c.id === watch('category'))?.name || watch('category') || 'Category'}
+                </p>
                 <div className="mt-3 text-sm text-gray-600 line-clamp-2">
                   {watch('description') || 'No description provided.'}
                 </div>
@@ -569,15 +635,16 @@ export default function ManualAddProductPage() {
           <div className="flex w-full gap-3">
              <Button 
               variant="outline"
-              onClick={() => router.push('/seller/products')}
-              className="flex-1 h-12 border-gray-300 text-gray-700 rounded-xl font-bold"
+              onClick={handleSaveDraft}
+              disabled={isSubmitting}
+              className="flex-1 h-12 border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50"
             >
               Save as Draft
             </Button>
             <Button 
-              onClick={handleSubmit(onSubmit)}
+              onClick={handleSubmit(onSubmit, onInvalid)}
               disabled={isSubmitting}
-              className="flex-1 h-12 bg-brand-orange hover:bg-[#E04B2A] text-white rounded-xl font-bold flex items-center justify-center gap-2"
+              className="flex-1 h-12 bg-brand-orange hover:bg-[#E04B2A] text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm"
             >
               {isSubmitting ? 'Publishing...' : 'Publish Product'}
             </Button>

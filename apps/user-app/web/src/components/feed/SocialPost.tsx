@@ -2,18 +2,25 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
+import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Sparkles } from 'lucide-react';
+import { cn, getMediaUrl } from '@/lib/utils';
 import { ProductOverlayCard } from './ProductOverlayCard';
 import { ShareBottomSheet } from '../ui/ShareBottomSheet';
 import { LikesBottomSheet } from '../ui/LikesBottomSheet';
 import { CommentsBottomSheet } from '../ui/CommentsBottomSheet';
 import { ReportBottomSheet } from '../ui/ReportBottomSheet';
 import { OptionsBottomSheet } from '../ui/OptionsBottomSheet';
-import { useLikePostMutation, useSavePostMutation } from '@/lib/api';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
+import { useLikePostMutation, useSavePostMutation, useDeletePostMutation } from '@/lib/api';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/lib/store';
+import { toast } from 'sonner';
+import { VideoPlayer } from '../media/VideoPlayer';
 
 export interface SocialPostProps {
   id: string;
+  authorId?: string;
   storeId?: string;
   storeName: string;
   storeAvatar: string;
@@ -22,6 +29,7 @@ export interface SocialPostProps {
   media: {
     type: 'image' | 'video';
     url: string;
+    posterUrl?: string;
     duration?: string; // e.g. "0:25"
   }[];
   likes: string;
@@ -46,6 +54,7 @@ export interface SocialPostProps {
 
 export function SocialPost({
   id,
+  authorId,
   storeId,
   storeName,
   storeAvatar,
@@ -64,12 +73,18 @@ export function SocialPost({
   likedByAvatars,
   product,
 }: SocialPostProps) {
+  const router = useRouter();
+  const currentUser = useSelector((state: RootState) => state.auth.user);
+  const isAuthor = Boolean(currentUser?.id && authorId && currentUser.id === authorId);
+
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isLikesOpen, setIsLikesOpen] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
 
   // Local optimistic state for likes & saves
   const [isLiked, setIsLiked] = useState(isLikedByMe);
@@ -77,13 +92,31 @@ export function SocialPost({
   const [isSaved, setIsSaved] = useState(isSavedByMe);
   const [showHeartPop, setShowHeartPop] = useState(false);
   const lastTapRef = useRef<number>(0);
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isLikingRef = useRef<boolean>(false);
   const isSavingRef = useRef<boolean>(false);
 
   const [likePost] = useLikePostMutation();
   const [savePost] = useSavePostMutation();
+  const [deletePost, { isLoading: isDeleting }] = useDeletePostMutation();
   
   const postUrl = typeof window !== 'undefined' ? `${window.location.origin}/post/${id}` : '';
+
+  const handleConfirmDelete = async () => {
+    try {
+      await deletePost(id).unwrap();
+      setIsDismissed(true);
+      setIsDeleteModalOpen(false);
+      toast.success('Post deleted successfully');
+    } catch (err: any) {
+      toast.error(err?.data?.message || 'Failed to delete post');
+    }
+  };
+
+  const handleReported = () => {
+    setIsDismissed(true);
+    toast.success('Thank you for reporting. This post has been hidden.');
+  };
 
   // Synchronize when feed refetches or props update
   useEffect(() => {
@@ -99,14 +132,14 @@ export function SocialPost({
   }, [isSavedByMe]);
 
   const triggerLike = async () => {
-    if (isLikingRef.current) return;
-    isLikingRef.current = true;
     setShowHeartPop(true);
     setTimeout(() => setShowHeartPop(false), 750);
 
-    if (!isLiked) {
+    if (!isLiked && !isLikingRef.current) {
+      isLikingRef.current = true;
       setIsLiked(true);
       setLikeTotal(prev => prev + 1);
+
       try {
         const res = await likePost(id).unwrap();
         if (typeof res?.liked === 'boolean') {
@@ -125,9 +158,30 @@ export function SocialPost({
   };
 
   const handleMediaClick = () => {
+    const currentMedia = media[currentMediaIndex] || media[0];
+    const isVideo = currentMedia?.type === 'video';
+
     const now = Date.now();
     if (now - lastTapRef.current < 320) {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+        clickTimeoutRef.current = null;
+      }
       triggerLike();
+    } else {
+      if (isVideo) {
+        clickTimeoutRef.current = setTimeout(() => {
+          const vUrl = currentMedia?.url || '';
+          const pUrl = currentMedia?.posterUrl || '';
+          const params = new URLSearchParams();
+          params.set('id', id);
+          if (vUrl) params.set('videoUrl', vUrl);
+          if (pUrl) params.set('posterUrl', pUrl);
+          if (storeName) params.set('storeName', storeName);
+          if (caption) params.set('caption', caption);
+          router.push(`/home/reels?${params.toString()}`);
+        }, 160);
+      }
     }
     lastTapRef.current = now;
   };
@@ -174,6 +228,8 @@ export function SocialPost({
     }
   };
 
+  if (isDismissed) return null;
+
   return (
     <div className="flex flex-col w-full bg-white mb-6 border-b border-[#E5E2DC] pb-4">
       {/* Header */}
@@ -182,8 +238,14 @@ export function SocialPost({
           href={storeId ? `/store/${storeId}` : '#'}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 border border-gray-100 p-0.5">
-            <img src={storeAvatar} alt={storeName} className="w-full h-full rounded-full object-cover" />
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 border border-gray-100 p-0.5 flex items-center justify-center">
+            {storeAvatar ? (
+              <img src={getMediaUrl(storeAvatar)} alt={storeName} className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <div className="w-full h-full rounded-full flex items-center justify-center font-bold text-gray-500 text-xs bg-gray-100">
+                {storeName ? storeName.charAt(0).toUpperCase() : 'S'}
+              </div>
+            )}
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-1">
@@ -222,14 +284,27 @@ export function SocialPost({
         >
           {media.map((m, idx) => (
             <div key={idx} className="relative w-full h-full flex-shrink-0 snap-center">
-              {m.type === 'video' ? (
-                <video src={m.url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
-              ) : (
-                <img
+              {m.type === 'video' && m.url ? (
+                <VideoPlayer
                   src={m.url}
+                  poster={m.posterUrl}
+                  autoPlay={true}
+                  isActive={true}
+                  muted={true}
+                  loop={true}
+                  playsInline={true}
+                  className="w-full h-full object-cover"
+                />
+              ) : m.url ? (
+                <img
+                  src={getMediaUrl(m.url)}
                   alt={`Post Media ${idx + 1}`}
                   className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                 />
+              ) : (
+                <div className="absolute inset-0 w-full h-full bg-gray-800 flex items-center justify-center text-gray-400 text-xs">
+                  No Media
+                </div>
               )}
 
               {/* Video Overlays */}
@@ -243,6 +318,10 @@ export function SocialPost({
                       {m.duration}
                     </div>
                   )}
+                  <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[10px] font-bold flex items-center gap-1.5 border border-white/10 shadow-sm pointer-events-none">
+                    <Play className="w-3 h-3 fill-white" />
+                    <span>Watch Reel</span>
+                  </div>
                 </>
               )}
             </div>
@@ -354,8 +433,35 @@ export function SocialPost({
       <ShareBottomSheet isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} url={postUrl} />
       <LikesBottomSheet isOpen={isLikesOpen} onClose={() => setIsLikesOpen(false)} targetId={id} type="post" />
       <CommentsBottomSheet isOpen={isCommentsOpen} onClose={() => setIsCommentsOpen(false)} targetId={id} type="post" />
-      <ReportBottomSheet isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} targetId={id} type="post" />
-      <OptionsBottomSheet isOpen={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} url={postUrl} onReport={() => setIsReportOpen(true)} />
+      <ReportBottomSheet 
+        isOpen={isReportOpen} 
+        onClose={() => setIsReportOpen(false)} 
+        onReported={handleReported}
+        targetId={id} 
+        type="post" 
+      />
+      <OptionsBottomSheet 
+        isOpen={isOptionsOpen} 
+        onClose={() => setIsOptionsOpen(false)} 
+        url={postUrl} 
+        isOwner={isAuthor}
+        itemType="post"
+        onReport={() => setIsReportOpen(true)}
+        onDelete={() => setIsDeleteModalOpen(true)}
+      />
+
+      {/* Universal Confirmation Modal for Deletion */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Post?"
+        description="Are you sure you want to delete this post? This action cannot be undone and will permanently remove it from your profile and feed."
+        confirmText="Delete Post"
+        cancelText="Keep Post"
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

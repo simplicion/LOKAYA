@@ -1,8 +1,12 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { X, Camera, Film, Image as ImageIcon, Tag, Loader2, Check, ShoppingBag } from 'lucide-react';
-import { useUploadMediaMutation, useCreateStoryMutation, useGetStoreProductsQuery } from '@/lib/api';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Camera, Film, Image as ImageIcon, Tag, Loader2, Check, ShoppingBag, Scissors } from 'lucide-react';
+import { useGetStoreProductsQuery } from '@/lib/api';
+import { useUpload } from '@/context/UploadContext';
+import { VideoTrimmerModal } from '@/components/media/VideoTrimmerModal';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/lib/store';
 import { toast } from 'sonner';
 
 interface StoryUploadModalProps {
@@ -20,6 +24,9 @@ export function StoryUploadModal({
   storeName = 'My Store',
   storeLogo
 }: StoryUploadModalProps) {
+  const user = useSelector((state: RootState) => state.auth.user);
+  const isAuthenticated = Boolean(user);
+
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'IMAGE' | 'VIDEO'>('IMAGE');
@@ -28,11 +35,22 @@ export function StoryUploadModal({
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Video trimmer state
+  const [isTrimmerOpen, setIsTrimmerOpen] = useState(false);
+  const [pendingTrimmerFile, setPendingTrimmerFile] = useState<File | null>(null);
+  const [trimData, setTrimData] = useState<{ startTime: number; endTime: number; duration: number } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [uploadMedia] = useUploadMediaMutation();
-  const [createStory] = useCreateStoryMutation();
+  const { startStoryUpload } = useUpload();
   const { data: storeProducts, isLoading: isProductsLoading } = useGetStoreProductsQuery(storeId, { skip: !storeId });
+
+  // Auto close if unauthenticated
+  useEffect(() => {
+    if (isOpen && (!isAuthenticated || !user)) {
+      onClose();
+    }
+  }, [isOpen, isAuthenticated, user, onClose]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -44,9 +62,52 @@ export function StoryUploadModal({
     }
 
     const isVideo = selectedFile.type.startsWith('video/');
-    setMediaType(isVideo ? 'VIDEO' : 'IMAGE');
+    if (isVideo) {
+      const tempUrl = URL.createObjectURL(selectedFile);
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.src = tempUrl;
+
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(tempUrl);
+        const duration = video.duration || 0;
+        
+        // If story video is longer than recommended 30s, automatically open trimmer
+        if (duration > 30) {
+          toast.info(`Video is ${Math.round(duration)}s. Let's crop it to 30s for your story.`);
+          setPendingTrimmerFile(selectedFile);
+          setIsTrimmerOpen(true);
+          return;
+        }
+
+        setMediaType('VIDEO');
+        setFile(selectedFile);
+        setPreviewUrl(URL.createObjectURL(selectedFile));
+        setPendingTrimmerFile(selectedFile);
+        setTrimData(null);
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(tempUrl);
+        toast.error('Unable to load video format');
+      };
+      return;
+    }
+
+    setMediaType('IMAGE');
     setFile(selectedFile);
     setPreviewUrl(URL.createObjectURL(selectedFile));
+    setTrimData(null);
+  };
+
+  const handleTrimComplete = ({ startTime, endTime, duration, thumbnailDataUrl }: { startTime: number; endTime: number; duration: number; thumbnailDataUrl?: string }) => {
+    if (!pendingTrimmerFile) return;
+
+    setMediaType('VIDEO');
+    setFile(pendingTrimmerFile);
+    setPreviewUrl(URL.createObjectURL(pendingTrimmerFile));
+    setTrimData({ startTime, endTime, duration });
+    toast.success(`Story video trimmed to ${duration}s!`);
   };
 
   const resetForm = () => {
@@ -56,6 +117,8 @@ export function StoryUploadModal({
     setSelectedProductId(null);
     setShowProductPicker(false);
     setIsSubmitting(false);
+    setTrimData(null);
+    setPendingTrimmerFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -64,43 +127,22 @@ export function StoryUploadModal({
     onClose();
   };
 
-  const handleUploadAndPost = async () => {
-    if (!file) {
+  const handleUploadAndPost = () => {
+    if (!file || !previewUrl) {
       toast.error('Please select a photo or video for your story');
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      // 1. Direct multipart upload to Cloudflare R2
-      const formData = new FormData();
-      formData.append('file', file);
-      const uploadRes = await uploadMedia(formData).unwrap();
-      const mediaUrl = uploadRes.publicUrl || uploadRes.url;
-      const fileKey = uploadRes.fileKey;
+    startStoryUpload({
+      file,
+      storeId,
+      mediaType,
+      caption: caption.trim() || undefined,
+      productId: selectedProductId || undefined,
+      previewUrl,
+    });
 
-      if (!mediaUrl) {
-        throw new Error('Failed to retrieve uploaded media URL');
-      }
-
-      // 2. Create story record in backend
-      await createStory({
-        storeId,
-        mediaUrl,
-        fileKey,
-        mediaType,
-        caption: caption.trim() || undefined,
-        productId: selectedProductId || undefined,
-      }).unwrap();
-
-      toast.success('Story uploaded successfully! It is now active for 24 hours.');
-      handleClose();
-    } catch (err: any) {
-      console.error('Failed to upload story:', err);
-      toast.error(err?.data?.message || err?.message || 'Failed to post story. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    handleClose();
   };
 
   if (!isOpen) return null;
@@ -136,9 +178,25 @@ export function StoryUploadModal({
                 ) : (
                   <img src={previewUrl} alt="Story Preview" className="w-full h-full object-cover" />
                 )}
+
+                {/* Video Crop / Trim Action Button */}
+                {mediaType === 'VIDEO' && file && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setPendingTrimmerFile(file);
+                      setIsTrimmerOpen(true);
+                    }}
+                    className="absolute bottom-3 left-3 bg-black/70 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md hover:bg-black/90 flex items-center gap-1.5 border border-white/20 transition-all shadow-md z-10"
+                  >
+                    <Scissors className="w-3.5 h-3.5 text-[#FF5A36]" />
+                    <span>{trimData ? `Trimmed (${trimData.duration}s)` : 'Trim Video'}</span>
+                  </button>
+                )}
+
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-3 right-3 bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md hover:bg-black/80 transition-colors"
+                  className="absolute bottom-3 right-3 bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md hover:bg-black/80 transition-colors z-10"
                 >
                   Change Media
                 </button>
@@ -152,7 +210,7 @@ export function StoryUploadModal({
                   <Camera className="w-8 h-8" />
                 </div>
                 <span className="text-sm font-bold text-white">Select Photo or Video</span>
-                <span className="text-xs text-gray-400 mt-1 max-w-[200px]">Supports vertical photos and videos up to 25MB</span>
+                <span className="text-xs text-gray-400 mt-1 max-w-[200px]">Supports vertical photos and videos up to 25MB (Max 30s)</span>
               </div>
             )}
             <input 
@@ -282,6 +340,20 @@ export function StoryUploadModal({
           </button>
         </div>
       </div>
+
+      {/* Video Trimmer Modal */}
+      {isTrimmerOpen && pendingTrimmerFile && (
+        <VideoTrimmerModal
+          isOpen={isTrimmerOpen}
+          onClose={() => {
+            setIsTrimmerOpen(false);
+            if (!file) setPendingTrimmerFile(null);
+          }}
+          videoFile={pendingTrimmerFile}
+          maxDurationSeconds={30}
+          onTrimComplete={handleTrimComplete}
+        />
+      )}
     </div>
   );
 }

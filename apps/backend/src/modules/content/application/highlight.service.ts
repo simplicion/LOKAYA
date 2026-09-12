@@ -47,41 +47,41 @@ export class HighlightService {
       coverUrl = firstStory?.mediaUrl || '';
     }
 
-    return await prisma.$transaction(async (tx) => {
-      const highlight = await tx.highlight.create({
-        data: {
-          storeId: storeId!,
-          title: data.title.trim(),
-          coverUrl,
-        }
-      });
+    const highlight = await prisma.highlight.create({
+      data: {
+        storeId: storeId!,
+        title: data.title.trim(),
+        coverUrl,
+      }
+    });
 
-      // Create items
-      await tx.highlightItem.createMany({
+    // Create items
+    if (data.storyIds && data.storyIds.length > 0) {
+      await prisma.highlightItem.createMany({
         data: data.storyIds.map((storyId, idx) => ({
           highlightId: highlight.id,
           storyId,
           displayOrder: idx
         }))
       });
+    }
 
-      return await tx.highlight.findUnique({
-        where: { id: highlight.id },
-        include: {
-          items: {
-            include: {
-              story: {
-                include: {
-                  product: {
-                    select: { id: true, name: true, imageUrl: true, sellingPrice: true }
-                  }
+    return await prisma.highlight.findUnique({
+      where: { id: highlight.id },
+      include: {
+        items: {
+          include: {
+            story: {
+              include: {
+                product: {
+                  select: { id: true, name: true, imageUrl: true, sellingPrice: true }
                 }
               }
-            },
-            orderBy: { displayOrder: 'asc' }
-          }
+            }
+          },
+          orderBy: { displayOrder: 'asc' }
         }
-      });
+      }
     });
   }
 

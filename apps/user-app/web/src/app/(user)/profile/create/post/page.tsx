@@ -1,65 +1,171 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Image as ImageIcon, Film, Tag, ChevronRight, X, Plus } from 'lucide-react';
-import Image from 'next/image';
+import { ArrowLeft, Image as ImageIcon, Film, Tag, ChevronRight, X, Plus, Scissors, UploadCloud, Loader2 } from 'lucide-react';
 import { 
   useGetMyStoreQuery, 
-  useGetStoreProductsQuery, 
-  useCreatePostMutation, 
-  useCreateReelMutation, 
-  useGetPresignedUrlMutation, 
-  useProcessMediaMutation,
-  useUploadMediaMutation 
+  useGetStoreProductsQuery
 } from '@/lib/api';
-import { Loader2 } from 'lucide-react';
 import { ProductTagSelector } from '@/components/profile/ProductTagSelector';
-import { cn } from '@/lib/utils';
+import { VideoTrimmerModal } from '@/components/media/VideoTrimmerModal';
+import { cn, generateVideoThumbnail, getMediaUrl } from '@/lib/utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
+import { useUpload } from '@/context/UploadContext';
+import { toast } from 'sonner';
+
+const MAX_VIDEO_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;  // 10 MB
+const RECOMMENDED_VIDEO_DURATION = 90;          // 90s max limit
+const MAX_CAROUSEL_IMAGES = 10;
 
 export default function CreatePostPage() {
   const router = useRouter();
+  const { startPostUpload } = useUpload();
   const user = useSelector((state: RootState) => state.auth.user);
-  const { data: myStore } = useGetMyStoreQuery();
+  const isAuthenticated = Boolean(user);
+  const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !isAuthenticated });
   const { data: allProducts } = useGetStoreProductsQuery(myStore?.id || '', { skip: !myStore?.id });
   
-  const [isReel, setIsReel] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
-  const [createPost] = useCreatePostMutation();
-  const [createReel] = useCreateReelMutation();
-  const [uploadMedia] = useUploadMediaMutation();
-  const [getPresignedUrl] = useGetPresignedUrlMutation();
-  const [processMedia] = useProcessMediaMutation();
   const [caption, setCaption] = useState('');
   const [showTagSelector, setShowTagSelector] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const [mediaPreviews, setMediaPreviews] = useState<{url: string, type: string}[]>([]);
+  const [mediaPreviews, setMediaPreviews] = useState<{url: string, posterUrl?: string, type: 'image' | 'video'}[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // Derived state: is video post
+  const isVideoPost = mediaPreviews.length > 0 && mediaPreviews[0]?.type === 'video';
+
+  // Video Trimmer state
+  const [isTrimmerOpen, setIsTrimmerOpen] = useState(false);
+  const [pendingTrimmerFile, setPendingTrimmerFile] = useState<File | null>(null);
+  const [trimData, setTrimData] = useState<{ startTime: number; endTime: number; duration: number } | null>(null);
+
+  // Auth Guard
+  useEffect(() => {
+    if (!isAuthenticated && !user) {
+      toast.info('Please log in to create posts');
+      router.push('/login?redirect=/profile/create/post');
+    }
+  }, [isAuthenticated, user, router]);
+
+  const validateAndAddVideo = async (file: File) => {
+    if (file.size > MAX_VIDEO_SIZE_BYTES) {
+      toast.error('Video exceeds maximum size limit of 100 MB.');
+      return;
+    }
+
+    // Check duration via temporary video element
+    const tempUrl = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.src = tempUrl;
+
+    video.onloadedmetadata = async () => {
+      URL.revokeObjectURL(tempUrl);
+      const duration = video.duration || 0;
+
+      // If video duration exceeds recommended length (90s), launch interactive trimmer!
+      if (duration > RECOMMENDED_VIDEO_DURATION) {
+        toast.info(`Video length is ${Math.round(duration)}s. Let's crop/trim it to 90s.`);
+        setPendingTrimmerFile(file);
+        setIsTrimmerOpen(true);
+        return;
+      }
+
+      const previewUrl = URL.createObjectURL(file);
+      setMediaFiles([file]);
+      setMediaPreviews([{ url: previewUrl, type: 'video' }]);
+      setPendingTrimmerFile(file);
+      setTrimData(null);
+
+      try {
+        const { thumbnailDataUrl } = await generateVideoThumbnail(file);
+        if (thumbnailDataUrl) {
+          setMediaPreviews([{ url: previewUrl, posterUrl: thumbnailDataUrl, type: 'video' }]);
+        }
+      } catch (err) {
+        console.warn('Thumbnail generation notice:', err);
+      }
+    };
+
+    video.onerror = () => {
+      URL.revokeObjectURL(tempUrl);
+      toast.error('Unable to read video file. Please try another format (MP4, MOV, WebM).');
+    };
+  };
+
+  const handleTrimComplete = ({ startTime, endTime, duration, thumbnailDataUrl }: { startTime: number; endTime: number; duration: number; thumbnailDataUrl?: string }) => {
+    if (!pendingTrimmerFile) return;
+
+    const previewUrl = URL.createObjectURL(pendingTrimmerFile);
+    setMediaFiles([pendingTrimmerFile]);
+    setMediaPreviews([{
+      url: previewUrl,
+      posterUrl: thumbnailDataUrl,
+      type: 'video'
+    }]);
+    setTrimData({ startTime, endTime, duration });
+    toast.success(`Video trimmed to ${duration}s (${Math.floor(startTime)}s - ${Math.floor(endTime)}s)`);
+  };
 
   const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     
-    if (isReel) {
-      const file = files[0];
-      if (file.type.startsWith('video/')) {
-        const url = URL.createObjectURL(file);
-        setMediaPreviews([{ url, type: 'video' }]);
-        setMediaFiles([file]);
+    // Check if any video is in the selection
+    const firstVideo = files.find(f => f.type.startsWith('video/'));
+
+    // Mutual exclusivity: Video vs Photos
+    if (firstVideo) {
+      if (mediaFiles.length > 0 && !isVideoPost) {
+        toast.info('Switched to video post (replaced previous photos).');
       }
-    } else {
-      const newFiles = [...mediaFiles, ...files].slice(0, 10);
-      const newPreviews = newFiles.map(file => {
-        const url = URL.createObjectURL(file);
-        return { url, type: file.type.startsWith('video/') ? 'video' : 'image' };
-      });
-      setMediaFiles(newFiles);
-      setMediaPreviews(newPreviews);
+      validateAndAddVideo(firstVideo);
+      return;
     }
+
+    // Handle Photos (up to 10)
+    const validImageFiles = files.filter(f => {
+      if (f.size > MAX_IMAGE_SIZE_BYTES) {
+        toast.error(`${f.name} exceeds 10 MB limit.`);
+        return false;
+      }
+      return f.type.startsWith('image/');
+    });
+
+    if (validImageFiles.length === 0) return;
+
+    if (isVideoPost) {
+      toast.info('Switched to photo post (replaced previous video).');
+      const limited = validImageFiles.slice(0, MAX_CAROUSEL_IMAGES);
+      const newPreviews = limited.map(file => ({
+        url: URL.createObjectURL(file),
+        type: 'image' as const
+      }));
+      setMediaFiles(limited);
+      setMediaPreviews(newPreviews);
+      setTrimData(null);
+      return;
+    }
+
+    const combined = [...mediaFiles, ...validImageFiles].slice(0, MAX_CAROUSEL_IMAGES);
+    if (mediaFiles.length + validImageFiles.length > MAX_CAROUSEL_IMAGES) {
+      toast.info(`Carousel limited to maximum ${MAX_CAROUSEL_IMAGES} photos.`);
+    }
+
+    const newPreviews = combined.map(file => ({
+      url: URL.createObjectURL(file),
+      type: 'image' as const
+    }));
+
+    setMediaFiles(combined);
+    setMediaPreviews(newPreviews);
+    setTrimData(null);
   };
 
   const removeMedia = (index: number) => {
@@ -70,82 +176,21 @@ export default function CreatePostPage() {
     const newPreviews = [...mediaPreviews];
     newPreviews.splice(index, 1);
     setMediaPreviews(newPreviews);
+    setTrimData(null);
   };
 
-  const handleShare = async () => {
-    if (mediaFiles.length === 0) return;
+  const handleShare = () => {
+    if (mediaFiles.length === 0 || isPosting) return;
     setIsPosting(true);
     
-    try {
-      const mediaIds: string[] = [];
-      const legacyMedia: {url: string, type: string}[] = [];
-      
-      for (const file of mediaFiles) {
-        const type = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
-        
-        try {
-          // 1. Direct multipart upload to Cloudflare R2
-          const formData = new FormData();
-          formData.append('file', file);
-          const uploadRes = await uploadMedia(formData).unwrap();
-          const mediaUrl = uploadRes.publicUrl || uploadRes.url;
-          
-          if (mediaUrl) {
-            legacyMedia.push({
-              url: mediaUrl,
-              type
-            });
-            continue;
-          }
-        } catch (directErr) {
-          console.warn('Direct upload failed, trying presigned URL fallback:', directErr);
-        }
-
-        try {
-          // 2. Presigned URL Pipeline fallback
-          const { signedUrl, fileKey } = await getPresignedUrl({ filename: file.name || 'upload', contentType: file.type }).unwrap();
-          
-          const uploadRes = await fetch(signedUrl, {
-            method: 'PUT',
-            body: file,
-            headers: { 'Content-Type': file.type }
-          });
-          
-          if (!uploadRes.ok) throw new Error('S3 Upload Failed');
-          
-          const { mediaAsset } = await processMedia({ fileKey, type }).unwrap();
-          mediaIds.push(mediaAsset.id);
-        } catch (err) {
-          console.error('All R2 upload strategies failed:', err);
-          throw new Error('Failed to upload media file');
-        }
-      }
-      
-      const payload: any = {
-        caption,
-        productIds: selectedProductIds,
-      };
-      
-      if (mediaIds.length > 0) payload.mediaIds = mediaIds;
-      if (legacyMedia.length > 0) payload.media = legacyMedia;
-      
-      if (!payload.mediaIds && !payload.media) {
-          throw new Error('Failed to process any media files');
-      }
-
-      if (isReel) {
-        await createReel(payload).unwrap();
-      } else {
-        await createPost(payload).unwrap();
-      }
-      
-      router.push('/profile');
-    } catch (error) {
-      console.error('Failed to post:', error);
-      alert('Failed to post. Please try again.');
-    } finally {
-      setIsPosting(false);
-    }
+    // Instantly launch background upload and navigate home
+    startPostUpload({
+      isReel: isVideoPost,
+      mediaFiles,
+      caption,
+      selectedProductIds,
+      previewUrls: mediaPreviews.map(m => m.posterUrl || m.url),
+    });
   };
 
   const selectedProducts = allProducts?.filter(p => selectedProductIds.includes(p.id)) || [];
@@ -163,37 +208,14 @@ export default function CreatePostPage() {
         <button 
           onClick={handleShare}
           disabled={mediaPreviews.length === 0 || isPosting}
-          className="bg-[#FF5A36] text-white px-4 py-1.5 rounded-full font-semibold text-sm disabled:opacity-50 disabled:bg-gray-200 disabled:text-gray-500 transition-colors flex items-center gap-2"
+          className="bg-[#FF5A36] text-white px-5 py-1.5 rounded-full font-semibold text-sm disabled:opacity-50 disabled:bg-gray-200 disabled:text-gray-500 transition-colors flex items-center gap-2 shadow-sm active:scale-95"
         >
           {isPosting && <Loader2 className="w-4 h-4 animate-spin" />}
           {isPosting ? 'Posting...' : 'Share'}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-20 no-scrollbar">
-        {/* Type Switcher */}
-        <div className="p-4">
-          <div className="flex p-1 bg-gray-100 rounded-xl relative">
-            <button 
-              onClick={() => { setIsReel(false); setMediaFiles([]); setMediaPreviews([]); }}
-              className={cn("flex-1 py-2 text-sm font-semibold rounded-lg z-10 transition-colors", !isReel ? "text-[#171717]" : "text-gray-500")}
-            >
-              Post
-            </button>
-            <button 
-              onClick={() => { setIsReel(true); setMediaFiles([]); setMediaPreviews([]); }}
-              className={cn("flex-1 py-2 text-sm font-semibold rounded-lg z-10 transition-colors", isReel ? "text-[#171717]" : "text-gray-500")}
-            >
-              Reel
-            </button>
-            {/* Sliding background */}
-            <div 
-              className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-lg shadow-sm transition-transform duration-300 ease-spring"
-              style={{ transform: isReel ? 'translateX(100%)' : 'translateX(0)' }}
-            />
-          </div>
-        </div>
-
+      <div className="flex-1 overflow-y-auto pb-20 no-scrollbar pt-4">
         {/* Media Upload Area */}
         <div className="px-4 mb-4 relative group">
           {mediaPreviews.length > 0 ? (
@@ -201,7 +223,7 @@ export default function CreatePostPage() {
               <div 
                 className={cn(
                   "flex overflow-x-auto snap-x snap-mandatory no-scrollbar rounded-2xl bg-[#F9F6F0] overflow-hidden shadow-inner",
-                  isReel ? "aspect-[9/16]" : "aspect-[4/5]"
+                  isVideoPost ? "aspect-[9/16] max-h-[520px] mx-auto" : "aspect-[4/5]"
                 )}
                 onScroll={(e) => {
                   const width = e.currentTarget.clientWidth;
@@ -210,14 +232,31 @@ export default function CreatePostPage() {
                 }}
               >
                 {mediaPreviews.map((preview, index) => (
-                  <div key={index} className="w-full shrink-0 relative snap-center flex items-center justify-center">
+                  <div key={index} className="w-full h-full shrink-0 relative snap-center flex items-center justify-center bg-black/5">
                     {mediaPreviews.length > 1 && (
                       <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[11px] font-bold z-10">
                         {index + 1} / {mediaPreviews.length}
                       </div>
                     )}
                     {preview.type === 'video' ? (
-                      <video src={preview.url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                      <>
+                        <video src={preview.url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            if (mediaFiles[0]) {
+                              setPendingTrimmerFile(mediaFiles[0]);
+                              setIsTrimmerOpen(true);
+                            }
+                          }}
+                          className="absolute bottom-3 left-3 bg-black/70 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md hover:bg-black/90 flex items-center gap-1.5 border border-white/20 transition-all shadow-md z-10"
+                        >
+                          <Scissors className="w-3.5 h-3.5 text-[#FF5A36]" />
+                          <span>{trimData ? `Trimmed (${trimData.duration}s)` : 'Trim / Crop'}</span>
+                        </button>
+                      </>
                     ) : (
                       <img src={preview.url} alt="Preview" className="w-full h-full object-cover" />
                     )}
@@ -228,21 +267,23 @@ export default function CreatePostPage() {
                         removeMedia(index);
                       }}
                       className="absolute top-3 right-3 bg-black/60 backdrop-blur-md p-2 rounded-full text-white z-10 hover:bg-black/80 transition-colors"
+                      title="Remove media"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
                 
-                {!isReel && mediaPreviews.length < 10 && (
+                {!isVideoPost && mediaPreviews.length < MAX_CAROUSEL_IMAGES && (
                    <label className="w-full shrink-0 relative snap-center flex flex-col items-center justify-center cursor-pointer bg-[#F9F9F9] hover:bg-gray-100 transition-colors">
                       <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-2">
                         <Plus className="w-6 h-6 text-[#171717]" />
                       </div>
-                      <span className="text-sm font-semibold text-[#171717]">Add More</span>
+                      <span className="text-sm font-semibold text-[#171717]">Add More Photos</span>
+                      <span className="text-xs text-gray-400 mt-0.5">{mediaPreviews.length} of {MAX_CAROUSEL_IMAGES}</span>
                       <input 
                         type="file" 
-                        accept="image/*,video/*"
+                        accept="image/*"
                         multiple
                         className="hidden" 
                         onChange={handleMediaChange}
@@ -252,33 +293,37 @@ export default function CreatePostPage() {
               </div>
               
               {/* Pagination Dots */}
-              {(mediaPreviews.length > 1 || (!isReel && mediaPreviews.length > 0 && mediaPreviews.length < 10)) && (
+              {(mediaPreviews.length > 1 || (!isVideoPost && mediaPreviews.length > 0 && mediaPreviews.length < MAX_CAROUSEL_IMAGES)) && (
                 <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
-                  {Array.from({ length: mediaPreviews.length + (!isReel && mediaPreviews.length < 10 ? 1 : 0) }).map((_, i) => (
+                  {Array.from({ length: mediaPreviews.length + (!isVideoPost && mediaPreviews.length < MAX_CAROUSEL_IMAGES ? 1 : 0) }).map((_, i) => (
                     <div key={i} className={cn("h-1.5 rounded-full transition-all duration-300 shadow-sm", i === activeIndex ? "bg-white w-3" : "bg-white/60 w-1.5")} />
                   ))}
                 </div>
               )}
             </>
           ) : (
-            <div className={cn(
-              "flex items-center justify-center relative rounded-2xl border-2 border-dashed border-gray-200 bg-[#F9F9F9] hover:bg-gray-50 transition-colors",
-              isReel ? "aspect-[9/16]" : "aspect-[4/5]"
-            )}>
+            <div className="flex items-center justify-center relative rounded-2xl border-2 border-dashed border-gray-200 bg-[#FBFBFB] hover:bg-gray-50 transition-colors aspect-[4/5] max-h-[460px]">
               <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full text-center p-6">
-                <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4">
-                  {isReel ? <Film className="w-8 h-8 text-blue-500" /> : <ImageIcon className="w-8 h-8 text-orange-500" />}
+                <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center mb-4 text-[#FF5A36] shadow-sm">
+                  <div className="flex items-center justify-center gap-1">
+                    <ImageIcon className="w-6 h-6" />
+                    <Film className="w-5 h-5 opacity-80" />
+                  </div>
                 </div>
                 <span className="font-bold text-[#171717] text-lg mb-1">
-                  Upload {isReel ? 'Video' : 'Photos'}
+                  Upload Photos or Video
                 </span>
-                <span className="text-sm text-gray-500 max-w-[200px]">
-                  {isReel ? 'Choose a video for your reel' : 'Select up to 10 photos or videos'}
+                <span className="text-xs text-gray-500 max-w-[260px] leading-relaxed">
+                  Select up to 10 photos (Max 10 MB each) or 1 video (Max 100 MB, up to 90s)
                 </span>
+                <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-700 shadow-sm hover:border-gray-300">
+                  <UploadCloud className="w-4 h-4 text-[#FF5A36]" />
+                  <span>Choose Media</span>
+                </div>
                 <input 
                   type="file" 
-                  accept={isReel ? 'video/*' : 'image/*,video/*'}
-                  multiple={!isReel}
+                  accept="image/*,video/mp4,video/quicktime,video/webm"
+                  multiple
                   className="hidden" 
                   onChange={handleMediaChange}
                 />
@@ -325,37 +370,59 @@ export default function CreatePostPage() {
           {/* Selected Products Preview */}
           {selectedProducts.length > 0 && (
             <div className="px-4 pb-4 flex gap-3 overflow-x-auto no-scrollbar">
-              {selectedProducts.map(product => (
-                <div key={product.id} className="relative flex-shrink-0 group">
-                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-[#F9F6F0]">
-                    <img 
-                      src={product.images[0]} 
-                      alt={product.name}
-                      className="w-full h-full object-contain p-1 mix-blend-multiply"
-                    />
+              {selectedProducts.map((product: any) => {
+                const pImg = product.imageUrl || product.media?.[0]?.url || product.images?.[0] || '';
+                return (
+                  <div key={product.id} className="relative flex-shrink-0 group">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-[#F9F6F0] flex items-center justify-center">
+                      {pImg ? (
+                        <img 
+                          src={getMediaUrl(pImg)} 
+                          alt={product.name || 'Product'}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-gray-400 font-semibold">No Image</span>
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => setSelectedProductIds(prev => prev.filter(id => id !== product.id))}
+                      className="absolute -top-2 -right-2 bg-white rounded-full shadow-md border border-gray-100 p-1 text-gray-500 hover:text-red-500 transition-colors"
+                      title="Remove product"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => setSelectedProductIds(prev => prev.filter(id => id !== product.id))}
-                    className="absolute -top-2 -right-2 bg-white rounded-full shadow-md border border-gray-100 p-1 text-gray-500 hover:text-red-500 transition-colors"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
-      {showTagSelector && myStore?.id && (
+      {showTagSelector && (
         <ProductTagSelector 
-          storeId={myStore.id}
+          storeId={myStore?.id}
           initialSelected={selectedProductIds}
           onClose={() => setShowTagSelector(false)}
           onDone={(ids) => {
             setSelectedProductIds(ids);
             setShowTagSelector(false);
           }}
+        />
+      )}
+
+      {/* Video Trimmer / Cropper Modal */}
+      {isTrimmerOpen && pendingTrimmerFile && (
+        <VideoTrimmerModal
+          isOpen={isTrimmerOpen}
+          onClose={() => {
+            setIsTrimmerOpen(false);
+            if (mediaFiles.length === 0) setPendingTrimmerFile(null);
+          }}
+          videoFile={pendingTrimmerFile}
+          maxDurationSeconds={90}
+          onTrimComplete={handleTrimComplete}
         />
       )}
     </div>

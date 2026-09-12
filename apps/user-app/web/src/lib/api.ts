@@ -102,8 +102,13 @@ export const api = createApi({
         body,
       }),
     }),
+    getUserOrders: builder.query<any[], void>({
+      query: () => '/orders',
+      providesTags: ['Order'],
+    }),
     getOrder: builder.query<any, string>({
       query: (orderId) => `/orders/${orderId}`,
+      providesTags: ['Order'],
     }),
     updateOrderStatus: builder.mutation<any, { orderId: string; status: string }>({
       query: ({ orderId, status }) => ({
@@ -111,6 +116,18 @@ export const api = createApi({
         method: 'PATCH',
         body: { status },
       }),
+      invalidatesTags: ['Order', 'SellerDashboard'],
+    }),
+    dispatchShipment: builder.mutation<any, string>({
+      query: (orderId) => ({
+        url: `/orders/${orderId}/dispatch`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Order', 'SellerDashboard'],
+    }),
+    getOrderTracking: builder.query<any, string>({
+      query: (orderId) => `/orders/${orderId}/track`,
+      providesTags: ['Order'],
     }),
     createPaymentOrder: builder.mutation<any, any>({
       query: (body) => ({
@@ -153,6 +170,33 @@ export const api = createApi({
         url: `/identity/profile`,
         method: 'PUT',
         body,
+      }),
+      invalidatesTags: ['User'],
+    }),
+    getAddresses: builder.query<any[], void>({
+      query: () => '/identity/addresses',
+      providesTags: ['User'],
+    }),
+    addAddress: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/identity/addresses',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['User'],
+    }),
+    updateAddress: builder.mutation<any, { id: string; body: any }>({
+      query: ({ id, body }) => ({
+        url: `/identity/addresses/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['User'],
+    }),
+    deleteAddress: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/identity/addresses/${id}`,
+        method: 'DELETE',
       }),
       invalidatesTags: ['User'],
     }),
@@ -220,8 +264,12 @@ export const api = createApi({
       invalidatesTags: ['Category'],
     }),
     // New Global Search
-    searchGlobal: builder.query<{ users: any[], stores: any[], products: any[] }, string>({
+    searchGlobal: builder.query<{ users: any[]; stores: any[]; products: any[]; posts: any[] }, string>({
       query: (q) => `/search?q=${encodeURIComponent(q)}`,
+      transformResponse: (response: any) => {
+        if (response?.data) return response.data;
+        return response || { users: [], stores: [], products: [], posts: [] };
+      },
     }),
     
     // Wishlist
@@ -263,6 +311,7 @@ export const api = createApi({
         return `/content/reels${qs}`;
       },
       providesTags: ['Reel'],
+      keepUnusedDataFor: 300,
     }),
     getPosts: builder.query<any[], { page?: number; limit?: number } | void>({
       query: (params) => {
@@ -320,6 +369,21 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
+      invalidatesTags: ['Post', 'Reel'],
+    }),
+    deletePost: builder.mutation<any, string>({
+      query: (postId) => ({
+        url: `/content/posts/${postId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Post'],
+    }),
+    deleteReel: builder.mutation<any, string>({
+      query: (reelId) => ({
+        url: `/content/reels/${reelId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Reel'],
     }),
     addReelComment: builder.mutation<any, { reelId: string; content: string }>({
       query: ({ reelId, content }) => ({
@@ -504,6 +568,10 @@ export const api = createApi({
       reviewCount: number;
       isOpen: boolean;
       timingLabel: string;
+      followersCount?: number;
+      followingCount?: number;
+      postsCount?: number;
+      reelsCount?: number;
     }, string>({
       query: (storeId) => `/seller/${storeId}/summary`,
       providesTags: ['Store'],
@@ -536,6 +604,21 @@ export const api = createApi({
     }),
 
     // Products Management
+    getPublicProducts: builder.query<any[], { category?: string; search?: string; sort?: string; limit?: number } | void>({
+      query: (params) => {
+        let qs = '';
+        if (params?.category) qs += `category=${encodeURIComponent(params.category)}&`;
+        if (params?.search) qs += `search=${encodeURIComponent(params.search)}&`;
+        if (params?.sort) qs += `sort=${encodeURIComponent(params.sort)}&`;
+        if (params?.limit) qs += `limit=${params.limit}&`;
+        return `/catalog/products${qs ? `?${qs.slice(0, -1)}` : ''}`;
+      },
+      providesTags: ['Product'],
+    }),
+    getBanners: builder.query<any[], void>({
+      query: () => '/content/banners',
+      providesTags: ['Post'],
+    }),
     getProductById: builder.query<any, string>({
       query: (id) => `/catalog/products/${id}`,
       providesTags: ['Product'],
@@ -681,14 +764,21 @@ export const {
   useOnboardStoreMutation, 
   useAddProductMutation,
   useCreateOrderMutation,
+  useGetUserOrdersQuery,
   useGetOrderQuery,
   useUpdateOrderStatusMutation,
+  useDispatchShipmentMutation,
+  useGetOrderTrackingQuery,
   useCreatePaymentOrderMutation,
   useVerifyPaymentMutation,
   useUploadMediaMutation,
   useGetPresignedUrlMutation,
   useProcessMediaMutation,
   useUpdateProfileMutation,
+  useGetAddressesQuery,
+  useAddAddressMutation,
+  useUpdateAddressMutation,
+  useDeleteAddressMutation,
   useSendRegistrationOtpMutation,
   useForgotPasswordOtpMutation,
   useVerifyForgotPasswordOtpMutation,
@@ -717,6 +807,8 @@ export const {
   useGetPostLikesQuery,
   useGetReelLikesQuery,
   useReportContentMutation,
+  useDeletePostMutation,
+  useDeleteReelMutation,
 
   // Cart Hooks
   useGetCartQuery,
@@ -735,6 +827,8 @@ export const {
   useUpdateStoreThemeMutation,
   useGetStoreOrdersQuery,
   useVerifyOrderPickupMutation,
+  useGetPublicProductsQuery,
+  useGetBannersQuery,
   useGetProductByIdQuery,
   useUpdateProductMutation,
   useDeleteProductMutation,

@@ -29,14 +29,17 @@ export function CartProductCard({
   onDecrement,
   onRemove
 }: CartProductCardProps) {
+  const safeImageUrl = imageUrl && imageUrl.trim() !== '' 
+    ? imageUrl 
+    : 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400';
+
   return (
     <div className="flex gap-4">
       <div className="w-24 h-24 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center p-2 relative">
-        <Image 
-          src={imageUrl} 
+        <img 
+          src={safeImageUrl} 
           alt={name} 
-          fill
-          className="object-cover mix-blend-multiply" 
+          className="w-full h-full object-contain mix-blend-multiply" 
         />
       </div>
       <div className="flex-1 flex flex-col justify-between">

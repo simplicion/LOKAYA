@@ -13,7 +13,7 @@ export class SearchController {
       const query = req.query.q as string;
       
       if (!query || query.trim() === '') {
-        res.status(200).json({ success: true, data: { users: [], stores: [], products: [] } });
+        res.status(200).json({ success: true, data: { users: [], stores: [], products: [], posts: [] } });
         return;
       }
 

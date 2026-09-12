@@ -3,16 +3,17 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Grid, PlaySquare, MapPin, Plus, CheckCircle2, Archive, PlusCircle, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Grid, PlaySquare, MapPin, Plus, CheckCircle2 } from 'lucide-react';
 import { 
   useGetStoreHighlightsQuery, 
   useGetStorePostsQuery, 
   useGetStoreReelsQuery,
-  useGetStoryArchiveQuery 
+  useGetStoryArchiveQuery,
+  useGetStoreSummaryQuery
 } from '@/lib/api';
 import { CreateHighlightModal } from './CreateHighlightModal';
 import { StoryViewerModal } from '../feed/StoryViewerModal';
+import { cn, getMediaUrl } from '@/lib/utils';
 import Link from 'next/link';
 
 export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
@@ -26,25 +27,52 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
   const [viewerHighlightTitle, setViewerHighlightTitle] = useState('');
 
   // Live queries
+  const { data: storeSummary } = useGetStoreSummaryQuery(myStore.id, { skip: !myStore?.id });
   const { data: highlights } = useGetStoreHighlightsQuery(myStore.id, { skip: !myStore?.id });
   const { data: storePosts } = useGetStorePostsQuery(myStore.id, { skip: !myStore?.id });
   const { data: storeReels } = useGetStoreReelsQuery(myStore.id, { skip: !myStore?.id });
   const { data: archiveStories } = useGetStoryArchiveQuery();
 
-  const fallbackPosts = [
-    { id: '1', type: 'image', url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80' },
-    { id: '2', type: 'image', url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80' },
-    { id: '3', type: 'image', url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80' },
-    { id: '4', type: 'image', url: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80' },
-  ];
+  const avgRating = storeSummary?.avgRating ?? 0;
+  const reviewCount = storeSummary?.reviewCount ?? 0;
+  const isOpen = storeSummary?.isOpen ?? true;
+  const timingLabel = storeSummary?.timingLabel || (isOpen ? 'Open Now' : 'Closed');
 
-  const fallbackReels = [
-    { id: '1', type: 'video', url: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&q=80' },
-    { id: '2', type: 'video', url: 'https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&q=80' },
-  ];
+  const allPosts = storePosts || [];
+  const allReels = storeReels || [];
 
-  const displayPosts = (storePosts && storePosts.length > 0) ? storePosts : fallbackPosts;
-  const displayReels = (storeReels && storeReels.length > 0) ? storeReels : fallbackReels;
+  const videoPostsAsReels = allPosts
+    .filter((p: any) => p.type === 'video' || p.media?.some((m: any) => m.type === 'VIDEO' || m.type === 'video'))
+    .map((p: any) => {
+      const vidMedia = p.media?.find((m: any) => m.type === 'VIDEO' || m.type === 'video') || p.media?.[0];
+      return {
+        id: p.id,
+        authorId: p.authorId,
+        caption: p.caption,
+        videoUrl: vidMedia?.url || p.url || '',
+        url: vidMedia?.url || p.url || '',
+        posterUrl: vidMedia?.posterUrl || p.posterUrl || '',
+        status: vidMedia?.status || p.status || 'READY',
+        isOptimizing: (vidMedia?.status || p.status) === 'PROCESSING' || (vidMedia?.status || p.status) === 'PENDING',
+        media: p.media,
+        type: 'video',
+        likesCount: p.likesCount || 0,
+        commentsCount: p.commentsCount || 0,
+        createdAt: p.createdAt,
+      };
+    });
+
+  const combinedReelsMap = new Map<string, any>();
+  [...allReels, ...videoPostsAsReels].forEach(r => {
+    if (r.id && !(r.status === 'FAILED' && !r.videoUrl && !r.url)) {
+      combinedReelsMap.set(r.id, r);
+    }
+  });
+
+  const displayPosts = allPosts;
+  const displayReels = Array.from(combinedReelsMap.values()).sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
   const displayItems = activeTab === 'posts' ? displayPosts : displayReels;
 
   const handleOpenHighlight = (highlight: any) => {
@@ -70,6 +98,13 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
     }))
   }];
 
+  const formatCount = (count?: number | null) => {
+    const num = count || 0;
+    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+    if (num >= 1_000) return `${(num / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+    return num.toString();
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-white pb-20">
       {/* Profile Header Info */}
@@ -87,15 +122,21 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
           
           <div className="flex gap-6 pr-4">
             <div className="flex flex-col items-center">
-              <span className="font-bold text-lg text-[#171717]">{storePosts?.length ?? 128}</span>
+              <span className="font-bold text-lg text-[#171717]">
+                {formatCount(storePosts?.length ?? storeSummary?.postsCount ?? 0)}
+              </span>
               <span className="text-sm text-[#171717]">posts</span>
             </div>
             <div className="flex flex-col items-center">
-              <span className="font-bold text-lg text-[#171717]">1.2M</span>
+              <span className="font-bold text-lg text-[#171717]">
+                {formatCount(storeSummary?.followersCount ?? 0)}
+              </span>
               <span className="text-sm text-[#171717]">followers</span>
             </div>
             <div className="flex flex-col items-center">
-              <span className="font-bold text-lg text-[#171717]">294</span>
+              <span className="font-bold text-lg text-[#171717]">
+                {formatCount(storeSummary?.followingCount ?? 0)}
+              </span>
               <span className="text-sm text-[#171717]">following</span>
             </div>
           </div>
@@ -110,86 +151,59 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
           </div>
           <p className="text-sm text-gray-500 mt-0.5 mb-1.5">{myStore.description || "Official Online Store"} • {myStore.category || "Grocery & Essentials"}</p>
           
-          <div className="flex items-center gap-4 mb-2">
-            <div className="flex items-center text-sm font-medium text-gray-700">
-              <span className="text-amber-400 mr-1 text-[15px]">★</span>
-              4.8 (120+ ratings)
-            </div>
-            <div className="text-sm font-medium text-green-600">
-              {myStore.openingTime && myStore.closingTime ? `Open ${myStore.openingTime} - ${myStore.closingTime}` : 'Open until 10:00 PM'}
-            </div>
+          <div className="flex items-center gap-3 text-xs text-gray-500 mb-1">
+            <span className="flex items-center text-amber-500 font-semibold">
+              ★ {avgRating > 0 ? avgRating.toFixed(1) : 'New'} <span className="text-gray-400 font-normal ml-0.5">({reviewCount} ratings)</span>
+            </span>
+            <span className={cn("font-medium", isOpen ? "text-emerald-600" : "text-amber-600")}>
+              {timingLabel}
+            </span>
           </div>
           
-          {myStore.address && (
-            <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-              <MapPin className="w-4 h-4 shrink-0 text-gray-400" />
-              <span className="truncate">{myStore.address}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-1 text-xs text-gray-400">
+            <MapPin className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{myStore.address || "Address not provided"}</span>
+          </div>
         </div>
         
-        {/* Action Buttons Row 1 */}
-        <div className="flex items-center gap-2 mb-2">
-          <Button 
-            variant="outline" 
-            className="flex-1 bg-[#F5F5F5] border-none text-[#171717] font-semibold h-9 px-2 rounded-lg hover:bg-gray-200"
-            onClick={() => router.push('/seller')}
+        {/* Quick Actions */}
+        <div className="flex gap-2">
+          <button 
+            onClick={() => router.push('/seller/dashboard')}
+            className="flex-1 py-1.5 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] transition rounded-lg text-xs font-semibold text-[#171717]"
           >
             Dashboard
-          </Button>
-          <Button 
-            variant="outline" 
-            className="flex-1 bg-[#F5F5F5] border-none text-[#171717] font-semibold h-9 px-2 rounded-lg hover:bg-gray-200"
-            onClick={() => router.push('/profile/settings')}
+          </button>
+          <button 
+            onClick={() => router.push('/seller/settings')}
+            className="flex-1 py-1.5 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] transition rounded-lg text-xs font-semibold text-[#171717]"
           >
             Edit Store
-          </Button>
-          <Button 
-            variant="outline" 
-            className="flex-1 bg-[#F5F5F5] border-none text-[#171717] font-semibold h-9 px-2 rounded-lg hover:bg-gray-200"
+          </button>
+          <button 
             onClick={() => router.push(`/store/${myStore.id}`)}
+            className="flex-1 py-1.5 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] transition rounded-lg text-xs font-semibold text-[#171717]"
           >
             Visit Store
-          </Button>
-        </div>
-
-        {/* Action Buttons Row 2: Story Archive & New Post */}
-        <div className="flex items-center gap-2">
-          <Link 
-            href="/profile/archive"
-            className="flex-1 h-8 bg-orange-50 text-[#FF5A36] text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 border border-orange-200 hover:bg-orange-100 transition-colors"
-          >
-            <Archive className="w-3.5 h-3.5" />
-            <span>Story Archive</span>
-          </Link>
-
-          <Link 
-            href="/profile/create/post"
-            className="flex-1 h-8 bg-[#171717] text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 hover:bg-black transition-colors"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Create Post / Reel</span>
-          </Link>
+          </button>
         </div>
       </div>
       
-      {/* Highlights (Instagram Style) */}
-      <div className="px-4 pb-4 overflow-x-auto no-scrollbar flex gap-4 items-start">
-        {/* New Highlight Button */}
-        <button 
+      {/* Story Highlights Bar */}
+      <div className="flex items-center gap-4 px-4 py-3 overflow-x-auto no-scrollbar border-t border-gray-100">
+        {/* Add Highlight Button */}
+        <div 
           onClick={() => setIsCreateHighlightOpen(true)}
-          className="flex flex-col items-center gap-1 shrink-0 group"
+          className="flex flex-col items-center gap-1 shrink-0 cursor-pointer group"
         >
-          <div className="w-16 h-16 rounded-full border border-gray-300 p-0.5 group-active:scale-95 transition-transform">
-            <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-dashed border-gray-400">
-              <Plus className="w-6 h-6 text-[#171717]" />
-            </div>
+          <div className="w-16 h-16 rounded-full border border-dashed border-gray-300 flex items-center justify-center bg-gray-50 group-hover:bg-gray-100 transition-colors">
+            <Plus className="w-6 h-6 text-gray-500" />
           </div>
-          <span className="text-xs font-medium text-[#171717]">New</span>
-        </button>
+          <span className="text-xs font-medium text-[#171717] max-w-[68px] truncate text-center">New</span>
+        </div>
 
-        {/* Live Highlights */}
-        {highlights && highlights.length > 0 ? (
+        {/* Real Highlight Circles */}
+        {highlights && highlights.length > 0 && (
           highlights.map((highlight: any) => (
             <div 
               key={highlight.id} 
@@ -199,7 +213,7 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
               <div className="w-16 h-16 rounded-full border border-gray-300 p-0.5 group-active:scale-95 transition-transform">
                 <div className="w-full h-full rounded-full bg-gray-100 overflow-hidden relative">
                   {highlight.coverUrl ? (
-                    <img src={highlight.coverUrl} alt={highlight.title} className="w-full h-full object-cover" />
+                    <img src={getMediaUrl(highlight.coverUrl)} alt={highlight.title} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-xs font-bold text-gray-400">
                       {highlight.title.slice(0, 2).toUpperCase()}
@@ -210,22 +224,6 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
               <span className="text-xs font-medium text-[#171717] max-w-[68px] truncate text-center">
                 {highlight.title}
               </span>
-            </div>
-          ))
-        ) : (
-          /* Default mock highlights when fresh */
-          ['Summer Sale', 'New Drop', 'Reviews'].map((label, i) => (
-            <div 
-              key={i} 
-              onClick={() => setIsCreateHighlightOpen(true)}
-              className="flex flex-col items-center gap-1 shrink-0 cursor-pointer opacity-70"
-            >
-              <div className="w-16 h-16 rounded-full border border-gray-300 p-0.5">
-                <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center">
-                  <PlaySquare className="w-6 h-6 text-gray-400" />
-                </div>
-              </div>
-              <span className="text-xs text-[#171717] max-w-[68px] truncate text-center">{label}</span>
             </div>
           ))
         )}
@@ -248,27 +246,86 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
       </div>
       
       {/* Content Grid */}
-      <div className="grid grid-cols-3 gap-0.5">
-        {displayItems.map((item: any, idx: number) => {
-          const mediaUrl = item.url || item.videoUrl || item.media?.[0]?.url;
-          const isVideo = item.type === 'video' || item.type === 'VIDEO';
+      {displayItems.length > 0 ? (
+        <div className="grid grid-cols-3 gap-0.5">
+          {displayItems.map((item: any, idx: number) => {
+            const posterUrl = item.posterUrl || item.media?.[0]?.posterUrl;
+            const mediaUrl = item.url || item.videoUrl || item.media?.[0]?.url;
+            const isVideo = activeTab === 'reels' || item.type === 'video' || item.type === 'VIDEO' || item.media?.some((m: any) => m.type === 'VIDEO' || m.type === 'video');
+            const isOptimizing = item.isOptimizing || item.status === 'PROCESSING' || item.status === 'PENDING';
 
-          return (
-            <div key={item.id || idx} className="aspect-square relative bg-gray-100 cursor-pointer overflow-hidden">
-              {mediaUrl ? (
-                <img src={mediaUrl} alt="Post" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-400 text-xs">Media</div>
-              )}
-              {isVideo && (
-                <div className="absolute top-2 right-2">
-                  <PlaySquare className="w-4 h-4 text-white drop-shadow-md" />
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            const handleItemClick = () => {
+              if (isVideo) {
+                const vidMedia = item.media?.find((m: any) => m.type === 'VIDEO' || m.type === 'video') || item.media?.[0];
+                const vUrl = item.videoUrl || item.url || vidMedia?.url || '';
+                const pUrl = item.posterUrl || vidMedia?.posterUrl || '';
+                const params = new URLSearchParams();
+                params.set('id', item.id);
+                if (vUrl) params.set('videoUrl', vUrl);
+                if (pUrl) params.set('posterUrl', pUrl);
+                if (myStore?.name) params.set('storeName', myStore.name);
+                if (item.caption) params.set('caption', item.caption);
+                router.push(`/home/reels?${params.toString()}`);
+              } else {
+                router.push('/home');
+              }
+            };
+
+            return (
+              <div 
+                key={item.id || idx} 
+                onClick={handleItemClick}
+                className="aspect-square relative bg-gray-100 cursor-pointer overflow-hidden group"
+              >
+                {posterUrl ? (
+                  <img src={getMediaUrl(posterUrl)} alt="Thumbnail" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                ) : isVideo && mediaUrl ? (
+                  <video src={getMediaUrl(mediaUrl)} preload="metadata" className="w-full h-full object-cover group-hover:scale-105 transition-transform" muted playsInline />
+                ) : mediaUrl ? (
+                  <img src={getMediaUrl(mediaUrl)} alt="Post" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-400 text-xs">Media</div>
+                )}
+
+                {/* Video Indicator */}
+                {isVideo && (
+                  <div className="absolute top-2 right-2 z-10">
+                    <PlaySquare className="w-4 h-4 text-white drop-shadow-md" />
+                  </div>
+                )}
+
+                {/* Optimizing Status Badge */}
+                {isOptimizing && (
+                  <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-black/80 backdrop-blur-md px-2 py-0.5 rounded-full border border-amber-500/40 text-[10px] font-semibold text-amber-300 shadow-md">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    <span>Optimizing</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+          <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 mb-3">
+            {activeTab === 'posts' ? <Grid className="w-7 h-7" /> : <PlaySquare className="w-7 h-7" />}
+          </div>
+          <h4 className="text-sm font-bold text-[#171717]">
+            {activeTab === 'posts' ? 'No posts yet' : 'No reels yet'}
+          </h4>
+          <p className="text-xs text-gray-500 max-w-xs mt-1">
+            {activeTab === 'posts' 
+              ? 'Share photos and tagged products with your followers.' 
+              : 'Share short video reels showcasing your store and products.'}
+          </p>
+          <Link
+            href="/profile/create/post"
+            className="mt-4 bg-[#FF5A36] text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-sm hover:bg-[#E04B28] active:scale-95 transition"
+          >
+            {activeTab === 'posts' ? '+ Create Post' : '+ Upload Reel'}
+          </Link>
+        </div>
+      )}
 
       {/* Create Highlight Modal */}
       {isCreateHighlightOpen && (

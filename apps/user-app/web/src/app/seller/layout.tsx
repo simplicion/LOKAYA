@@ -50,6 +50,7 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   // All internal pages (hours, settings, add/edit products, categories, details, finance, sub-analytics) hide the footer
   const ROOT_SELLER_TABS = new Set([
     '/seller',
+    '/seller/dashboard',
     '/seller/products',
     '/seller/orders',
     '/seller/analytics',

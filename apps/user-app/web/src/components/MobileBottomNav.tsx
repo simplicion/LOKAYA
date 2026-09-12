@@ -7,13 +7,33 @@ import { cn } from '@/lib/utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { useState, useEffect } from 'react';
+import { useGetReelsQuery } from '@/lib/api';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  // Industry best practice: Pre-warm reels feed in background so tapping Reels opens instantly with 0ms latency
+  useGetReelsQuery(undefined, { refetchOnMountOrArgChange: false });
   const cart = useSelector((state: RootState) => state.cart);
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
-  const hideOnRoutes = ['/home/checkout', '/home/product', '/home/store', '/home/orders', '/seller', '/home/reels', '/search', '/cart', '/wishlist', '/product', '/store', '/profile/create'];
-  const shouldHideCompletely = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(`${route}/`));
+  const hideOnRoutes = [
+    '/checkout',
+    '/orders',
+    '/seller',
+    '/cart',
+    '/notifications',
+    '/wishlist',
+    '/search',
+    '/home/reels',
+    '/explore/nearby',
+    '/product',
+    '/store',
+    '/profile/',
+    '/home/checkout',
+    '/home/product',
+    '/home/store',
+    '/home/orders'
+  ];
+  const shouldHideCompletely = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(route));
 
   if (shouldHideCompletely) return null;
 

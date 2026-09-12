@@ -1,51 +1,55 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Heart, ShoppingCart, Search, Camera, TrendingUp, SlidersHorizontal, ChevronDown, MoreVertical, Star, BadgeCheck, LayoutGrid } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { 
+  Search, 
+  TrendingUp, 
+  SlidersHorizontal, 
+  ChevronDown, 
+  Sparkles,
+  ShoppingBag,
+  ArrowRight,
+  Filter,
+  Check
+} from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
-import { MOCK_PRODUCTS as LIB_PRODUCTS } from '@/lib/mock/products';
-import { cn } from '@/lib/utils';
+import { useGetBannersQuery, useGetPublicProductsQuery } from '@/lib/api';
+import { cn, getMediaUrl } from '@/lib/utils';
 
-const MOCK_CATEGORIES = [
-  { id: 'all', name: 'All', isIcon: true },
-  { id: 'men', name: 'Men', image: 'https://images.unsplash.com/photo-1516826957135-700ede19c6ce?q=80&w=150&auto=format&fit=crop' },
-  { id: 'women', name: 'Women', image: 'https://images.unsplash.com/photo-1515347619362-790176378e9b?q=80&w=150&auto=format&fit=crop' },
-  { id: 'footwear', name: 'Footwear', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=150&auto=format&fit=crop' },
-  { id: 'bags', name: 'Bags', image: 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?q=80&w=150&auto=format&fit=crop' },
-  { id: 'watches', name: 'Watches', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=150&auto=format&fit=crop' },
-  { id: 'home', name: 'Home', image: 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?q=80&w=150&auto=format&fit=crop' },
-  { id: 'beauty', name: 'Beauty', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?q=80&w=150&auto=format&fit=crop' },
+const TRENDING_TAGS = [
+  'Shoes',
+  'T-Shirt',
+  'Mojari',
+  'Handloom',
+  'Sneakers',
+  'Jewelry',
+  'Artisan'
 ];
 
-const MOCK_TRENDING = [
-  { id: 1, text: 'Oversized T-Shirt', isTrending: true },
-  { id: 2, text: 'Sneakers' },
-  { id: 3, text: 'Linen Shirts' },
-  { id: 4, text: 'Smart Watch' },
-  { id: 5, text: 'Home Decor' },
-  { id: 6, text: 'Sunglasses' },
+const SORT_OPTIONS = [
+  { id: 'newest', label: 'Newest First' },
+  { id: 'price_asc', label: 'Price: Low to High' },
+  { id: 'price_desc', label: 'Price: High to Low' },
 ];
-
-const MOCK_PRODUCTS = Object.values(LIB_PRODUCTS).map((product, index) => ({
-  id: product.id,
-  title: product.title,
-  image: product.images[0],
-  price: product.price.toLocaleString(),
-  originalPrice: product.originalPrice?.toLocaleString(),
-  discount: product.discountLabel,
-  tag: index === 0 ? { text: 'Bestseller', bg: 'bg-[#FF9800]' } : index === 1 ? { text: 'New', bg: 'bg-[#16845B]' } : undefined,
-  store: { name: product.store.name, isVerified: product.store.verified },
-  rating: product.rating?.score.toString() || '4.5',
-  reviews: product.rating?.count ? `(${product.rating.count})` : '(0)',
-}));
 
 export default function ExplorePage() {
-  const [activeBanner, setActiveBanner] = useState(0);
-  const [activeCategory, setActiveCategory] = useState('all');
+  const router = useRouter();
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+  const [selectedSort, setSelectedSort] = useState('newest');
+  const [isSortOpen, setIsSortOpen] = useState(false);
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const bannerScrollRef = useRef<HTMLDivElement>(null);
 
+  // Live queries
+  const { data: banners = [], isLoading: isBannersLoading } = useGetBannersQuery();
+  const { data: products = [], isLoading: isProductsLoading } = useGetPublicProductsQuery({
+    sort: selectedSort,
+  });
+
+  // Track scroll direction for sticky bar
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -61,122 +65,203 @@ export default function ExplorePage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  return (
-    <div className="flex flex-col min-h-screen bg-white pb-24">
+  // Handle banner scroll pagination indicator
+  const handleBannerScroll = () => {
+    if (bannerScrollRef.current) {
+      const scrollLeft = bannerScrollRef.current.scrollLeft;
+      const width = bannerScrollRef.current.offsetWidth;
+      const newIndex = Math.round(scrollLeft / (width * 0.85));
+      setActiveBannerIndex(Math.min(newIndex, Math.max(0, banners.length - 1)));
+    }
+  };
 
-      {/* 2. Search Bar */}
-      <div className="px-4 py-2">
-        <Link href="/search" className="relative flex items-center w-full h-11 bg-[#F2EFE9] rounded-xl px-3 overflow-hidden cursor-pointer">
-          <Search className="w-5 h-5 text-[#6B6B6B]" />
-          <div className="flex-1 px-3 text-[14px] text-[#999999] text-left">Search products, stores and more</div>
-          <Camera className="w-5 h-5 text-[#6B6B6B]" />
+  const handleBannerClick = (linkUrl?: string | null) => {
+    if (linkUrl) {
+      if (linkUrl.startsWith('http://') || linkUrl.startsWith('https://')) {
+        window.open(linkUrl, '_blank');
+      } else {
+        router.push(linkUrl);
+      }
+    } else {
+      router.push('/search');
+    }
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-[#FAF9F6] pb-24">
+      
+      {/* 1. Search Bar */}
+      <div className="px-4 pt-3 pb-2 sticky top-0 bg-[#FAF9F6]/95 backdrop-blur-md z-40">
+        <Link 
+          href="/search" 
+          className="relative flex items-center w-full h-11 bg-white border border-gray-200 rounded-2xl px-3.5 shadow-sm hover:border-[#FF5A36] transition cursor-pointer"
+        >
+          <Search className="w-4 h-4 text-gray-400 shrink-0" />
+          <div className="flex-1 px-3 text-sm text-gray-400 font-medium">Search products, stores and more</div>
         </Link>
       </div>
 
-      {/* 3. Categories */}
-      <div className="pt-4 pb-2">
-        <div className="flex items-center justify-between px-4 mb-3">
-          <h2 className="text-[15px] font-bold text-[#171717]">Categories</h2>
-          <button className="text-[13px] font-bold text-[#FF5A36]">View All</button>
-        </div>
-        <div className="flex overflow-x-auto no-scrollbar px-4 gap-4 pb-2">
-          {MOCK_CATEGORIES.map((cat, i) => (
-            <div key={i} className="flex flex-col items-center gap-1.5 cursor-pointer">
-              {cat.isIcon ? (
-                <div className="w-[60px] h-[60px] rounded-2xl border-2 border-[#FF5A36] flex items-center justify-center bg-white shadow-sm flex-shrink-0">
-                  <LayoutGrid className="w-6 h-6 text-[#FF5A36]" />
-                </div>
-              ) : (
-                <div className="w-[60px] h-[60px] rounded-2xl bg-[#F2EFE9] overflow-hidden flex-shrink-0">
-                  <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
-                </div>
-              )}
-              <span className="text-[11px] font-medium text-[#171717]">{cat.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* 2. Promotional Banners (Uploaded from Admin Panel) */}
+      {!isBannersLoading && banners && banners.length > 0 && (
+        <div className="py-2.5">
+          <div 
+            ref={bannerScrollRef}
+            onScroll={handleBannerScroll}
+            className="flex overflow-x-auto no-scrollbar px-4 gap-3 snap-x snap-mandatory scroll-smooth"
+          >
+            {banners.map((banner: any, index: number) => (
+              <div
+                key={banner.id || index}
+                onClick={() => handleBannerClick(banner.linkUrl)}
+                className="min-w-[88%] sm:min-w-[340px] h-[168px] rounded-3xl bg-[#1C1917] relative overflow-hidden snap-center shrink-0 flex items-center cursor-pointer shadow-md hover:shadow-lg transition-transform active:scale-[0.99] group border border-stone-800"
+              >
+                {/* Background Image */}
+                <img 
+                  src={getMediaUrl(banner.imageUrl)} 
+                  alt={banner.title} 
+                  className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:scale-105 transition-transform duration-700" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
 
-      {/* 4. Promotional Banners */}
-      <div className="py-2">
-        <div className="flex overflow-x-auto no-scrollbar px-4 gap-3 snap-x snap-mandatory">
-          {/* Banner 1 */}
-          <div className="min-w-[85%] sm:min-w-[320px] h-[160px] rounded-2xl bg-[#2D2321] relative overflow-hidden snap-center flex-shrink-0 flex items-center">
-            <div className="absolute right-0 h-full w-[60%]">
-              <img src="https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?q=80&w=800&auto=format&fit=crop" className="w-full h-full object-cover opacity-80 mix-blend-luminosity" alt="Banner" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#2D2321] via-[#2D2321]/80 to-transparent" />
-            </div>
-            <div className="relative z-10 px-5 flex flex-col items-start max-w-[65%]">
-              <h3 className="text-white text-[18px] font-bold leading-tight">Summer Sale</h3>
-              <p className="text-white/90 text-[12px] font-medium mt-1">Up to 50% OFF</p>
-              <p className="text-white/60 text-[10px] mt-0.5 mb-3 leading-snug">Extra 10% off on prepaid orders</p>
-              <button className="bg-white text-[#171717] text-[12px] font-bold px-4 py-1.5 rounded-lg shadow-md">
-                Shop Now
-              </button>
-            </div>
+                {/* Banner Content */}
+                <div className="relative z-10 p-5 flex flex-col items-start max-w-[72%]">
+                  {banner.tagline && (
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-[#FF5A36] text-white px-2.5 py-0.5 rounded-full mb-1.5 shadow-sm">
+                      {banner.tagline}
+                    </span>
+                  )}
+                  <h3 className="text-white text-lg font-bold leading-tight line-clamp-1">{banner.title}</h3>
+                  {banner.subtitle && (
+                    <p className="text-gray-300 text-xs font-normal mt-1 line-clamp-2 leading-snug">
+                      {banner.subtitle}
+                    </p>
+                  )}
+                  <div className="mt-3 inline-flex items-center gap-1.5 bg-white text-gray-900 text-xs font-bold px-3.5 py-1.5 rounded-full shadow-md group-hover:bg-gray-100 transition">
+                    <span>{banner.buttonText || 'Shop Now'}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#FF5A36]" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-          
-          {/* Banner 2 */}
-          <div className="min-w-[85%] sm:min-w-[320px] h-[160px] rounded-2xl bg-[#F2EFE9] relative overflow-hidden snap-center flex-shrink-0 flex items-center">
-            <div className="absolute right-0 h-full w-[50%] p-4 flex items-center justify-center">
-              <img src="https://images.unsplash.com/photo-1584916201218-f4242ceb4809?q=80&w=400&auto=format&fit=crop" className="w-full h-full object-contain mix-blend-multiply drop-shadow-xl scale-125 translate-x-4" alt="Banner" />
-            </div>
-            <div className="relative z-10 px-5 flex flex-col items-start">
-              <h3 className="text-[#171717] text-[18px] font-bold leading-tight">New Arrivals</h3>
-              <p className="text-[#6B6B6B] text-[12px] font-medium mt-1 mb-4">Fresh styles just in</p>
-              <button className="bg-white text-[#171717] text-[12px] font-bold px-4 py-1.5 rounded-lg shadow-sm border border-[#E5E2DC]">
-                Shop Now
-              </button>
-            </div>
-          </div>
-        </div>
-        {/* Pagination Dots */}
-        <div className="flex items-center justify-center gap-1.5 mt-3">
-          <div className="w-4 h-1.5 rounded-full bg-[#FF5A36]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#E5E2DC]" />
-        </div>
-      </div>
 
-      {/* 5. Trending Searches */}
-      <div className="pt-4 pb-2">
-        <h2 className="text-[15px] font-bold text-[#171717] px-4 mb-3">Trending Searches</h2>
+          {/* Carousel Dots */}
+          {banners.length > 1 && (
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              {banners.map((_: any, idx: number) => (
+                <div 
+                  key={idx}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    activeBannerIndex === idx ? 'w-5 bg-[#FF5A36]' : 'w-1.5 bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. Trending Searches Chips */}
+      <div className="pt-2 pb-1">
+        <div className="flex items-center gap-1.5 px-4 mb-2">
+          <TrendingUp className="w-3.5 h-3.5 text-[#FF5A36]" />
+          <h2 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Trending Searches</h2>
+        </div>
         <div className="flex overflow-x-auto no-scrollbar px-4 gap-2 pb-2">
-          {MOCK_TRENDING.map((term, i) => (
-            <button 
-              key={i}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full border flex-shrink-0 text-[13px] transition-colors ${
-                term.isTrending 
-                  ? 'border-[#FF5A36] text-[#FF5A36] bg-[#FF5A36]/5' 
-                  : 'border-[#E5E2DC] text-[#171717] bg-white'
-              }`}
+          {TRENDING_TAGS.map((tag) => (
+            <Link 
+              key={tag}
+              href={`/search?q=${encodeURIComponent(tag)}`}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-gray-200 bg-white text-gray-800 text-xs font-semibold shrink-0 shadow-2xs hover:border-[#FF5A36] hover:text-[#FF5A36] transition"
             >
-              {term.isTrending && <TrendingUp className="w-4 h-4" />}
-              <span className="font-medium whitespace-nowrap">{term.text}</span>
-            </button>
+              <span>#{tag}</span>
+            </Link>
           ))}
         </div>
       </div>
 
-      {/* 6. Filters & Sort */}
+      {/* 4. Sticky Header with Products Count & Sort Options */}
       <div className={cn(
-        "flex items-center justify-between px-4 py-3 border-y border-[#E5E2DC] sticky bg-white z-40 transition-all duration-300",
-        isNavVisible ? "top-[56px]" : "top-0"
+        "flex items-center justify-between px-4 py-3 bg-white border-y border-gray-100 sticky z-30 transition-all duration-300 shadow-2xs",
+        isNavVisible ? "top-[58px]" : "top-0"
       )}>
-        <button className="flex items-center gap-2 text-[13px] font-bold text-[#171717]">
-          <SlidersHorizontal className="w-4 h-4" />
-          Filters
-        </button>
-        <button className="flex items-center gap-1 text-[13px] font-bold text-[#171717]">
-          Sort by: Most Popular
-          <ChevronDown className="w-4 h-4 text-[#6B6B6B]" />
-        </button>
+        <div className="flex items-center gap-2">
+          <ShoppingBag className="w-4 h-4 text-[#FF5A36]" />
+          <span className="text-sm font-bold text-gray-900">
+            Explore Products
+          </span>
+          <span className="text-xs text-gray-500 font-semibold">
+            ({products.length})
+          </span>
+        </div>
+
+        {/* Sort Selector */}
+        <div className="relative">
+          <button 
+            onClick={() => setIsSortOpen(!isSortOpen)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl hover:bg-gray-100 transition"
+          >
+            <span>{SORT_OPTIONS.find(s => s.id === selectedSort)?.label}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+          </button>
+
+          {isSortOpen && (
+            <div className="absolute right-0 top-full mt-1.5 bg-white border border-gray-100 rounded-2xl shadow-xl py-1.5 w-44 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              {SORT_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => {
+                    setSelectedSort(option.id);
+                    setIsSortOpen(false);
+                  }}
+                  className="w-full text-left px-3.5 py-2 text-xs font-medium text-gray-700 hover:bg-orange-50 hover:text-[#FF5A36] flex items-center justify-between"
+                >
+                  <span>{option.label}</span>
+                  {selectedSort === option.id && <Check className="w-3.5 h-3.5 text-[#FF5A36]" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* 7. Product Grid */}
-      <div className="grid grid-cols-2 gap-3 p-4 bg-[#FAF9F6]">
-        {MOCK_PRODUCTS.map((product) => (
-            <ProductCard key={product.id} product={product} />
-        ))}
+      {/* 5. Live Product Grid */}
+      <div className="px-2 py-3">
+        {/* Loading Skeleton */}
+        {isProductsLoading && (
+          <div className="grid grid-cols-2 gap-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-2 flex flex-col gap-2.5 animate-pulse">
+                <div className="w-full aspect-[4/5] bg-gray-100 rounded-xl" />
+                <div className="w-3/4 h-3.5 bg-gray-200 rounded" />
+                <div className="w-1/2 h-3 bg-gray-100 rounded" />
+                <div className="w-full h-8 bg-gray-100 rounded-xl mt-1" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Real Products */}
+        {!isProductsLoading && products.length > 0 && (
+          <div className="grid grid-cols-2 gap-2">
+            {products.map((product: any) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isProductsLoading && products.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+            <div className="w-16 h-16 rounded-full bg-orange-50 text-[#FF5A36] flex items-center justify-center mb-4">
+              <ShoppingBag className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-bold text-gray-900">No products available</h3>
+            <p className="text-xs text-gray-500 mt-1 max-w-xs">
+              Check back soon as local stores and artisans add new products to the catalog.
+            </p>
+          </div>
+        )}
       </div>
 
     </div>

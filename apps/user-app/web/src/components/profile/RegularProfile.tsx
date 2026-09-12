@@ -236,9 +236,11 @@ export function RegularProfile() {
             <div className="flex flex-col items-center gap-2 min-w-[70px]">
               <div className="relative">
                 <Package className="w-7 h-7 text-[#171717]" strokeWidth={1.5} />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-white">
-                  2
-                </span>
+                {(user as any)?._count?.orders > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-white">
+                    {(user as any)._count.orders}
+                  </span>
+                )}
               </div>
               <span className="text-[11px] font-semibold text-[#171717]">Ordered</span>
             </div>

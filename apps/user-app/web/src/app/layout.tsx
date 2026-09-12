@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 };
 
 import { StoreProvider } from '../lib/StoreProvider';
+import { UploadProvider } from '@/context/UploadContext';
 import { Toaster } from '@/components/ui/sonner';
 import { OfflineDetector } from '@/components/OfflineDetector';
 
@@ -37,9 +38,11 @@ export default function RootLayout({
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col bg-gray-50">
         <StoreProvider>
-          <OfflineDetector />
-          <main className="flex-1">{children}</main>
-          <Toaster richColors />
+          <UploadProvider>
+            <OfflineDetector />
+            <main className="flex-1">{children}</main>
+            <Toaster richColors />
+          </UploadProvider>
         </StoreProvider>
       </body>
     </html>

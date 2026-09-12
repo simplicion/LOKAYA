@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,9 +8,12 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Store, Phone, FileText, Loader2, CheckCircle2, CreditCard, Building2, UploadCloud } from 'lucide-react';
 import { useOnboardStoreMutation, useGetPresignedUrlMutation, useUploadMediaMutation } from '@/lib/api';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/lib/store';
 
 export default function SellerOnboardingPage() {
   const router = useRouter();
+  const user = useSelector((state: RootState) => state.auth.user);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -20,6 +23,17 @@ export default function SellerOnboardingPage() {
     panCardUrl: '',
     gstOrLicenseUrl: '',
   });
+
+  // Pre-fill store name from user profile by default
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || user.name || '',
+        contactPhone: prev.contactPhone || user.phone || '',
+      }));
+    }
+  }, [user]);
 
   const [onboardStore, { isLoading: isSubmitting }] = useOnboardStoreMutation();
   const [uploadMedia] = useUploadMediaMutation();

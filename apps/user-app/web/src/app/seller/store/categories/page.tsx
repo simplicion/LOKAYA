@@ -15,6 +15,7 @@ import {
   useDeleteCategoryMutation
 } from '@/lib/api';
 import { getMediaUrl } from '@/lib/utils';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 
 export default function ManageCategoriesPage() {
   const router = useRouter();
@@ -25,11 +26,12 @@ export default function ManageCategoriesPage() {
     skip: !store?.id
   });
   
-  const [deleteCategory] = useDeleteCategoryMutation();
+  const [deleteCategory, { isLoading: isDeletingCategory }] = useDeleteCategoryMutation();
 
   // Bottom Sheet State
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
   
   // Auto-open if query param exists
   useEffect(() => {
@@ -77,11 +79,12 @@ export default function ManageCategoriesPage() {
   const incrementOrder = () => setDisplayOrder(prev => prev + 1);
   const decrementOrder = () => setDisplayOrder(prev => (prev > 1 ? prev - 1 : 1));
 
-  const handleDeleteCategory = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this category?')) return;
+  const handleConfirmDeleteCategory = async () => {
+    if (!deletingCategoryId) return;
     try {
-      await deleteCategory(id).unwrap();
-      toast.success('Category deleted');
+      await deleteCategory(deletingCategoryId).unwrap();
+      setDeletingCategoryId(null);
+      toast.success('Category deleted successfully');
     } catch (err: any) {
       toast.error(err?.data?.message || 'Failed to delete category');
     }
@@ -245,7 +248,7 @@ export default function ManageCategoriesPage() {
 
                   <button 
                     type="button"
-                    onClick={() => handleDeleteCategory(cat.id)}
+                    onClick={() => setDeletingCategoryId(cat.id)}
                     className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 active:scale-95 transition-all"
                     title="Delete category"
                     aria-label={`Delete ${cat.name}`}
@@ -380,6 +383,19 @@ export default function ManageCategoriesPage() {
           </div>
         </div>
       )}
+
+      {/* Universal Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={Boolean(deletingCategoryId)}
+        onClose={() => setDeletingCategoryId(null)}
+        onConfirm={handleConfirmDeleteCategory}
+        title="Delete Category?"
+        description="Are you sure you want to delete this category? Make sure no active products are assigned to this category."
+        confirmText="Delete Category"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeletingCategory}
+      />
     </div>
   );
 }

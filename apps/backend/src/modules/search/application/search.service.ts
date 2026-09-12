@@ -4,7 +4,7 @@ import { redisClient } from '../../../shared/services/redis.service';
 export class SearchService {
   async globalSearch(query: string) {
     if (!query || query.trim() === '') {
-      return { users: [], stores: [], products: [] };
+      return { users: [], stores: [], products: [], posts: [] };
     }
 
     const trimmedQuery = query.trim();
@@ -21,7 +21,7 @@ export class SearchService {
     }
 
     // 2. Perform Parallel DB Queries
-    const [users, stores, products] = await Promise.all([
+    const [users, stores, products, posts] = await Promise.all([
       // Users
       prisma.user.findMany({
         where: {
@@ -35,19 +35,19 @@ export class SearchService {
             select: { followers: true, following: true, posts: true }
           }
         },
-        take: 5
+        take: 10
       }),
 
       // Stores
       prisma.store.findMany({
         where: {
           isActive: true,
-          status: 'VERIFIED',
           OR: [
             { name: { contains: trimmedQuery, mode: 'insensitive' } },
             { title: { contains: trimmedQuery, mode: 'insensitive' } },
             { handle: { contains: trimmedQuery, mode: 'insensitive' } },
-            { category: { contains: trimmedQuery, mode: 'insensitive' } }
+            { category: { contains: trimmedQuery, mode: 'insensitive' } },
+            { description: { contains: trimmedQuery, mode: 'insensitive' } }
           ]
         },
         select: {
@@ -62,6 +62,7 @@ export class SearchService {
           workingDays: true,
           openingTime: true,
           closingTime: true,
+          address: true,
           _count: {
             select: { products: true, reviews: true }
           },
@@ -69,19 +70,20 @@ export class SearchService {
             select: { rating: true }
           }
         },
-        take: 5
+        take: 10
       }),
 
       // Products
       prisma.product.findMany({
         where: {
           isActive: true,
-          status: 'PUBLISHED',
+          status: { not: 'ARCHIVED' },
           OR: [
             { name: { contains: trimmedQuery, mode: 'insensitive' } },
             { description: { contains: trimmedQuery, mode: 'insensitive' } },
             { brand: { contains: trimmedQuery, mode: 'insensitive' } },
-            { category: { contains: trimmedQuery, mode: 'insensitive' } }
+            { category: { contains: trimmedQuery, mode: 'insensitive' } },
+            { sku: { contains: trimmedQuery, mode: 'insensitive' } }
           ]
         },
         include: {
@@ -93,11 +95,53 @@ export class SearchService {
             }
           },
           media: {
-            where: { isPrimary: true },
-            take: 1
+            orderBy: { displayOrder: 'asc' }
           },
           reviews: {
             select: { rating: true }
+          }
+        },
+        take: 20
+      }),
+
+      // Posts
+      prisma.post.findMany({
+        where: {
+          OR: [
+            { caption: { contains: trimmedQuery, mode: 'insensitive' } },
+            {
+              author: {
+                name: { contains: trimmedQuery, mode: 'insensitive' }
+              }
+            }
+          ]
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          media: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+              stores: {
+                include: {
+                  store: {
+                    select: { id: true, name: true, logoUrl: true, status: true }
+                  }
+                }
+              }
+            }
+          },
+          productLinks: {
+            include: {
+              product: {
+                select: { id: true, name: true, imageUrl: true, sellingPrice: true, mrp: true }
+              }
+            }
+          },
+          _count: {
+            select: { likes: true, comments: true }
           }
         },
         take: 10
@@ -112,28 +156,88 @@ export class SearchService {
           : 0;
         return {
           ...store,
-          rating: avgRating.toFixed(1),
+          rating: avgRating > 0 ? avgRating.toFixed(1) : '4.8',
           reviewsCount: store._count.reviews
         };
       }),
       products: products.map((prod: any) => {
-        const avgRating = prod.reviews.length > 0
+        const avgRating = prod.reviews?.length > 0
           ? prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length
           : 0;
         
-        let primaryImage = prod.media[0]?.url || prod.imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=200';
+        const primaryImage = prod.media?.[0]?.url || prod.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400';
+        const price = prod.sellingPrice ?? 0;
+        const mrp = prod.mrp && prod.mrp > price ? prod.mrp : undefined;
+        const discountLabel = mrp ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
+
         return {
-          ...prod,
-          rating: avgRating.toFixed(1),
-          reviewsCount: prod.reviews.length,
-          primaryImage
+          id: prod.id,
+          title: prod.name,
+          name: prod.name,
+          description: prod.description,
+          image: primaryImage,
+          primaryImage,
+          price: price.toLocaleString('en-IN'),
+          sellingPrice: price,
+          originalPrice: mrp ? mrp.toLocaleString('en-IN') : undefined,
+          mrp: mrp,
+          discount: discountLabel,
+          discountLabel: discountLabel,
+          store: {
+            id: prod.store?.id || '',
+            name: prod.store?.name || 'Local Store',
+            isVerified: prod.store?.status === 'VERIFIED'
+          },
+          rating: avgRating > 0 ? avgRating.toFixed(1) : '4.8',
+          reviews: `(${prod.reviews?.length || 0})`,
+          reviewsCount: prod.reviews?.length || 0,
+        };
+      }),
+      posts: posts.map((post: any) => {
+        const store = post.author.stores?.[0]?.store;
+        const primaryProduct = post.productLinks?.[0]?.product;
+        const mrp = primaryProduct?.mrp;
+        const price = primaryProduct?.sellingPrice;
+
+        return {
+          id: post.id,
+          authorId: post.author.id,
+          caption: post.caption || '',
+          createdAt: post.createdAt,
+          timeAgo: 'Recently',
+          storeId: store?.id || '',
+          storeName: store?.name || post.author.name,
+          storeAvatar: store?.logoUrl || post.author.avatarUrl || 'https://i.pravatar.cc/150?img=1',
+          isVerified: store?.status === 'VERIFIED',
+          media: post.media.map((m: any) => ({
+            id: m.id,
+            type: (m.type?.toLowerCase() || 'image') as 'image' | 'video',
+            url: m.url,
+            posterUrl: m.posterUrl || undefined,
+            status: m.status,
+            duration: m.duration ? `${Math.floor(m.duration / 60)}:${(m.duration % 60).toString().padStart(2, '0')}` : undefined,
+          })),
+          likes: post._count.likes.toLocaleString(),
+          likesCount: post._count.likes,
+          comments: post._count.comments.toString(),
+          commentsCount: post._count.comments,
+          shares: '0',
+          hashtags: [],
+          product: primaryProduct ? {
+            id: primaryProduct.id,
+            name: primaryProduct.name,
+            image: primaryProduct.imageUrl || '',
+            price: `₹${price}`,
+            originalPrice: mrp && mrp > price! ? `₹${mrp}` : undefined,
+            discount: mrp && mrp > price! ? `${Math.round(((mrp - price!) / mrp) * 100)}% OFF` : undefined,
+          } : undefined,
         };
       })
     };
 
-    // 3. Cache for 5 minutes (300 seconds)
+    // 3. Cache for 2 minutes (120 seconds)
     try {
-      await redisClient.setex(cacheKey, 300, JSON.stringify(results));
+      await redisClient.setex(cacheKey, 120, JSON.stringify(results));
     } catch (e) {
       console.warn('Redis Cache Error', e);
     }

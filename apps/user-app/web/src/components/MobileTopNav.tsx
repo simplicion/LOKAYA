@@ -19,8 +19,23 @@ export function MobileTopNav() {
   const { data: myStore } = useGetMyStoreQuery();
 
   // Hide TopNav on these routes (they have their own headers or are full screen)
-  const hideOnRoutes = ['/search', '/home/reels', '/home/checkout', '/home/order', '/explore/nearby', '/wishlist', '/product', '/store', '/profile/create'];
-  const shouldHide = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(`${route}/`));
+  const hideOnRoutes = [
+    '/checkout',
+    '/orders',
+    '/seller',
+    '/cart',
+    '/notifications',
+    '/wishlist',
+    '/search',
+    '/home/reels',
+    '/explore/nearby',
+    '/product',
+    '/store',
+    '/profile/',
+    '/home/checkout',
+    '/home/order'
+  ];
+  const shouldHide = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(route));
 
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -78,14 +93,20 @@ export function MobileTopNav() {
       </div>
     );
     rightContent = (
-      <Link href="/cart" className="relative text-[#171717]">
-        <ShoppingCart className="w-6 h-6" />
-        {cartTotalItems > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white tabular-nums">
-            {cartTotalItems}
-          </span>
-        )}
-      </Link>
+      <div className="flex items-center gap-3.5">
+        <Link href="/notifications" className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5">
+          <Bell className="w-6 h-6" />
+          <span className="absolute top-0 right-0.5 w-2 h-2 bg-[#FF5A36] rounded-full ring-2 ring-white" />
+        </Link>
+        <Link href="/cart" className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5">
+          <ShoppingCart className="w-6 h-6" />
+          {cartTotalItems > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white tabular-nums">
+              {cartTotalItems}
+            </span>
+          )}
+        </Link>
+      </div>
     );
   } else if (pathname === '/explore') {
     leftContent = <h1 className="text-2xl font-black text-[#171717]">Explore</h1>;
@@ -120,12 +141,12 @@ export function MobileTopNav() {
         <Link href="/wishlist" className="text-[#171717]">
           <Bookmark className="w-6 h-6" />
         </Link>
-        <button className="relative text-[#171717]">
+        <Link href="/notifications" className="relative text-[#171717]">
           <Bell className="w-6 h-6" />
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#FAF9F6] tabular-nums">
             2
           </span>
-        </button>
+        </Link>
       </div>
     );
   } else if (pathname === '/profile') {
@@ -151,12 +172,12 @@ export function MobileTopNav() {
       leftContent = <h1 className="text-xl font-bold text-[#171717]">My Account</h1>;
       rightContent = (
         <div className="flex items-center gap-4">
-          <button className="relative text-[#171717]">
+          <Link href="/notifications" className="relative text-[#171717]">
             <Bell className="w-6 h-6" />
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#FAF9F6] tabular-nums">
               3
             </span>
-          </button>
+          </Link>
         </div>
       );
     }

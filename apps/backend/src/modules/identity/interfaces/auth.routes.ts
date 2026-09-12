@@ -114,7 +114,20 @@ authRouter.get('/refresh', async (req, res, next) => {
 
 authRouter.get('/me', requireAuth, async (req: any, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const user = await prisma.user.findUnique({ 
+      where: { id: req.user.id },
+      include: {
+        _count: {
+          select: {
+            followers: true,
+            following: true,
+            posts: true,
+            reels: true,
+            orders: true
+          }
+        }
+      }
+    });
     if (!user) return res.status(404).json({ error: 'User not found' });
     
     const { password, ...userWithoutPassword } = user;
@@ -146,3 +159,112 @@ authRouter.put('/profile', requireAuth, async (req: any, res, next) => {
     next(error);
   }
 });
+
+// Address Management
+authRouter.get('/addresses', requireAuth, async (req: any, res, next) => {
+  try {
+    const addresses = await prisma.address.findMany({
+      where: { userId: req.user.id },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }]
+    });
+    res.status(200).json(addresses);
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post('/addresses', requireAuth, async (req: any, res, next) => {
+  try {
+    const { name, phone, addressLine1, addressLine2, city, state, pincode, type, isDefault } = req.body;
+    
+    if (!name || !phone || !addressLine1 || !city || !state || !pincode) {
+      return res.status(400).json({ message: 'Missing required address fields' });
+    }
+
+    if (isDefault) {
+      await prisma.address.updateMany({
+        where: { userId: req.user.id },
+        data: { isDefault: false }
+      });
+    }
+
+    const existingCount = await prisma.address.count({ where: { userId: req.user.id } });
+
+    const newAddress = await prisma.address.create({
+      data: {
+        userId: req.user.id,
+        name,
+        phone,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+        pincode,
+        type: type || 'HOME',
+        isDefault: isDefault !== undefined ? isDefault : existingCount === 0
+      }
+    });
+
+    res.status(201).json(newAddress);
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.put('/addresses/:id', requireAuth, async (req: any, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, phone, addressLine1, addressLine2, city, state, pincode, type, isDefault } = req.body;
+
+    const existing = await prisma.address.findFirst({
+      where: { id, userId: req.user.id }
+    });
+    if (!existing) {
+      return res.status(404).json({ message: 'Address not found' });
+    }
+
+    if (isDefault) {
+      await prisma.address.updateMany({
+        where: { userId: req.user.id },
+        data: { isDefault: false }
+      });
+    }
+
+    const updated = await prisma.address.update({
+      where: { id },
+      data: {
+        ...(name && { name }),
+        ...(phone && { phone }),
+        ...(addressLine1 && { addressLine1 }),
+        ...(addressLine2 !== undefined && { addressLine2 }),
+        ...(city && { city }),
+        ...(state && { state }),
+        ...(pincode && { pincode }),
+        ...(type && { type }),
+        ...(isDefault !== undefined && { isDefault })
+      }
+    });
+
+    res.status(200).json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.delete('/addresses/:id', requireAuth, async (req: any, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.address.findFirst({
+      where: { id, userId: req.user.id }
+    });
+    if (!existing) {
+      return res.status(404).json({ message: 'Address not found' });
+    }
+
+    await prisma.address.delete({ where: { id } });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+

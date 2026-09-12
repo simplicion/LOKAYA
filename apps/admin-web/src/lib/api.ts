@@ -39,7 +39,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Stores'],
+  tagTypes: ['Stores', 'Banners'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
       query: () => '/seller/pending',
@@ -81,6 +81,44 @@ export const adminApi = createApi({
     getUsers: builder.query<any[], void>({
       query: () => '/admin/users',
     }),
+    // Banner Management Endpoints
+    getBanners: builder.query<any[], void>({
+      query: () => '/admin/banners',
+      providesTags: ['Banners'],
+    }),
+    createBanner: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/admin/banners',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Banners'],
+    }),
+    updateBanner: builder.mutation<any, { id: string; body: any }>({
+      query: ({ id, body }) => ({
+        url: `/admin/banners/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Banners'],
+    }),
+    deleteBanner: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/admin/banners/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Banners'],
+    }),
+    toggleBanner: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/admin/banners/${id}/toggle`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['Banners'],
+    }),
+    getProducts: builder.query<any[], void>({
+      query: () => '/catalog/products',
+    }),
   }),
 });
 
@@ -92,4 +130,10 @@ export const {
   useRejectStoreMutation,
   useGetPlatformStatsQuery,
   useGetUsersQuery,
+  useGetBannersQuery,
+  useCreateBannerMutation,
+  useUpdateBannerMutation,
+  useDeleteBannerMutation,
+  useToggleBannerMutation,
+  useGetProductsQuery,
 } = adminApi;

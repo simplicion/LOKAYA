@@ -60,13 +60,19 @@ export class PaymentService {
         }
       });
 
-      // 3. Update Order status to CONFIRMED as per user request
+      // 3. Update Order and child SubOrders
+      await tx.subOrder.updateMany({
+        where: { orderId: systemOrderId },
+        data: { status: 'CONFIRMED' }
+      });
+
       const updatedOrder = await tx.order.update({
         where: { id: systemOrderId },
         data: { status: 'CONFIRMED' },
         include: {
-          items: { include: { product: true, variant: true } },
-          store: true
+          items: true,
+          store: true,
+          subOrders: true
         }
       });
 
@@ -82,6 +88,6 @@ export class PaymentService {
       }
 
       return { success: true, order: updatedOrder };
-    });
+    }, { timeout: 30000, maxWait: 10000 });
   }
 }

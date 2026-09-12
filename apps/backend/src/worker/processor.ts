@@ -39,8 +39,10 @@ export function startWorker() {
     console.log(`[Worker] Job ${job?.id} has failed: ${err.message}`);
   });
 
-  mediaWorker.on('completed', job => console.log(`[MediaWorker] Job ${job.id} completed`));
-  mediaWorker.on('failed', (job, err) => console.log(`[MediaWorker] Job ${job?.id} failed: ${err.message}`));
+  if (mediaWorker) {
+    mediaWorker.on('completed', job => console.log(`[MediaWorker] Job ${job.id} completed`));
+    mediaWorker.on('failed', (job, err) => console.log(`[MediaWorker] Job ${job?.id} failed: ${err.message}`));
+  }
 
   console.log(`[Worker] Initialized and waiting for jobs...`);
 }

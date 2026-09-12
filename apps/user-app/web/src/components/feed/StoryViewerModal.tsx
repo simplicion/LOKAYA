@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useViewStoryMutation, useLikeStoryMutation } from '@/lib/api';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
+import { VideoPlayer } from '@/components/media/VideoPlayer';
 
 export interface StoryViewerStory {
   id: string;
@@ -83,6 +84,8 @@ export function StoryViewerModal({
   const currentGroup = groups[currentGroupIdx] || null;
   const currentStories = currentGroup?.stories || [];
   const currentStory = currentStories[currentStoryIdx] || null;
+  // Next story for zero-latency sliding pre-buffer
+  const nextStory = currentStories[currentStoryIdx + 1] || groups[currentGroupIdx + 1]?.stories?.[0] || null;
 
   // Sync initial indices when modal opens
   useEffect(() => {
@@ -142,18 +145,17 @@ export function StoryViewerModal({
     }
   }, [currentStoryIdx, currentGroupIdx, groups]);
 
-  // Timer loop for auto-advancing stories
+  // Timer loop for auto-advancing stories (for image media)
   useEffect(() => {
     if (!isOpen || !currentStory || isPaused || isShareOpen) return;
 
-    const stepMs = 50;
     const isVideo = currentStory.mediaType?.toLowerCase() === 'video';
-
-    if (isVideo && videoRef.current) {
-      // Video driven progression handled via onTimeUpdate
+    if (isVideo) {
+      // Video driven progression handled via onTimeUpdate callback in VideoPlayer
       return;
     }
 
+    const stepMs = 50;
     progressIntervalRef.current = setInterval(() => {
       setProgress(prev => {
         const next = prev + (stepMs / STORY_DURATION_MS) * 100;
@@ -173,25 +175,12 @@ export function StoryViewerModal({
     };
   }, [isOpen, currentStory, isPaused, isShareOpen, goToNextStory]);
 
-  // Handle video pause on pause / share open
-  useEffect(() => {
-    if (videoRef.current) {
-      if (isPaused || isShareOpen) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play().catch(() => {});
-      }
-    }
-  }, [isPaused, isShareOpen]);
-
   // Handle video playback events
-  const handleVideoTimeUpdate = () => {
-    if (videoRef.current) {
-      const { currentTime, duration } = videoRef.current;
-      if (duration > 0) {
-        const percent = (currentTime / duration) * 100;
-        setProgress(percent);
-      }
+  const handleVideoTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    if (video && video.duration > 0) {
+      const percent = (video.currentTime / video.duration) * 100;
+      setProgress(percent);
     }
   };
 
@@ -370,12 +359,13 @@ export function StoryViewerModal({
         onPointerUp={handlePointerUp}
       >
         {isVideo ? (
-          <video
-            ref={videoRef}
-            src={getMediaUrl(currentStory.mediaUrl)}
-            autoPlay
-            playsInline
+          <VideoPlayer
+            src={currentStory.mediaUrl}
+            autoPlay={!isPaused && !isShareOpen}
+            isActive={!isPaused && !isShareOpen}
             muted={isMuted}
+            loop={false}
+            playsInline={true}
             onTimeUpdate={handleVideoTimeUpdate}
             onEnded={handleVideoEnded}
             className="w-full h-full object-contain"
@@ -398,6 +388,24 @@ export function StoryViewerModal({
         {/* Gradient shadow at bottom for text contrast */}
         <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
       </div>
+
+      {/* Hidden Zero-Latency Preloader for Next Story */}
+      {nextStory && (
+        <div className="hidden" aria-hidden="true">
+          {nextStory.mediaType?.toLowerCase() === 'video' ? (
+            <VideoPlayer
+              src={nextStory.mediaUrl}
+              autoPlay={false}
+              isActive={false}
+              muted={true}
+              preload="auto"
+              className="w-0 h-0"
+            />
+          ) : (
+            <img src={getMediaUrl(nextStory.mediaUrl)} alt="" className="w-0 h-0" />
+          )}
+        </div>
+      )}
 
       {/* Bottom Actions & Overlays */}
       <div 

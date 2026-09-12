@@ -211,6 +211,15 @@ router.get('/posts/store/:storeId', async (req: Request, res: Response, next: Ne
   }
 });
 
+router.delete('/posts/:postId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await ContentService.deletePost((req as any).user.id, req.params.postId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ==========================================
 // Reels
 // ==========================================
@@ -245,4 +254,70 @@ router.get('/reels/store/:storeId', async (req: Request, res: Response, next: Ne
   }
 });
 
+router.delete('/reels/:reelId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await ContentService.deleteReel((req as any).user.id, req.params.reelId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// Public Promotional Banners
+// ==========================================
+
+router.get('/banners', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { prisma } = await import('@workspace/db');
+    let banners = await (prisma as any).banner.findMany({
+      where: { isActive: true },
+      orderBy: [
+        { displayOrder: 'asc' },
+        { createdAt: 'desc' }
+      ]
+    });
+
+    // If no banners exist yet, seed initial starter banners
+    if (!banners || banners.length === 0) {
+      const initialBanners = [
+        {
+          title: 'Summer Collection',
+          subtitle: 'Handcrafted styles curated from top local artisans',
+          tagline: 'Up to 40% OFF',
+          imageUrl: 'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?q=80&w=800&auto=format&fit=crop',
+          linkUrl: '/search?q=shoes',
+          buttonText: 'Shop Now',
+          displayOrder: 1,
+          isActive: true
+        },
+        {
+          title: 'New Arrivals',
+          subtitle: 'Fresh streetwear & traditional designer wear',
+          tagline: 'Trending Today',
+          imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&auto=format&fit=crop',
+          linkUrl: '/search?q=t-shirt',
+          buttonText: 'Explore',
+          displayOrder: 2,
+          isActive: true
+        }
+      ];
+
+      for (const b of initialBanners) {
+        await (prisma as any).banner.create({ data: b });
+      }
+
+      banners = await (prisma as any).banner.findMany({
+        where: { isActive: true },
+        orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }]
+      });
+    }
+
+    res.status(200).json(banners);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export const contentRoutes = router;
+

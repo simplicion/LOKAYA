@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChevronDown, Loader2, ArrowDownCircle } from 'lucide-react';
 import { useGetPayoutsQuery, useRequestPayoutMutation, useGetFinanceSummaryQuery } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 export default function PayoutSummaryPage() {
   const router = useRouter();
@@ -22,14 +23,18 @@ export default function PayoutSummaryPage() {
 
   const handleRequestPayout = async () => {
     const amt = Number(withdrawAmount);
-    if (!amt || amt <= 0) return;
+    if (!amt || amt <= 0) {
+      toast.error('Please enter a valid payout amount');
+      return;
+    }
     try {
       await requestPayout({ amount: amt }).unwrap();
+      toast.success('Payout request submitted successfully!');
       setIsRequesting(false);
       setWithdrawAmount('');
       refetch();
     } catch (err: any) {
-      alert(err?.data?.message || 'Failed to request payout');
+      toast.error(err?.data?.message || 'Failed to request payout');
     }
   };
 

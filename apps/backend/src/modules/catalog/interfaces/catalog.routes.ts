@@ -84,6 +84,22 @@ router.post('/store/:storeId/products', requireAuth, validateRequest(createProdu
   }
 });
 
+// Get Public Products (Explore / Marketplace)
+router.get('/products', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { category, search, sort, limit } = req.query;
+    const products = await CatalogService.getAllProducts({
+      category: category as string,
+      search: search as string,
+      sort: sort as string,
+      limit: limit ? parseInt(limit as string) : 50
+    });
+    res.status(200).json(products);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get Products for a Store
 router.get('/store/:storeId/products', async (req: Request, res: Response, next: NextFunction) => {
   try {

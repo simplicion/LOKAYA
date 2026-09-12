@@ -23,28 +23,81 @@ export class MediaController {
 
   async viewFile(req: Request, res: Response) {
     try {
-      const key = (req.query.key as string) || (req.params[0] as string);
+      let rawKey = (req.params[0] as string) || (req.query.key as string) || '';
+      try {
+        if (rawKey.includes('%')) {
+          rawKey = decodeURIComponent(rawKey);
+        }
+      } catch {
+        // Fallback if decode fails
+      }
+      
+      // Clean leading slashes
+      let key = rawKey.replace(/^\/+/, '');
       if (!key) {
         return res.status(400).send('File key is required');
       }
 
-      const response = await mediaService.getObjectStream(key);
-      if (response.ContentType) {
-        res.setHeader('Content-Type', response.ContentType);
+      // Determine correct MIME type based on file extension
+      let contentType = 'application/octet-stream';
+      const lowerKey = key.toLowerCase();
+      if (lowerKey.endsWith('.m3u8')) {
+        contentType = 'application/vnd.apple.mpegurl';
+      } else if (lowerKey.endsWith('.ts')) {
+        contentType = 'video/MP2T';
+      } else if (lowerKey.endsWith('.mp4')) {
+        contentType = 'video/mp4';
+      } else if (lowerKey.endsWith('.webm')) {
+        contentType = 'video/webm';
+      } else if (lowerKey.endsWith('.webp')) {
+        contentType = 'image/webp';
+      } else if (lowerKey.endsWith('.jpg') || lowerKey.endsWith('.jpeg')) {
+        contentType = 'image/jpeg';
+      } else if (lowerKey.endsWith('.png')) {
+        contentType = 'image/png';
       }
-      res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+      const range = req.headers.range;
+      const response = await mediaService.getObjectStream(key, range);
+      
+      res.setHeader('Content-Type', response.ContentType || contentType);
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, Accept');
+
+      if (response.ContentRange) {
+        res.status(206);
+        res.setHeader('Content-Range', response.ContentRange);
+      }
+      if (response.ContentLength !== undefined) {
+        res.setHeader('Content-Length', response.ContentLength);
+      }
 
       const stream = response.Body as any;
       if (stream && typeof stream.pipe === 'function') {
+        res.on('close', () => {
+          if (typeof stream.destroy === 'function') {
+            stream.destroy();
+          }
+        });
+        stream.on('error', (err: any) => {
+          console.error('[MediaStream] Error on stream pipe:', err?.message || err);
+          if (!res.headersSent) {
+            res.status(500).send('Stream error');
+          } else {
+            res.end();
+          }
+        });
         stream.pipe(res);
       } else {
         const buffer = await response.Body?.transformToByteArray();
         res.end(Buffer.from(buffer || []));
       }
     } catch (error: any) {
-      console.error('Error streaming file from R2:', error);
+      console.error('Error streaming file from R2:', error?.message || error);
       res.status(404).send('File not found');
     }
   }

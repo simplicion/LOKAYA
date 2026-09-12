@@ -59,11 +59,12 @@ export const ensureR2Cors = async () => {
 };
 
 export class MediaService {
-  async getObjectStream(fileKey: string) {
+  async getObjectStream(fileKey: string, range?: string) {
     const bucket = getBucket();
     const command = new GetObjectCommand({
       Bucket: bucket,
       Key: fileKey,
+      Range: range,
     });
     return await getS3Client().send(command);
   }

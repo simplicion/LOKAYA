@@ -22,6 +22,20 @@ router.post('/create-session', validateRequest(createRazorpayOrderSchema), async
   }
 });
 
+router.post('/create-order', validateRequest(createRazorpayOrderSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { orderId, amount } = req.body;
+    const result = await PaymentService.createPaymentSession(
+      (req as any).user.id,
+      orderId,
+      amount
+    );
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/verify', validateRequest(verifyPaymentSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, system_order_id } = req.body;

@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, FileText, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useExportAnalyticsMutation } from '@/lib/api';
+import { toast } from 'sonner';
 
 export default function AnalyticsExportPage() {
   const router = useRouter();
@@ -30,8 +31,9 @@ export default function AnalyticsExportPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      toast.success('Report exported successfully!');
     } catch (err: any) {
-      alert(err?.data?.message || err?.message || 'Failed to export report');
+      toast.error(err?.data?.message || err?.message || 'Failed to export report');
     }
   };
 

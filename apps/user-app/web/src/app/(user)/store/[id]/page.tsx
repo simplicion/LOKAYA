@@ -1,188 +1,342 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Share2, Star, CheckCircle2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Loader2 } from 'lucide-react';
+import { cn, getMediaUrl } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
-import { use } from 'react';
-
-// Dummy data
-const STORE = {
-  id: '1',
-  name: 'Urban Threads',
-  category: "Men's Fashion",
-  rating: 4.8,
-  reviews: 230,
-  distance: '0.6 km away',
-  address: '142 Fashion Street, CP, New Delhi',
-  openTime: '10:00 AM - 9:00 PM',
-  isOpen: true,
-  banner: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?q=80&w=800&auto=format&fit=crop',
-  avatar: 'https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?q=80&w=200&auto=format&fit=crop',
-};
-
-const MOCK_CATEGORIES = [
-  { id: '1', name: 'T-Shirts', icon: '👕' },
-  { id: '2', name: 'Jackets', icon: '🧥' },
-  { id: '3', name: 'Pants', icon: '👖' },
-  { id: '4', name: 'Shirts', icon: '👔' },
-];
-
-const PRODUCTS = [
-  { id: '1', title: 'Classic White Tee', price: 899, image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=400', store: 'Urban Threads', category: 'T-Shirts' },
-  { id: '2', title: 'Denim Jacket', price: 2499, image: 'https://images.unsplash.com/photo-1576871337622-98d48d1cf531?q=80&w=400', store: 'Urban Threads', category: 'Jackets' },
-  { id: '3', title: 'Cargo Pants', price: 1799, image: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?q=80&w=400', store: 'Urban Threads', category: 'Pants' },
-  { id: '4', title: 'Summer Shirt', price: 1299, image: 'https://images.unsplash.com/photo-1596755094514-f87e32f85e2c?q=80&w=400', store: 'Urban Threads', category: 'Shirts' },
-];
+import { 
+  useGetStoreSummaryQuery, 
+  useGetStoreProductsQuery, 
+  useGetStoreCategoriesQuery 
+} from '@/lib/api';
 
 export default function StoreProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
+  const storeId = resolvedParams.id;
   const router = useRouter();
   
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
 
-  const filteredProducts = selectedCategory 
-    ? PRODUCTS.filter(p => p.category === selectedCategory)
-    : PRODUCTS;
+  // Live Backend Data Fetching
+  const { data: storeSummary, isLoading: isStoreLoading, error: storeError } = useGetStoreSummaryQuery(storeId, {
+    skip: !storeId
+  });
+  const { data: products = [], isLoading: isProductsLoading } = useGetStoreProductsQuery(storeId, {
+    skip: !storeId
+  });
+  const { data: categories = [], isLoading: isCategoriesLoading } = useGetStoreCategoriesQuery(storeId, {
+    skip: !storeId
+  });
+
+  const store = storeSummary?.store;
+  const storeName = store?.name || 'Store';
+  const storeDescription = store?.description;
+  const storeAddress = store?.address;
+  const storeCategory = store?.category;
+  const bannerUrl = store?.bannerUrl;
+  const logoUrl = store?.logoUrl;
+  const isVerified = store?.status === 'VERIFIED';
+  const isOpen = storeSummary?.isOpen ?? true;
+  const timingLabel = storeSummary?.timingLabel || (isOpen ? 'Open Now' : 'Closed');
+  const avgRating = storeSummary?.avgRating ?? 0;
+  const reviewCount = storeSummary?.reviewCount ?? 0;
+
+  // Filter products by selected category
+  const filteredProducts = selectedCategoryId
+    ? products.filter((p: any) => p.categoryId === selectedCategoryId)
+    : products;
+
+  // Loading Skeleton State
+  if (isStoreLoading) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#FAF9F6]">
+        {/* Banner Skeleton */}
+        <div className="w-full aspect-[16/9] max-h-56 bg-gray-200 animate-pulse relative" />
+        <div className="p-4 bg-white border-b border-gray-100 flex flex-col gap-3">
+          <div className="w-20 h-20 -mt-12 rounded-full bg-gray-300 border-4 border-white animate-pulse" />
+          <div className="h-6 w-48 bg-gray-200 rounded-md animate-pulse" />
+          <div className="h-4 w-72 bg-gray-100 rounded-md animate-pulse" />
+        </div>
+        <div className="flex items-center justify-center p-12 text-gray-400 gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-[#FF5A36]" />
+          <span className="text-sm font-medium">Loading store catalog...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Not Found / Error State
+  if (storeError || !store) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#FAF9F6] items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-orange-50 text-[#FF5A36] flex items-center justify-center mb-4 shadow-sm">
+          <StoreIcon className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">Store Not Found</h2>
+        <p className="text-sm text-gray-500 max-w-xs mb-6">
+          This store might be closed or the link you followed has expired.
+        </p>
+        <button
+          onClick={() => router.push('/home')}
+          className="bg-[#FF5A36] text-white px-6 py-2.5 rounded-full font-bold text-sm shadow-md hover:opacity-90 active:scale-95 transition-all"
+        >
+          Back to Home
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-[#FAF9F6] pb-24">
       <div className="flex-1 overflow-y-auto">
         
         {/* Banner Section */}
-        <div className="relative w-full h-48 group">
-          <img src={STORE.banner} alt={STORE.name} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
+        <div className="relative w-full aspect-[16/9] max-h-60 group overflow-hidden bg-gradient-to-tr from-violet-600 via-indigo-600 to-purple-600">
+          {bannerUrl ? (
+            <img 
+              src={getMediaUrl(bannerUrl)} 
+              alt={storeName} 
+              className="w-full h-full object-cover" 
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-tr from-[#171717] via-[#2A2A2A] to-[#FF5A36]/60 flex items-center justify-center">
+              <span className="text-white/20 font-black text-4xl uppercase tracking-widest">{storeName}</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/20" />
           
-          {/* Top Nav */}
+          {/* Top Floating Navigation Bar */}
           <div className="absolute top-0 left-0 right-0 p-4 pt-safe-offset-4 flex justify-between items-center z-10">
-            <button onClick={() => router.back()} className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 active:bg-white/30 transition">
+            <button 
+              onClick={() => router.back()} 
+              className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 active:scale-95 transition-all shadow-md"
+            >
               <ArrowLeft className="w-5 h-5" strokeWidth={2.5} />
             </button>
             <button 
               onClick={() => setIsShareOpen(true)}
-              className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/10 active:bg-white/30 transition"
+              className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 active:scale-95 transition-all shadow-md"
             >
               <Share2 className="w-5 h-5" strokeWidth={2.5} />
             </button>
           </div>
         </div>
 
-        {/* Store Info Profile Section */}
+        {/* Store Profile Identity Card */}
         <div className="relative px-4 pb-6 bg-white border-b border-gray-100 shadow-sm">
           {/* Logo overlapping the banner */}
-          <div className="relative w-24 h-24 -mt-12 mb-3 rounded-full bg-white p-1 shadow-md flex-shrink-0">
-            <img src={STORE.avatar} alt={STORE.name} className="w-full h-full rounded-full object-cover border-2 border-white" />
-          </div>
-
-          <div className="flex justify-between items-start gap-2">
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-1.5 leading-tight">
-                {STORE.name}
-                <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-50 flex-shrink-0" />
-              </h2>
-              <p className="text-gray-500 text-sm mt-1">{STORE.address} • {STORE.category}</p>
-              
-              <div className="flex items-center gap-4 mt-3">
-                <div className="flex items-center text-sm font-medium text-gray-700">
-                  <Star className="w-4 h-4 text-amber-400 fill-current mr-1" />
-                  {STORE.rating} ({STORE.reviews}+ ratings)
-                </div>
-                <div className={cn("text-sm font-medium", STORE.isOpen ? "text-green-600" : "text-red-600")}>
-                  {STORE.isOpen ? `Open until ${STORE.openTime.split(' - ')[1]}` : 'Closed'}
-                </div>
-              </div>
-            </div>
-            <button className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 hover:bg-indigo-100 transition-colors whitespace-nowrap flex-shrink-0 mt-1">
-              Visit Profile
-            </button>
-          </div>
-        </div>
-
-        {/* Categories Loop */}
-        <div className="mt-4 bg-white py-4 shadow-sm border-y border-gray-100">
-          <div className="px-4 flex items-center justify-between mb-3">
-            <h3 className="text-lg font-bold text-gray-900">Categories</h3>
-          </div>
-          
-          <div className="flex overflow-x-auto no-scrollbar px-4 pb-2 gap-4">
-            {/* All Category Button */}
-            <button 
-              onClick={() => setSelectedCategory(null)}
-              className="relative flex flex-col items-center gap-2 min-w-[72px]"
-            >
-              <div className={cn("w-16 h-16 rounded-2xl border flex items-center justify-center text-3xl shadow-sm transition-all", 
-                selectedCategory === null 
-                  ? "bg-indigo-50 border-indigo-200" 
-                  : "bg-gray-50 border-gray-100")}>
-                🛒
-              </div>
-              <span className={cn("text-xs font-medium text-center truncate w-full",
-                selectedCategory === null ? "text-indigo-600 font-bold" : "text-gray-600"
-              )}>All</span>
-            </button>
-
-            {/* Existing Categories */}
-            {MOCK_CATEGORIES.map((cat) => (
-              <button 
-                key={cat.id} 
-                onClick={() => setSelectedCategory(cat.name)}
-                className="relative flex flex-col items-center gap-2 min-w-[72px]"
-              >
-                <div className={cn("w-16 h-16 rounded-2xl border flex items-center justify-center text-3xl shadow-sm transition-all",
-                  selectedCategory === cat.name
-                    ? "bg-indigo-50 border-indigo-200"
-                    : "bg-gray-50 border-gray-100"
-                )}>
-                  {cat.icon}
-                </div>
-                <span className={cn("text-xs font-medium text-center truncate w-full",
-                   selectedCategory === cat.name ? "text-indigo-600 font-bold" : "text-gray-600"
-                )}>{cat.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Products Preview */}
-        <div className="mt-4 px-4 pb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">{selectedCategory ? `${selectedCategory}` : 'All Products'}</h3>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-x-3 gap-y-6">
-            {filteredProducts.length > 0 ? (
-              filteredProducts.map(product => (
-                <ProductCard 
-                  key={product.id} 
-                  product={{
-                    id: product.id,
-                    title: product.title,
-                    image: product.image,
-                    price: product.price.toString(),
-                    store: { name: product.store, isVerified: true },
-                    rating: '4.5',
-                    reviews: '(0)'
-                  }}
-                />
-              ))
+          <div className="relative w-24 h-24 -mt-12 mb-3 rounded-full bg-white p-1 shadow-lg flex-shrink-0">
+            {logoUrl ? (
+              <img 
+                src={getMediaUrl(logoUrl)} 
+                alt={storeName} 
+                className="w-full h-full rounded-full object-cover border-2 border-white" 
+              />
             ) : (
-              <div className="col-span-2 py-8 text-center text-gray-500 text-sm">
-                No products found in this category.
+              <div className="w-full h-full rounded-full bg-gradient-to-tr from-[#FF6B00] to-[#FF0000] text-white font-black text-3xl flex items-center justify-center border-2 border-white shadow-inner">
+                {storeName ? storeName.charAt(0).toUpperCase() : 'S'}
               </div>
             )}
           </div>
+
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-2xl font-black text-gray-900 flex items-center gap-1.5 leading-tight truncate">
+                {storeName}
+                {isVerified && (
+                  <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-50 flex-shrink-0" />
+                )}
+              </h2>
+              
+              {storeDescription && (
+                <p className="text-gray-600 text-sm mt-1 leading-snug break-words">
+                  {storeDescription}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 mt-2">
+                {storeAddress && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    <span className="truncate max-w-[200px]">{storeAddress}</span>
+                  </span>
+                )}
+                {storeCategory && (
+                  <>
+                    <span>•</span>
+                    <span className="font-semibold text-gray-700">{storeCategory}</span>
+                  </>
+                )}
+              </div>
+              
+              {/* Ratings & Operating Hours Badges */}
+              <div className="flex items-center gap-2.5 mt-3 flex-wrap">
+                <div className="flex items-center text-xs font-bold text-gray-800 bg-gray-100 px-2.5 py-1 rounded-lg">
+                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 mr-1" />
+                  <span>{avgRating > 0 ? avgRating.toFixed(1) : 'New'}</span>
+                  {reviewCount > 0 && (
+                    <span className="text-gray-400 font-normal ml-1">({reviewCount})</span>
+                  )}
+                </div>
+
+                <div className={cn(
+                  "text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1",
+                  isOpen ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60" : "text-amber-700 bg-amber-50 border border-amber-200/60"
+                )}>
+                  <Clock className="w-3 h-3" />
+                  <span>{timingLabel}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Store Categories */}
+        {categories.length > 0 && (
+          <div className="mt-3 bg-white py-4 shadow-sm border-y border-gray-100">
+            <div className="px-4 flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">Categories</h3>
+              <span className="text-xs text-gray-400">{categories.length} sections</span>
+            </div>
+            
+            <div className="flex overflow-x-auto no-scrollbar px-4 pb-1 gap-3">
+              {/* "All" Category Pill */}
+              <button 
+                onClick={() => setSelectedCategoryId(null)}
+                className="relative flex flex-col items-center gap-1.5 min-w-[68px] group transition-transform active:scale-95"
+              >
+                <div className={cn(
+                  "w-14 h-14 rounded-2xl border flex items-center justify-center text-xl shadow-sm transition-all", 
+                  selectedCategoryId === null 
+                    ? "bg-[#FF5A36] border-[#FF5A36] text-white shadow-md shadow-[#FF5A36]/20" 
+                    : "bg-gray-50 border-gray-100 text-gray-600 hover:bg-gray-100"
+                )}>
+                  <ShoppingBag className="w-6 h-6" />
+                </div>
+                <span className={cn(
+                  "text-[11px] font-semibold text-center truncate w-full",
+                  selectedCategoryId === null ? "text-[#FF5A36] font-bold" : "text-gray-600"
+                )}>
+                  All ({products.length})
+                </span>
+              </button>
+
+              {/* Dynamic Categories */}
+              {categories.map((cat: any) => {
+                const isCatSelected = selectedCategoryId === cat.id;
+                const catImg = cat.imageUrl || cat.image;
+
+                return (
+                  <button 
+                    key={cat.id} 
+                    onClick={() => setSelectedCategoryId(cat.id)}
+                    className="relative flex flex-col items-center gap-1.5 min-w-[68px] group transition-transform active:scale-95"
+                  >
+                    <div className={cn(
+                      "w-14 h-14 rounded-2xl border flex items-center justify-center shadow-sm overflow-hidden transition-all",
+                      isCatSelected 
+                        ? "border-[#FF5A36] ring-2 ring-[#FF5A36]/20 shadow-md" 
+                        : "border-gray-100 bg-gray-50 hover:bg-gray-100"
+                    )}>
+                      {catImg ? (
+                        <img 
+                          src={getMediaUrl(catImg)} 
+                          alt={cat.name} 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <span className="text-xs font-bold text-gray-500 uppercase">
+                          {cat.name.slice(0, 2)}
+                        </span>
+                      )}
+                    </div>
+                    <span className={cn(
+                      "text-[11px] font-medium text-center truncate w-full max-w-[76px]",
+                      isCatSelected ? "text-[#FF5A36] font-bold" : "text-gray-600"
+                    )}>
+                      {cat.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Product Catalog Grid */}
+        <div className="mt-3 px-2 pb-8">
+          <div className="flex items-center justify-between mb-3.5 px-0.5">
+            <h3 className="text-lg font-bold text-gray-900">
+              {selectedCategoryId 
+                ? (categories.find((c: any) => c.id === selectedCategoryId)?.name || 'Category Products')
+                : 'All Products'}
+            </h3>
+            <span className="text-xs font-semibold text-gray-500 bg-white px-2.5 py-1 rounded-full border border-gray-200">
+              {filteredProducts.length} items
+            </span>
+          </div>
+          
+          {filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2">
+              {filteredProducts.map((product: any) => {
+                const primaryImage = product.media?.[0]?.url || product.imageUrl || product.images?.[0] || 'https://placehold.co/400x400/png?text=No+Image';
+                const sellingPrice = product.sellingPrice != null ? product.sellingPrice : (product.price || 0);
+                const mrp = product.mrp;
+                const discountText = mrp && sellingPrice && mrp > sellingPrice
+                  ? `${Math.round(((mrp - sellingPrice) / mrp) * 100)}% OFF`
+                  : undefined;
+
+                return (
+                  <ProductCard 
+                    key={product.id} 
+                    product={{
+                      id: product.id,
+                      title: product.name,
+                      image: primaryImage,
+                      price: Number(sellingPrice).toLocaleString(),
+                      originalPrice: mrp ? Number(mrp).toLocaleString() : undefined,
+                      discount: discountText,
+                      store: { id: store.id, name: storeName, isVerified },
+                      rating: product.avgRating ? Number(product.avgRating).toFixed(1) : (avgRating > 0 ? avgRating.toFixed(1) : '5.0'),
+                      reviews: `(${product.reviewCount || 0})`
+                    }}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white rounded-3xl border border-gray-100 shadow-sm">
+              <div className="w-16 h-16 rounded-full bg-orange-50 text-[#FF5A36] flex items-center justify-center mb-3">
+                <ShoppingBag className="w-8 h-8 stroke-[1.5]" />
+              </div>
+              <h4 className="font-bold text-gray-900 text-base">No products found</h4>
+              <p className="text-xs text-gray-500 max-w-xs mt-1">
+                {selectedCategoryId 
+                  ? 'There are no products in this category yet.'
+                  : `${storeName} has not published any products yet. Please check back later.`}
+              </p>
+              {selectedCategoryId && (
+                <button
+                  onClick={() => setSelectedCategoryId(null)}
+                  className="mt-4 text-xs font-bold text-[#FF5A36] hover:underline"
+                >
+                  View All Products
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
       </div>
 
+      {/* Share Modal */}
       <ShareBottomSheet 
         isOpen={isShareOpen}
         onClose={() => setIsShareOpen(false)}
-        title={`Check out ${STORE.name} on Lokaya!`}
+        title={`Check out ${storeName} on Lokaya!`}
       />
     </div>
   );

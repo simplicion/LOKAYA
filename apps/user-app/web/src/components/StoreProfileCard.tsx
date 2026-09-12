@@ -54,12 +54,14 @@ export function StoreProfileCard({ type, data }: StoreProfileCardProps) {
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Button className="flex-1 bg-primary text-white hover:bg-primary/90">
+          <Button className="flex-1 bg-[#FF5A36] text-white hover:bg-[#E04B28] rounded-xl font-semibold text-xs h-9">
             Follow
           </Button>
-          <Button variant="outline" className="flex-1">
-            View Profile
-          </Button>
+          <Link href={`/profile/${data.id}`} className="flex-1">
+            <Button variant="outline" className="w-full rounded-xl font-semibold text-xs h-9 border-gray-200">
+              View Profile
+            </Button>
+          </Link>
         </div>
       </div>
     );
@@ -67,17 +69,17 @@ export function StoreProfileCard({ type, data }: StoreProfileCardProps) {
 
   // Store Profile Card
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-3 hover:border-gray-200 transition">
       {/* Header Name */}
       <h3 className="font-semibold text-gray-900 mb-3 truncate">{data.title || data.name}</h3>
       
       <div className="flex items-start gap-4">
         {/* Avatar */}
-        <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center shrink-0 overflow-hidden border-2 border-blue-100">
+        <div className="w-16 h-16 rounded-xl bg-orange-50 flex items-center justify-center shrink-0 overflow-hidden border border-orange-100">
           {data.logoUrl ? (
             <img src={data.logoUrl} alt={data.name} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-xl font-bold text-blue-600">
+            <span className="text-xl font-bold text-[#FF5A36]">
               {data.name?.charAt(0)?.toUpperCase()}
             </span>
           )}
@@ -91,7 +93,7 @@ export function StoreProfileCard({ type, data }: StoreProfileCardProps) {
           </div>
           
           {data.category && (
-            <p className="text-sm text-gray-600 truncate mb-1">
+            <p className="text-xs text-gray-600 truncate mb-1">
               {data.category}
             </p>
           )}
@@ -109,7 +111,7 @@ export function StoreProfileCard({ type, data }: StoreProfileCardProps) {
 
       <div className="mt-4">
         <Link href={`/store/${data.id}`}>
-          <Button className="w-full bg-primary text-white hover:bg-primary/90">
+          <Button className="w-full bg-[#FF5A36] text-white hover:bg-[#E04B28] rounded-xl font-semibold text-xs h-9">
             Visit Store
           </Button>
         </Link>

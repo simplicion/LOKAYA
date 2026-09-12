@@ -3,17 +3,35 @@ import { OrderService } from '../application/order.service';
 import { validateRequest } from '../../../shared/middleware/validate';
 import { requireAuth } from '../../../shared/middleware/auth';
 import { createOrderSchema, updateOrderStatusSchema } from '../domain/schemas';
+import { handleShiprocketWebhook } from './shiprocket.webhook';
 
 const router: Router = Router();
 
-router.use(requireAuth); // All order routes require auth
+// Shiprocket live courier tracking webhook (unauthenticated callback)
+router.post('/webhook/shiprocket', handleShiprocketWebhook);
+
+router.use(requireAuth); // Remaining order routes require auth
+
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orders = await OrderService.getUserOrders((req as any).user.id);
+    res.status(200).json(orders);
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.post('/', validateRequest(createOrderSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const order = await OrderService.createOrder(
       (req as any).user.id,
       req.body.storeId,
-      req.body.items
+      req.body.items,
+      {
+        deliveryAddress: req.body.deliveryAddress,
+        paymentMethod: req.body.paymentMethod,
+        shippingFee: req.body.shippingFee
+      }
     );
     res.status(201).json(order);
   } catch (error) {
@@ -38,6 +56,24 @@ router.get('/:orderId', async (req: Request, res: Response, next: NextFunction) 
   try {
     const order = await OrderService.getOrder(req.params.orderId, (req as any).user.id);
     res.status(200).json(order);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:orderId/track', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tracking = await OrderService.getOrderTracking(req.params.orderId);
+    res.status(200).json(tracking);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:orderId/dispatch', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await OrderService.dispatchShipment(req.params.orderId, (req as any).user.id);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

@@ -12,7 +12,15 @@ const REPORT_REASONS = [
   "Other"
 ];
 
-export function ReportBottomSheet({ isOpen, onClose, targetId, type }: { isOpen: boolean; onClose: () => void; targetId: string; type: 'post' | 'reel' }) {
+interface ReportBottomSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onReported?: () => void;
+  targetId: string;
+  type: 'post' | 'reel';
+}
+
+export function ReportBottomSheet({ isOpen, onClose, onReported, targetId, type }: ReportBottomSheetProps) {
   const [reportContent, { isLoading }] = useReportContentMutation();
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -30,9 +38,10 @@ export function ReportBottomSheet({ isOpen, onClose, targetId, type }: { isOpen:
     try {
       await reportContent({ targetId, targetType: type.toUpperCase() as 'POST'|'REEL', reason }).unwrap();
       setIsSuccess(true);
+      onReported?.();
       setTimeout(() => {
         onClose();
-      }, 2000);
+      }, 1800);
     } catch (err) {
       console.error('Failed to report', err);
     }

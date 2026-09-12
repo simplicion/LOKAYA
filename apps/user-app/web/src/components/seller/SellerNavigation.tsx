@@ -26,7 +26,7 @@ export function SellerSidebar() {
 
       <nav className="flex-1 p-4 space-y-2">
         {SELLER_NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/seller' && pathname.startsWith(item.href));
+          const isActive = pathname === item.href || (item.href === '/seller' && pathname === '/seller/dashboard') || (item.href !== '/seller' && pathname.startsWith(item.href));
           return (
             <Link
               key={item.name}
@@ -55,7 +55,7 @@ export function SellerBottomNav() {
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E2DC] pb-safe z-50">
       <div className="flex items-center justify-around h-16">
         {SELLER_NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/seller' && pathname.startsWith(item.href));
+          const isActive = pathname === item.href || (item.href === '/seller' && pathname === '/seller/dashboard') || (item.href !== '/seller' && pathname.startsWith(item.href));
           return (
             <Link
               key={item.name}

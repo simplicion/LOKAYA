@@ -2,9 +2,15 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, QrCode, Keyboard, Loader2 } from 'lucide-react';
+import { ArrowLeft, QrCode, Keyboard, Loader2, Truck, Printer, ExternalLink, PackageCheck, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useGetOrderQuery, useUpdateOrderStatusMutation, useVerifyOrderPickupMutation } from '@/lib/api';
+import { 
+  useGetOrderQuery, 
+  useUpdateOrderStatusMutation, 
+  useVerifyOrderPickupMutation,
+  useDispatchShipmentMutation 
+} from '@/lib/api';
+import { toast } from 'sonner';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 
 function OrderDetailsContent() {
@@ -15,6 +21,7 @@ function OrderDetailsContent() {
   const { data: order, isLoading, refetch } = useGetOrderQuery(id, { skip: !id });
   const [updateStatus, { isLoading: isUpdatingStatus }] = useUpdateOrderStatusMutation();
   const [verifyPickup, { isLoading: isVerifyingPickup }] = useVerifyOrderPickupMutation();
+  const [dispatchShipmentMutation, { isLoading: isDispatching }] = useDispatchShipmentMutation();
 
   // 'none' | 'otp' | 'qr'
   const [verifyMode, setVerifyMode] = useState<'none' | 'otp' | 'qr'>('none');
@@ -79,6 +86,16 @@ function OrderDetailsContent() {
       }
     } else {
       setError('Please enter a valid 4-digit OTP code.');
+    }
+  };
+
+  const handleShiprocketDispatch = async () => {
+    try {
+      await dispatchShipmentMutation(id).unwrap();
+      toast.success('Shipment booked with Shiprocket! AWB & Shipping Label generated.');
+      refetch();
+    } catch (err: any) {
+      toast.error(err?.data?.message || 'Failed to dispatch with Shiprocket');
     }
   };
 
@@ -186,9 +203,100 @@ function OrderDetailsContent() {
             <span className="font-medium text-gray-900">{order.paymentMethod}</span>
           </div>
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-500 font-medium">Pickup Time</span>
-            <span className="font-medium text-gray-900">{order.pickupTime}</span>
+            <span className="text-gray-500 font-medium">Pickup / Delivery</span>
+            <span className="font-medium text-gray-900">
+              {order.deliveryAddress ? 'Doorstep Delivery' : order.pickupTime}
+            </span>
           </div>
+          {order.deliveryAddress && (
+            <div className="text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+              <span className="font-bold text-gray-700 block mb-0.5">Shipping Address:</span>
+              {order.deliveryAddress}
+            </div>
+          )}
+        </div>
+
+        {/* Shiprocket 3PL Logistics Card */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-orange-100 text-[#FF6B00] flex items-center justify-center">
+                <Truck className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm">Shiprocket 3PL Logistics</h3>
+                <p className="text-[11px] text-gray-500">Automated AWB & courier dispatch</p>
+              </div>
+            </div>
+
+            {order.awbCode && (
+              <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Booked
+              </span>
+            )}
+          </div>
+
+          {order.awbCode ? (
+            <div className="space-y-2 pt-2 border-t border-gray-100 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-medium">Courier Partner</span>
+                <span className="font-bold text-gray-900">{order.courierName || 'Delhivery Surface Express'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-medium">AWB Tracking Code</span>
+                <span className="font-mono font-bold text-gray-900">{order.awbCode}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                {order.shippingLabelUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(order.shippingLabelUrl, '_blank')}
+                    className="h-10 rounded-xl text-xs font-bold border-gray-300 text-gray-800 flex items-center gap-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print Label
+                  </Button>
+                )}
+
+                {order.trackingUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(order.trackingUrl, '_blank')}
+                    className="h-10 rounded-xl text-xs font-bold border-orange-200 text-[#FF6B00] hover:bg-orange-50 flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Track AWB
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="pt-2 border-t border-gray-100 space-y-2">
+              <p className="text-xs text-gray-500">
+                Book automated doorstep courier pickup (Delhivery / Shadowfax / Bluedart) with 1 click.
+              </p>
+              <Button
+                onClick={handleShiprocketDispatch}
+                disabled={isDispatching}
+                className="w-full h-11 bg-[#FF6B00] hover:bg-[#ff7a1f] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
+              >
+                {isDispatching ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Booking Shiprocket Pickup...
+                  </>
+                ) : (
+                  <>
+                    <PackageCheck className="w-4 h-4" />
+                    Accept & Dispatch via Shiprocket
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
 
       </div>

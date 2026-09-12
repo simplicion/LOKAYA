@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Landmark, MoreVertical, Plus, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGetBankAccountsQuery, useSetPrimaryBankAccountMutation, useDeleteBankAccountMutation } from '@/lib/api';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { toast } from 'sonner';
 
 export default function BankAccountsPage() {
   const router = useRouter();
   const { data: bankAccounts = [], isLoading, refetch } = useGetBankAccountsQuery();
   const [setPrimary] = useSetPrimaryBankAccountMutation();
-  const [deleteAccount] = useDeleteBankAccountMutation();
+  const [deleteAccount, { isLoading: isDeleting }] = useDeleteBankAccountMutation();
+  const [deletingAccountId, setDeletingAccountId] = React.useState<string | null>(null);
 
   const handleSetPrimary = async (id: string) => {
     try {
@@ -21,14 +24,15 @@ export default function BankAccountsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to remove this bank account?')) {
-      try {
-        await deleteAccount(id).unwrap();
-        refetch();
-      } catch (err: any) {
-        alert(err?.data?.message || 'Failed to delete bank account');
-      }
+  const handleConfirmDelete = async () => {
+    if (!deletingAccountId) return;
+    try {
+      await deleteAccount(deletingAccountId).unwrap();
+      setDeletingAccountId(null);
+      toast.success('Bank account removed successfully');
+      refetch();
+    } catch (err: any) {
+      toast.error(err?.data?.message || 'Failed to delete bank account');
     }
   };
 
@@ -76,7 +80,7 @@ export default function BankAccountsPage() {
                   
                   {!account.isPrimary && (
                     <button 
-                      onClick={() => handleDelete(account.id)} 
+                      onClick={() => setDeletingAccountId(account.id)} 
                       className="text-gray-400 hover:text-red-500 p-1"
                       title="Remove Account"
                     >
@@ -122,6 +126,19 @@ export default function BankAccountsPage() {
           </>
         )}
       </div>
+
+      {/* Universal Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={Boolean(deletingAccountId)}
+        onClose={() => setDeletingAccountId(null)}
+        onConfirm={handleConfirmDelete}
+        title="Remove Bank Account?"
+        description="Are you sure you want to remove this bank account from your payout settings?"
+        confirmText="Remove Account"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

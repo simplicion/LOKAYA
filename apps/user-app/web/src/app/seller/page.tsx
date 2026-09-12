@@ -23,12 +23,14 @@ import { DateRangeModal } from '@/components/seller/DateRangeModal';
 export default function SellerDashboardPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: store, isLoading, error, refetch, isFetching } = useGetMyStoreQuery();
-  const { data: products } = useGetStoreProductsQuery(store?.id || '', { skip: !store?.id || store?.status !== 'VERIFIED' });
-  
-  // Date Filter State
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
   const [activeDateFilter, setActiveDateFilter] = useState('Today');
+
+  const { data: store, isLoading, error, refetch, isFetching } = useGetMyStoreQuery();
+  const { data: products } = useGetStoreProductsQuery(store?.id || '', { skip: !store?.id || store?.status !== 'VERIFIED' });
+  const { data: statsData } = useGetSellerDashboardStatsQuery(activeDateFilter, { skip: !store?.id || store?.status !== 'VERIFIED' });
+  const { data: liveRecentOrders = [] } = useGetSellerRecentOrdersQuery(10, { skip: !store?.id || store?.status !== 'VERIFIED' });
+  const { data: liveSalesData = [] } = useGetSellerSalesTrendQuery(activeDateFilter, { skip: !store?.id || store?.status !== 'VERIFIED' });
 
   useEffect(() => {
     if (!isLoading && error && (error as any).status === 404) {
@@ -155,11 +157,7 @@ export default function SellerDashboardPage() {
     );
   }
 
-  // 3. Verified Seller Dashboard - Live Data Hooks
-  const { data: statsData } = useGetSellerDashboardStatsQuery(activeDateFilter, { skip: !store?.id || store?.status !== 'VERIFIED' });
-  const { data: liveRecentOrders = [] } = useGetSellerRecentOrdersQuery(10, { skip: !store?.id || store?.status !== 'VERIFIED' });
-  const { data: liveSalesData = [] } = useGetSellerSalesTrendQuery(activeDateFilter, { skip: !store?.id || store?.status !== 'VERIFIED' });
-
+  // 3. Verified Seller Dashboard Data Calculation
   const dashboardStats = {
     todayOrders: statsData?.todayOrders ?? 0,
     todayRevenue: statsData?.todayRevenue ?? 0,
