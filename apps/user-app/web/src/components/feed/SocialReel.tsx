@@ -48,6 +48,9 @@ export interface SocialReelProps {
   duration?: string;
   currentTime?: string;
   progressPercent?: number;
+  isFollowing?: boolean;
+  onToggleFollow?: (authorId: string, isNowFollowing: boolean) => void;
+  feedType?: 'for-you' | 'following' | 'nearby';
 }
 
 export function SocialReel({
@@ -72,7 +75,10 @@ export function SocialReel({
   hashtags,
   product,
   duration = '0:15',
-  progressPercent = 0
+  progressPercent = 0,
+  isFollowing: initialIsFollowing = false,
+  onToggleFollow,
+  feedType,
 }: SocialReelProps) {
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isAuthor = Boolean(currentUser?.id && authorId && currentUser.id === authorId);
@@ -95,7 +101,11 @@ export function SocialReel({
   const [likeTotal, setLikeTotal] = useState(likesCount || parseInt(likes.replace(/,/g, '')) || 0);
 
   // Follow state
-  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
+
+  useEffect(() => {
+    setIsFollowing(initialIsFollowing);
+  }, [initialIsFollowing]);
 
   const [likeReel] = useLikeReelMutation();
   const [followUser] = useFollowUserMutation();
@@ -210,19 +220,22 @@ export function SocialReel({
 
   const handleToggleFollow = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!authorId) {
-      setIsFollowing(!isFollowing);
-      return;
-    }
-
     const next = !isFollowing;
     setIsFollowing(next);
+    if (authorId && onToggleFollow) {
+      onToggleFollow(authorId, next);
+    }
     toast.success(next ? `Now following ${storeName}` : `Unfollowed ${storeName}`);
 
-    try {
-      await followUser(authorId).unwrap();
-    } catch {
-      setIsFollowing(!next);
+    if (authorId) {
+      try {
+        await followUser(authorId).unwrap();
+      } catch {
+        setIsFollowing(!next);
+        if (onToggleFollow) {
+          onToggleFollow(authorId, !next);
+        }
+      }
     }
   };
 
@@ -372,22 +385,15 @@ export function SocialReel({
         </div>
       </div>
 
-      {/* Bottom Area: Tagged Product & Caption */}
-      <div className="absolute bottom-6 left-4 right-16 flex flex-col gap-2.5 z-30 pointer-events-auto">
-        {/* Tagged Product Chip */}
-        {product && (
-          <div className="w-full max-w-[280px]">
-            <ProductOverlayCard product={product} />
-          </div>
-        )}
-
-        {/* Caption Row */}
+      {/* Bottom Area: Creator Info, Caption & Tagged Product */}
+      <div className="absolute bottom-6 left-4 right-16 flex flex-col gap-2 z-30 pointer-events-auto">
+        {/* Caption & Creator Row */}
         <div className="flex flex-col pr-2">
           {/* Creator Profile, Name, Follow */}
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <Link 
               href={storeId ? `/store/${storeId}` : '#'}
-              className="w-8 h-8 rounded-full overflow-hidden border border-white/60 shadow-sm shrink-0 flex items-center justify-center bg-gray-700"
+              className="w-8 h-8 rounded-full overflow-hidden border border-white/60 shadow-sm shrink-0 flex items-center justify-center bg-gray-700 active:scale-95 transition-transform"
             >
               {storeAvatar ? (
                 <img src={getMediaUrl(storeAvatar)} alt={storeName} className="w-full h-full object-cover" />
@@ -400,9 +406,9 @@ export function SocialReel({
             
             <Link 
               href={storeId ? `/store/${storeId}` : '#'}
-              className="flex items-center gap-1"
+              className="flex items-center gap-1 max-w-[150px]"
             >
-              <span className="text-white font-bold text-[14px] leading-tight shadow-sm hover:underline">{storeName}</span>
+              <span className="text-white font-bold text-[14px] leading-tight shadow-sm hover:underline truncate">{storeName}</span>
               {isVerified && (
                 <div className="w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
                   <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -416,7 +422,7 @@ export function SocialReel({
             <button 
               onClick={handleToggleFollow}
               className={cn(
-                "border rounded px-2.5 py-0.5 text-[10px] font-bold shadow-sm ml-1 transition-all flex items-center gap-1",
+                "border rounded px-2.5 py-0.5 text-[10px] font-bold shadow-sm ml-1 transition-all flex items-center gap-1 active:scale-95",
                 isFollowing 
                   ? "bg-white text-black border-white" 
                   : "text-white border-white/80 hover:bg-white/10"
@@ -425,17 +431,33 @@ export function SocialReel({
               {isFollowing && <Check className="w-3 h-3 stroke-[3]" />}
               {isFollowing ? 'Following' : 'Follow'}
             </button>
+
+            {feedType === 'nearby' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md border border-white/15 text-[10px] font-semibold text-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Nearby
+              </span>
+            )}
           </div>
           
-          <p className="text-white text-[13px] font-medium drop-shadow-md line-clamp-2 leading-tight">
-            {caption}
-          </p>
+          {caption && (
+            <p className="text-white text-[13px] font-medium drop-shadow-md line-clamp-2 leading-tight">
+              {caption}
+            </p>
+          )}
           {hashtags && hashtags.length > 0 && (
             <p className="text-white/90 text-xs font-bold drop-shadow-md mt-0.5">
               {hashtags.map(tag => `#${tag}`).join(' ')}
             </p>
           )}
         </div>
+
+        {/* Tagged Product Chip (Now placed below user info, profile pic & caption) */}
+        {product && (
+          <div className="w-full max-w-[280px] mt-1 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <ProductOverlayCard product={product} />
+          </div>
+        )}
       </div>
 
       {/* Progress Bar */}

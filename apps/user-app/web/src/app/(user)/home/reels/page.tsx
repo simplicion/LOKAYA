@@ -3,9 +3,12 @@
 import React, { Suspense, useMemo, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SocialReel, SocialReelProps } from '@/components/feed/SocialReel';
-import { ChevronLeft, PlaySquare, PlusCircle } from 'lucide-react';
+import { ChevronLeft, PlaySquare, PlusCircle, ChevronDown, Users, MapPin, Check } from 'lucide-react';
 import { useGetReelsQuery } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
+
+type FeedTab = 'for-you' | 'following' | 'nearby';
 
 function ReelsContent() {
   const router = useRouter();
@@ -19,6 +22,38 @@ function ReelsContent() {
   const { data: serverReels = [], isLoading } = useGetReelsQuery();
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Feed tabs state: For You, Following, Nearby
+  const [feedTab, setFeedTab] = useState<FeedTab>('for-you');
+  const [followingSubTab, setFollowingSubTab] = useState<'following' | 'nearby'>('following');
+  const [isFollowingDropdownOpen, setIsFollowingDropdownOpen] = useState(false);
+
+  // Track locally followed creators for instantaneous updates across feeds
+  const [followedAuthorIds, setFollowedAuthorIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('lokaya_followed_authors');
+        return saved ? new Set(JSON.parse(saved)) : new Set();
+      } catch {
+        return new Set();
+      }
+    }
+    return new Set();
+  });
+
+  const handleToggleFollowAuthor = (authorId: string, isNowFollowing: boolean) => {
+    setFollowedAuthorIds(prev => {
+      const next = new Set(prev);
+      if (isNowFollowing) next.add(authorId);
+      else next.delete(authorId);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('lokaya_followed_authors', JSON.stringify(Array.from(next)));
+        } catch {}
+      }
+      return next;
+    });
+  };
 
   // 1. Synthesize immediate target reel if clicked from Feed or Profile (0ms instant playback)
   const initialTargetReel: SocialReelProps | null = useMemo(() => {
@@ -46,7 +81,7 @@ function ReelsContent() {
     };
   }, [targetId, targetVideoUrl, targetPosterUrl, targetStoreName, targetCaption]);
 
-  // 2. Map server reels into standardized props
+  // 2. Map server reels into standardized props and apply feed filters
   const reelsToRender: SocialReelProps[] = useMemo(() => {
     const formattedServerReels: SocialReelProps[] = (serverReels && serverReels.length > 0)
       ? serverReels.map((r: any) => ({
@@ -72,28 +107,53 @@ function ReelsContent() {
           duration: r.duration || '0:15',
           currentTime: r.currentTime || '0:00',
           progressPercent: r.progressPercent || 0,
+          isFollowing: Boolean(r.authorId && followedAuthorIds.has(r.authorId)),
+          onToggleFollow: handleToggleFollowAuthor,
+          feedType: feedTab,
         }))
       : [];
 
     // If server hasn't returned yet, render the instant target reel immediately
     if (formattedServerReels.length === 0) {
-      return initialTargetReel ? [initialTargetReel] : [];
+      return initialTargetReel ? [{
+        ...initialTargetReel,
+        isFollowing: Boolean(initialTargetReel.authorId && followedAuthorIds.has(initialTargetReel.authorId)),
+        onToggleFollow: handleToggleFollowAuthor,
+        feedType: feedTab,
+      }] : [];
+    }
+
+    // Apply feed filter (For You / Following / Nearby)
+    let filteredList = formattedServerReels;
+    if (feedTab === 'following') {
+      filteredList = formattedServerReels.filter(r => 
+        (r.authorId && followedAuthorIds.has(r.authorId)) || r.isFollowing
+      );
+    } else if (feedTab === 'nearby') {
+      // Prioritize local verified stores and creator posts
+      const nearbyReels = formattedServerReels.filter(r => Boolean(r.storeId || r.isVerified));
+      filteredList = nearbyReels.length > 0 ? nearbyReels : formattedServerReels;
     }
 
     // If targetId is specified, place that reel at index 0 for instant playback
     if (targetId) {
-      const foundIdx = formattedServerReels.findIndex(r => r.id === targetId);
+      const foundIdx = filteredList.findIndex(r => r.id === targetId);
       if (foundIdx >= 0) {
-        const targetItem = formattedServerReels[foundIdx];
-        const rest = formattedServerReels.filter((_, idx) => idx !== foundIdx);
+        const targetItem = filteredList[foundIdx];
+        const rest = filteredList.filter((_, idx) => idx !== foundIdx);
         return [targetItem, ...rest];
       } else if (initialTargetReel) {
-        return [initialTargetReel, ...formattedServerReels];
+        return [{
+          ...initialTargetReel,
+          isFollowing: Boolean(initialTargetReel.authorId && followedAuthorIds.has(initialTargetReel.authorId)),
+          onToggleFollow: handleToggleFollowAuthor,
+          feedType: feedTab,
+        }, ...filteredList];
       }
     }
 
-    return formattedServerReels;
-  }, [serverReels, initialTargetReel, targetId]);
+    return filteredList;
+  }, [serverReels, initialTargetReel, targetId, feedTab, followedAuthorIds]);
 
   // Track active visible reel on scroll (3-Reel Sliding Window Engine)
   const handleScroll = () => {
@@ -106,20 +166,142 @@ function ReelsContent() {
     }
   };
 
+  const switchTab = (tab: FeedTab) => {
+    setFeedTab(tab);
+    if (tab === 'following' || tab === 'nearby') {
+      setFollowingSubTab(tab);
+    }
+    setIsFollowingDropdownOpen(false);
+    setActiveIndex(0);
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+  };
+
   return (
     <div 
       ref={containerRef}
       onScroll={handleScroll}
       className="w-full h-[100dvh] bg-black overflow-y-scroll snap-y snap-mandatory no-scrollbar relative"
     >
-      {/* Back Button */}
-      <button 
-        onClick={() => router.back()}
-        className="fixed top-safe left-4 mt-4 w-10 h-10 bg-black/40 rounded-full flex items-center justify-center backdrop-blur-md z-50 text-white border border-white/10 shadow-lg hover:bg-black/60 active:scale-95 transition-all"
-        aria-label="Back"
-      >
-        <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
-      </button>
+      {/* Top Header: Back Button, For You / Following (with Nearby Dropdown), Right Spacer */}
+      <div className="fixed top-safe left-0 right-0 z-50 px-4 pt-3 flex items-center justify-between pointer-events-none">
+        {/* Back Button */}
+        <button 
+          onClick={() => router.back()}
+          className="pointer-events-auto w-10 h-10 bg-black/40 rounded-full flex items-center justify-center backdrop-blur-md text-white border border-white/10 shadow-lg hover:bg-black/60 active:scale-95 transition-all"
+          aria-label="Back"
+        >
+          <ChevronLeft className="w-6 h-6" strokeWidth={2.5} />
+        </button>
+
+        {/* Center Tabs: For You & Following (with Nearby Dropdown) */}
+        <div className="pointer-events-auto relative flex items-center gap-5">
+          {/* For You Tab */}
+          <button
+            onClick={() => switchTab('for-you')}
+            className="flex flex-col items-center py-1 transition-all group"
+          >
+            <span className={cn(
+              "text-[15px] font-bold tracking-wide drop-shadow-md transition-colors",
+              feedTab === 'for-you' ? "text-white" : "text-white/60 group-hover:text-white/80"
+            )}>
+              For You
+            </span>
+            <span className={cn(
+              "h-[2.5px] rounded-full transition-all duration-200 mt-0.5",
+              feedTab === 'for-you' ? "w-5 bg-[#FF5A36] shadow-[0_0_8px_rgba(255,90,54,0.8)]" : "w-0 bg-transparent"
+            )} />
+          </button>
+
+          {/* Following Tab with Dropdown for Following & Nearby */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                if (feedTab === 'for-you') {
+                  switchTab(followingSubTab);
+                } else {
+                  setIsFollowingDropdownOpen(!isFollowingDropdownOpen);
+                }
+              }}
+              className="flex flex-col items-center py-1 transition-all group"
+            >
+              <div className="flex items-center gap-1">
+                <span className={cn(
+                  "text-[15px] font-bold tracking-wide drop-shadow-md transition-colors capitalize",
+                  feedTab !== 'for-you' ? "text-white" : "text-white/60 group-hover:text-white/80"
+                )}>
+                  {followingSubTab === 'nearby' && feedTab === 'nearby' ? 'Nearby' : 'Following'}
+                </span>
+                <ChevronDown 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsFollowingDropdownOpen(!isFollowingDropdownOpen);
+                  }}
+                  className={cn(
+                    "w-4 h-4 transition-transform duration-200",
+                    isFollowingDropdownOpen ? "rotate-180" : "",
+                    feedTab !== 'for-you' ? "text-white" : "text-white/60 group-hover:text-white/80"
+                  )} 
+                />
+              </div>
+              <span className={cn(
+                "h-[2.5px] rounded-full transition-all duration-200 mt-0.5",
+                feedTab !== 'for-you' ? "w-5 bg-[#FF5A36] shadow-[0_0_8px_rgba(255,90,54,0.8)]" : "w-0 bg-transparent"
+              )} />
+            </button>
+
+            {/* Dropdown Menu for Following & Nearby */}
+            {isFollowingDropdownOpen && (
+              <>
+                {/* Click-away backdrop */}
+                <div 
+                  className="fixed inset-0 z-40 pointer-events-auto" 
+                  onClick={() => setIsFollowingDropdownOpen(false)} 
+                />
+                
+                {/* Floating Dropdown Card */}
+                <div className="absolute top-full right-0 mt-2 bg-black/85 backdrop-blur-xl border border-white/20 rounded-2xl p-1.5 shadow-2xl min-w-[155px] flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95 duration-150 pointer-events-auto">
+                  <button
+                    onClick={() => switchTab('following')}
+                    className={cn(
+                      "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left",
+                      feedTab === 'following' 
+                        ? "bg-white/20 text-white font-bold" 
+                        : "text-white/80 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5 text-white/90" />
+                      <span>Following</span>
+                    </div>
+                    {feedTab === 'following' && <Check className="w-3.5 h-3.5 text-[#FF5A36] stroke-[2.5]" />}
+                  </button>
+
+                  <button
+                    onClick={() => switchTab('nearby')}
+                    className={cn(
+                      "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left",
+                      feedTab === 'nearby' 
+                        ? "bg-white/20 text-white font-bold" 
+                        : "text-white/80 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-[#FF5A36]" />
+                      <span>Nearby</span>
+                    </div>
+                    {feedTab === 'nearby' && <Check className="w-3.5 h-3.5 text-[#FF5A36] stroke-[2.5]" />}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Right side spacer to keep center tabs perfectly centered (allows clicks to pass through to reel's audio button) */}
+        <div className="w-10 h-10 pointer-events-none" />
+      </div>
 
       {/* Instant Skeleton Shell when cache is cold and no initial reel is known */}
       {isLoading && reelsToRender.length === 0 && (
@@ -127,7 +309,7 @@ function ReelsContent() {
           <div className="w-full h-full absolute inset-0 bg-gradient-to-b from-neutral-900 via-black to-neutral-950" />
           
           {/* Top spacer */}
-          <div className="h-12" />
+          <div className="h-14" />
 
           {/* Bottom & Side Skeleton Controls (matching Instagram Reels) */}
           <div className="relative z-10 flex items-end justify-between pb-8">
@@ -139,6 +321,7 @@ function ReelsContent() {
               </div>
               <div className="w-48 h-3 rounded bg-white/10" />
               <div className="w-32 h-3 rounded bg-white/10" />
+              <div className="w-56 h-12 rounded-xl bg-white/10 mt-1" />
             </div>
 
             {/* Right side actions skeleton */}
@@ -151,8 +334,46 @@ function ReelsContent() {
         </div>
       )}
 
-      {/* Empty State */}
-      {!isLoading && reelsToRender.length === 0 && (
+      {/* Empty State: Following Tab */}
+      {!isLoading && reelsToRender.length === 0 && feedTab === 'following' && (
+        <div className="w-full h-full flex flex-col items-center justify-center text-white px-6 text-center gap-4">
+          <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-[#FF5A36] border border-white/10">
+            <Users className="w-10 h-10" />
+          </div>
+          <h2 className="text-xl font-bold">No Following Reels Yet</h2>
+          <p className="text-xs text-white/70 max-w-xs leading-relaxed">
+            Follow creators and stores you love to see their latest reels appear here.
+          </p>
+          <button 
+            onClick={() => switchTab('for-you')}
+            className="mt-2 inline-flex items-center gap-2 bg-[#FF5A36] text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-lg hover:bg-[#E04B28] active:scale-95 transition"
+          >
+            Explore For You
+          </button>
+        </div>
+      )}
+
+      {/* Empty State: Nearby Tab */}
+      {!isLoading && reelsToRender.length === 0 && feedTab === 'nearby' && (
+        <div className="w-full h-full flex flex-col items-center justify-center text-white px-6 text-center gap-4">
+          <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-[#FF5A36] border border-white/10">
+            <MapPin className="w-10 h-10 text-[#FF5A36]" />
+          </div>
+          <h2 className="text-xl font-bold">No Nearby Reels Found</h2>
+          <p className="text-xs text-white/70 max-w-xs leading-relaxed">
+            Discover trending reels and products from verified local sellers around your neighborhood.
+          </p>
+          <button 
+            onClick={() => switchTab('for-you')}
+            className="mt-2 inline-flex items-center gap-2 bg-[#FF5A36] text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-lg hover:bg-[#E04B28] active:scale-95 transition"
+          >
+            Explore For You
+          </button>
+        </div>
+      )}
+
+      {/* Empty State: For You Tab */}
+      {!isLoading && reelsToRender.length === 0 && feedTab === 'for-you' && (
         <div className="w-full h-full flex flex-col items-center justify-center text-white px-6 text-center gap-4">
           <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-[#FF5A36] border border-white/10">
             <PlaySquare className="w-10 h-10" />
