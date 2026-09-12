@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
-import { ArrowLeft, Bookmark } from 'lucide-react';
+import { ArrowLeft, Heart } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
 import { useGetWishlistQuery } from '@/lib/api';
 
@@ -66,12 +66,12 @@ export default function WishlistPage() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-            <div className="w-16 h-16 bg-orange-50 text-[#FF5A36] rounded-full flex items-center justify-center mb-4">
-              <Bookmark className="w-8 h-8" />
+            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-4">
+              <Heart className="w-8 h-8 fill-rose-100 text-rose-500" />
             </div>
             <h2 className="text-lg font-bold text-[#171717] mb-2">Your wishlist is empty</h2>
             <p className="text-sm text-[#6B6B6B] max-w-xs mb-6">
-              Tap the bookmark icon on products to save them here for later.
+              Tap the heart icon on products to save them here for later.
             </p>
             <button
               onClick={() => router.push('/explore')}

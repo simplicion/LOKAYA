@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Heart, ShoppingCart, Bell, Settings, ChevronDown, Check, ArrowLeft, Bookmark, PlusSquare, Menu } from 'lucide-react';
+import { Heart, ShoppingCart, Bell, Settings, ChevronDown, Check, ArrowLeft, PlusSquare, Menu } from 'lucide-react';
 import { Logo } from "@/components/ui/logo";
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -113,7 +113,7 @@ export function MobileTopNav() {
     rightContent = (
       <div className="flex items-center gap-4">
         <Link href="/wishlist" className="text-[#171717]">
-          <Bookmark className="w-6 h-6" />
+          <Heart className="w-6 h-6" />
         </Link>
         <Link href="/cart" className="relative text-[#171717]">
           <ShoppingCart className="w-6 h-6" />
@@ -139,7 +139,7 @@ export function MobileTopNav() {
     rightContent = (
       <div className="flex items-center gap-4">
         <Link href="/wishlist" className="text-[#171717]">
-          <Bookmark className="w-6 h-6" />
+          <Heart className="w-6 h-6" />
         </Link>
         <Link href="/notifications" className="relative text-[#171717]">
           <Bell className="w-6 h-6" />

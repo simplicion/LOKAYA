@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   Minus, 
   Plus, 
-  Bookmark, 
   MapPin, 
   ShieldCheck, 
   CreditCard, 
@@ -255,7 +254,7 @@ export default function CartPage() {
             className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 transition-colors"
             title="Wishlist"
           >
-            <Bookmark className="w-4 h-4 text-gray-700" />
+            <Heart className="w-4 h-4 text-gray-700 hover:text-rose-500 transition-colors" />
           </button>
         </div>
       </div>

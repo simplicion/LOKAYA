@@ -23,6 +23,7 @@ import {
 import { useGetProductByIdQuery, useToggleWishlistMutation, useAddToCartMutation } from '@/lib/api';
 import { addToCart } from '@/lib/features/cartSlice';
 import { getMediaUrl, cn } from '@/lib/utils';
+import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -205,9 +206,13 @@ export default function ProductViewClient({ productId }: { productId: string }) 
             <button 
               onClick={handleWishlist}
               disabled={isTogglingWishlist}
-              className="h-10 w-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-md active:scale-95 transition-transform"
+              className="h-10 w-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-md active:scale-95 transition-transform text-gray-800 hover:text-rose-500"
             >
-              <Heart className={cn("w-4 h-4 transition-colors", isWishlisted ? "fill-red-500 text-red-500" : "text-gray-800")} />
+              <HeartPlusIcon 
+                isSaved={isWishlisted}
+                className={cn("w-5 h-5 transition-colors", isWishlisted ? "fill-rose-500 text-rose-500" : "text-gray-800")} 
+                strokeWidth={1.8}
+              />
             </button>
           </div>
         </div>

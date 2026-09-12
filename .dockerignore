@@ -1,0 +1,14 @@
+node_modules
+.git
+.github
+apps/user-app
+apps/admin-web
+dist
+build
+.next
+*.log
+.DS_Store
+.env.local
+.env*.local
+scratch
+.turbo

@@ -2,7 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Bookmark, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
+import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '@/lib/features/cartSlice';
 import { useGetWishlistQuery, useToggleWishlistMutation } from '@/lib/api';
@@ -109,12 +110,13 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Wishlist Button (Top-Right) */}
         <button 
           onClick={handleToggleWishlist} 
-          className="absolute top-2 right-2 p-1.5 z-10 bg-white/85 backdrop-blur-md rounded-full hover:bg-white transition-all shadow-xs text-gray-500 hover:text-black active:scale-90"
+          className="absolute top-2 right-2 w-7 h-7 z-10 bg-white/95 backdrop-blur-xs rounded-full hover:bg-white transition-all shadow-xs flex items-center justify-center text-gray-800 hover:text-rose-500 active:scale-90"
           aria-label="Save to Wishlist"
         >
-          <Bookmark 
-            className={`w-3.5 h-3.5 transition-colors ${isSaved ? 'fill-black text-black' : ''}`} 
-            strokeWidth={2} 
+          <HeartPlusIcon 
+            isSaved={isSaved} 
+            className={`w-4 h-4 transition-colors ${isSaved ? 'text-rose-500 fill-rose-500' : 'text-gray-800'}`} 
+            strokeWidth={1.8} 
           />
         </button>
 
