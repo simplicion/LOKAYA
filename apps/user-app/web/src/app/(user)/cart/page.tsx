@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
-import { updateQuantity, removeFromCart } from '@/lib/features/cartSlice';
+import { updateQuantity, removeFromCart, mergeCart } from '@/lib/features/cartSlice';
 import { 
   Heart, 
   Bell, 
@@ -29,6 +29,7 @@ import {
 import { CartProductCard } from '@/components/cart/CartProductCard';
 import { 
   useGetCartQuery, 
+  useAddToCartMutation,
   useUpdateCartItemMutation, 
   useRemoveFromCartMutation,
   useApplyCouponMutation,
@@ -54,15 +55,16 @@ export default function CartPage() {
   });
   const defaultAddress = addresses.find((a: any) => a.isDefault) || addresses[0];
 
+  const [addToCartAPI] = useAddToCartMutation();
   const [updateCartItem] = useUpdateCartItemMutation();
   const [removeFromCartAPI] = useRemoveFromCartMutation();
   const [applyCoupon, { isLoading: isApplyingCoupon }] = useApplyCouponMutation();
   const [removeCoupon, { isLoading: isRemovingCoupon }] = useRemoveCouponMutation();
 
-  // Unified items resolution: combine or fallback between backend cart and Redux state
-  const items = useMemo(() => {
+  // Merge backend cart items into Redux state so top nav badge and bars stay synchronized
+  useEffect(() => {
     if (cartData?.items && cartData.items.length > 0) {
-      return cartData.items.map((item: any) => {
+      const formatted = cartData.items.map((item: any) => {
         const originalPrice = item.product?.mrp || item.product?.originalPrice || item.variant?.price || item.product?.sellingPrice || 0;
         const sellingPrice = item.variant?.price ?? item.product?.sellingPrice ?? item.priceAt ?? 0;
         return {
@@ -75,29 +77,89 @@ export default function CartPage() {
           quantity: item.quantity,
           storeId: item.product?.storeId || item.storeId || 'store-main',
           storeName: item.product?.store?.name || 'Partner Store',
+          image: item.product?.media?.[0]?.url || item.product?.imageUrl || item.image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
+          variantName: item.variant?.name,
+        };
+      });
+      dispatch(mergeCart(formatted));
+    }
+  }, [cartData, dispatch]);
+
+  // Auto-sync any unsynced Redux items to backend cart when logged in
+  const syncingRef = React.useRef(false);
+  useEffect(() => {
+    if (!user || isCartLoading || syncingRef.current || reduxItems.length === 0) return;
+    const unsyncedItems = reduxItems.filter((rItem: any) => {
+      const pId = rItem.productId || rItem.id;
+      return !cartData?.items?.some((bItem: any) => bItem.productId === pId);
+    });
+
+    if (unsyncedItems.length > 0) {
+      syncingRef.current = true;
+      Promise.all(
+        unsyncedItems.map((item: any) => 
+          addToCartAPI({
+            productId: item.productId || item.id,
+            variantId: item.variantId,
+            quantity: item.quantity || 1
+          }).unwrap().catch((e) => console.warn('[Cart] sync item error:', e))
+        )
+      ).finally(() => {
+        syncingRef.current = false;
+      });
+    }
+  }, [user, isCartLoading, cartData, reduxItems, addToCartAPI]);
+
+  // Unified items resolution: combine backend cart and Redux state without dropping items
+  const items = useMemo(() => {
+    const resolvedMap = new Map<string, any>();
+
+    // 1. Backend cart items
+    if (cartData?.items && cartData.items.length > 0) {
+      cartData.items.forEach((item: any) => {
+        const originalPrice = item.product?.mrp || item.product?.originalPrice || item.variant?.price || item.product?.sellingPrice || 0;
+        const sellingPrice = item.variant?.price ?? item.product?.sellingPrice ?? item.priceAt ?? 0;
+        const key = item.productId ? `${item.productId}-${item.variantId || 'base'}` : item.id;
+        resolvedMap.set(key, {
+          id: item.id,
+          cartItemId: item.id,
+          productId: item.productId,
+          variantId: item.variantId,
+          name: item.product?.name || item.productName || 'Product',
+          price: sellingPrice,
+          originalPrice: originalPrice > sellingPrice ? originalPrice : sellingPrice,
+          quantity: item.quantity,
+          storeId: item.product?.storeId || item.storeId || 'store-main',
+          storeName: item.product?.store?.name || 'Partner Store',
           imageUrl: item.product?.media?.[0]?.url || item.product?.imageUrl || item.image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
           variantInfo: item.variant?.name,
-        };
+        });
       });
     }
 
-    // Fallback to client-side Redux cart items
-    return reduxItems.map((item: any) => {
-      const originalPrice = item.originalPrice || item.price;
-      return {
-        id: item.id,
-        productId: item.productId || item.id,
-        variantId: item.variantId,
-        name: item.name || 'Product',
-        price: item.price || 0,
-        originalPrice: originalPrice > item.price ? originalPrice : item.price,
-        quantity: item.quantity || 1,
-        storeId: item.storeId || 'store-main',
-        storeName: item.storeName || 'Partner Store',
-        imageUrl: item.image || item.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
-        variantInfo: item.variantName,
-      };
+    // 2. Client-side Redux cart items (ensuring newly added products are never dropped)
+    reduxItems.forEach((item: any) => {
+      const key = item.productId ? `${item.productId}-${item.variantId || 'base'}` : item.id;
+      if (!resolvedMap.has(key)) {
+        const originalPrice = item.originalPrice || item.price;
+        resolvedMap.set(key, {
+          id: item.id,
+          cartItemId: (item as any).cartItemId || undefined,
+          productId: item.productId || item.id,
+          variantId: item.variantId,
+          name: item.name || 'Product',
+          price: item.price || 0,
+          originalPrice: originalPrice > item.price ? originalPrice : item.price,
+          quantity: item.quantity || 1,
+          storeId: item.storeId || 'store-main',
+          storeName: item.storeName || 'Partner Store',
+          imageUrl: item.image || (item as any).imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
+          variantInfo: item.variantName,
+        });
+      }
     });
+
+    return Array.from(resolvedMap.values());
   }, [cartData, reduxItems]);
 
   const handleCheckout = () => {
@@ -111,9 +173,10 @@ export default function CartPage() {
   const handleIncrement = async (itemId: string, currentQuantity: number) => {
     const newQty = currentQuantity + 1;
     dispatch(updateQuantity({ id: itemId, quantity: newQty }));
-    if (user && cartData?.items?.some((i: any) => i.id === itemId)) {
+    const backendItem = cartData?.items?.find((i: any) => i.id === itemId || i.productId === itemId);
+    if (user && backendItem) {
       try {
-        await updateCartItem({ itemId, quantity: newQty }).unwrap();
+        await updateCartItem({ itemId: backendItem.id, quantity: newQty }).unwrap();
       } catch (err) {
         // Redux updated optimistically
       }
@@ -127,9 +190,10 @@ export default function CartPage() {
       return;
     }
     dispatch(updateQuantity({ id: itemId, quantity: newQty }));
-    if (user && cartData?.items?.some((i: any) => i.id === itemId)) {
+    const backendItem = cartData?.items?.find((i: any) => i.id === itemId || i.productId === itemId);
+    if (user && backendItem) {
       try {
-        await updateCartItem({ itemId, quantity: newQty }).unwrap();
+        await updateCartItem({ itemId: backendItem.id, quantity: newQty }).unwrap();
       } catch (err) {
         // Redux updated optimistically
       }
@@ -139,9 +203,10 @@ export default function CartPage() {
   const handleRemove = async (itemId: string) => {
     dispatch(removeFromCart(itemId));
     toast.success('Item removed from bag');
-    if (user && cartData?.items?.some((i: any) => i.id === itemId)) {
+    const backendItem = cartData?.items?.find((i: any) => i.id === itemId || i.productId === itemId);
+    if (user && backendItem) {
       try {
-        await removeFromCartAPI(itemId).unwrap();
+        await removeFromCartAPI(backendItem.id).unwrap();
       } catch (err) {
         // Redux updated optimistically
       }

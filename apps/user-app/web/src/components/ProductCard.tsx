@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { Star } from 'lucide-react';
 import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { useDispatch, useSelector } from 'react-redux';
-import { addToCart } from '@/lib/features/cartSlice';
-import { useGetWishlistQuery, useToggleWishlistMutation } from '@/lib/api';
+import { addToCart, updateQuantity, removeFromCart } from '@/lib/features/cartSlice';
+import { useGetWishlistQuery, useToggleWishlistMutation, useAddToCartMutation } from '@/lib/api';
 import { RootState } from '@/lib/store';
 import { getMediaUrl } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export interface ProductCardProps {
   product: {
@@ -36,6 +37,8 @@ export interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const dispatch = useDispatch();
   const cartItems = useSelector((state: RootState) => state.cart.items);
+  const user = useSelector((state: RootState) => (state as any).auth?.user);
+  const [addToCartAPI] = useAddToCartMutation();
   
   const brandOrStore = product.brand || product.store?.name;
   const rawTitle = product.title || product.name || '';
@@ -59,7 +62,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const reviewsCount = product.reviews ? String(product.reviews).replace(/[()]/g, '') : null;
 
   // Find if item is already in cart to show count or just "Add"
-  const cartItem = cartItems.find(item => item.id === product.id);
+  const cartItem = cartItems.find(item => item.id === product.id || item.productId === product.id);
   const quantity = cartItem?.quantity || 0;
 
   const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: false });
@@ -77,17 +80,33 @@ export function ProductCard({ product }: ProductCardProps) {
     }
   };
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
     dispatch(addToCart({
       id: product.id,
+      productId: product.id,
       name: rawTitle,
       price: priceValue,
+      originalPrice: originalPriceValue,
       quantity: 1,
-      storeId: product.store?.id || (product as any).storeId || ''
+      storeId: product.store?.id || (product as any).storeId || '',
+      storeName: product.store?.name || '',
+      image: rawImage,
     }));
+    toast.success(`${rawTitle} added to bag!`);
+
+    if (user && product.id) {
+      try {
+        await addToCartAPI({
+          productId: product.id,
+          quantity: 1,
+        }).unwrap();
+      } catch (err) {
+        console.warn('[ProductCard] Failed to sync addToCart with backend:', err);
+      }
+    }
   };
 
   return (
@@ -171,9 +190,9 @@ export function ProductCard({ product }: ProductCardProps) {
                 onClick={(e) => {
                   e.stopPropagation();
                   if (quantity > 1) {
-                    dispatch({ type: 'cart/updateQuantity', payload: { id: product.id, quantity: quantity - 1 }});
+                    dispatch(updateQuantity({ id: product.id, quantity: quantity - 1 }));
                   } else {
-                    dispatch({ type: 'cart/removeFromCart', payload: product.id });
+                    dispatch(removeFromCart(product.id));
                   }
                 }}
               >
@@ -184,13 +203,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 className="w-8 h-full flex items-center justify-center hover:bg-black/15 active:bg-black/25 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
-                  dispatch(addToCart({
-                    id: product.id,
-                    name: rawTitle,
-                    price: priceValue,
-                    quantity: 1,
-                    storeId: product.store?.id || (product as any).storeId || ''
-                  }));
+                  handleAddToCart(e);
                 }}
               >
                 <span className="text-base font-bold leading-none mb-0.5">+</span>

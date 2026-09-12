@@ -6,6 +6,7 @@ export interface CartItem {
   variantId?: string;
   name: string;
   price: number;
+  originalPrice?: number;
   quantity: number;
   storeId: string;
   storeName?: string;
@@ -35,7 +36,12 @@ export const cartSlice = createSlice({
       const item = action.payload;
       state.storeId = item.storeId;
       
-      const existingItem = state.items.find(i => i.id === item.id);
+      const existingItem = state.items.find(i => 
+        (i.productId && item.productId && i.productId === item.productId) || 
+        i.id === item.id ||
+        i.id === item.productId ||
+        i.productId === item.id
+      );
       if (existingItem) {
         existingItem.quantity += item.quantity;
       } else {
@@ -44,6 +50,39 @@ export const cartSlice = createSlice({
 
       state.lastAddedItem = item;
       state.isDrawerOpen = false;
+    },
+    setCart: (state, action: PayloadAction<CartItem[]>) => {
+      state.items = action.payload;
+      if (action.payload.length === 0) {
+        state.storeId = null;
+        state.lastAddedItem = null;
+      } else {
+        state.storeId = action.payload[0].storeId || null;
+      }
+    },
+    mergeCart: (state, action: PayloadAction<CartItem[]>) => {
+      const merged = [...state.items];
+      action.payload.forEach(incoming => {
+        const idx = merged.findIndex(i => 
+          (i.productId && incoming.productId && i.productId === incoming.productId) || 
+          i.id === incoming.id ||
+          i.id === incoming.productId ||
+          i.productId === incoming.id
+        );
+        if (idx >= 0) {
+          merged[idx] = {
+            ...merged[idx],
+            ...incoming,
+            quantity: Math.max(merged[idx].quantity, incoming.quantity)
+          };
+        } else {
+          merged.push(incoming);
+        }
+      });
+      state.items = merged;
+      if (merged.length > 0 && !state.storeId) {
+        state.storeId = merged[0].storeId || null;
+      }
     },
     openCartDrawer: (state, action: PayloadAction<CartItem | undefined>) => {
       if (action.payload) {
@@ -55,26 +94,28 @@ export const cartSlice = createSlice({
       state.isDrawerOpen = false;
     },
     removeFromCart: (state, action: PayloadAction<string>) => {
-      state.items = state.items.filter(item => item.id !== action.payload);
+      const targetId = action.payload;
+      state.items = state.items.filter(item => item.id !== targetId && item.productId !== targetId);
       if (state.items.length === 0) {
         state.storeId = null;
         state.lastAddedItem = null;
-      } else if (state.lastAddedItem?.id === action.payload) {
+      } else if (state.lastAddedItem?.id === targetId || state.lastAddedItem?.productId === targetId) {
         state.lastAddedItem = state.items[state.items.length - 1] || null;
       }
     },
     updateQuantity: (state, action: PayloadAction<{ id: string; quantity: number }>) => {
-      const item = state.items.find(i => i.id === action.payload.id);
+      const targetId = action.payload.id;
+      const item = state.items.find(i => i.id === targetId || i.productId === targetId);
       if (item) {
         if (action.payload.quantity <= 0) {
-          state.items = state.items.filter(i => i.id !== action.payload.id);
+          state.items = state.items.filter(i => i.id !== targetId && i.productId !== targetId);
           if (state.items.length === 0) state.storeId = null;
-          if (state.lastAddedItem?.id === action.payload.id) {
+          if (state.lastAddedItem?.id === targetId || state.lastAddedItem?.productId === targetId) {
             state.lastAddedItem = state.items[state.items.length - 1] || null;
           }
         } else {
           item.quantity = action.payload.quantity;
-          if (state.lastAddedItem?.id === action.payload.id) {
+          if (state.lastAddedItem?.id === targetId || state.lastAddedItem?.productId === targetId) {
             state.lastAddedItem.quantity = action.payload.quantity;
           }
         }
@@ -91,6 +132,8 @@ export const cartSlice = createSlice({
 
 export const { 
   addToCart, 
+  setCart,
+  mergeCart,
   openCartDrawer, 
   closeCartDrawer, 
   removeFromCart, 

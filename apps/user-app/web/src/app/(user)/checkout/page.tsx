@@ -119,26 +119,39 @@ function CheckoutContent() {
       }];
     }
 
+    const resolvedMap = new Map<string, any>();
+
+    // 1. Backend cart items
     if (cartData?.items && cartData.items.length > 0) {
-      return cartData.items.map((item: any) => ({
-        id: item.id,
-        productId: item.productId,
-        variantId: item.variantId,
-        name: item.product?.name || item.productName || 'Product',
-        price: item.variant?.price ?? item.product?.sellingPrice ?? item.priceAt ?? 0,
-        quantity: item.quantity,
-        storeId: item.product?.storeId || '',
-        storeName: item.product?.store?.name,
-        image: item.product?.media?.[0]?.url || item.product?.imageUrl || '',
-        variantName: item.variant?.name,
-      }));
+      cartData.items.forEach((item: any) => {
+        const key = item.productId ? `${item.productId}-${item.variantId || 'base'}` : item.id;
+        resolvedMap.set(key, {
+          id: item.id,
+          productId: item.productId,
+          variantId: item.variantId,
+          name: item.product?.name || item.productName || 'Product',
+          price: item.variant?.price ?? item.product?.sellingPrice ?? item.priceAt ?? 0,
+          quantity: item.quantity,
+          storeId: item.product?.storeId || '',
+          storeName: item.product?.store?.name,
+          image: item.product?.media?.[0]?.url || item.product?.imageUrl || '',
+          variantName: item.variant?.name,
+        });
+      });
     }
 
-    // Fallback to redux items
-    return reduxCartItems.map((item) => ({
-      ...item,
-      productId: item.productId || item.id,
-    }));
+    // 2. Redux cart items (ensuring newly added products are never dropped)
+    reduxCartItems.forEach((item: any) => {
+      const key = item.productId ? `${item.productId}-${item.variantId || 'base'}` : item.id;
+      if (!resolvedMap.has(key)) {
+        resolvedMap.set(key, {
+          ...item,
+          productId: item.productId || item.id,
+        });
+      }
+    });
+
+    return Array.from(resolvedMap.values());
   }, [directProductId, directProduct, directVariantId, directQty, cartData, reduxCartItems]);
 
   // Pricing calculations
