@@ -22,8 +22,8 @@ COPY packages/common/package.json ./packages/common/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 COPY apps/backend/package.json ./apps/backend/
 
-# 2. Install dependencies
-RUN pnpm install --frozen-lockfile
+# 2. Install dependencies (ignore-scripts to defer Prisma generation until schema is copied)
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # 3. Copy packages and generate Prisma client
 COPY packages/db ./packages/db
