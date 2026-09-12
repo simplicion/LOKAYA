@@ -1,5 +1,5 @@
 async function test() {
-  const res = await fetch('http://localhost:4002/api/v1/categories', {
+  const res = await fetch('http://localhost:4101/api/v1/categories', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

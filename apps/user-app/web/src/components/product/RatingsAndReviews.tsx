@@ -82,7 +82,7 @@ export function RatingsAndReviews({ rating }: RatingsAndReviewsProps) {
 
       {/* Review Bottom Sheet */}
       {isReviewSheetOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+        <div className="fixed inset-0 z-[70] flex flex-col justify-end">
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" 

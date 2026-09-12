@@ -10,9 +10,12 @@ import {
   useGetStoreProductsQuery, 
   useGetStoreCategoriesQuery,
   useGetPresignedUrlMutation,
-  useUpdateStoreProfileMutation
+  useUploadMediaMutation,
+  useUpdateStoreProfileMutation,
+  useGetStoreSummaryQuery
 } from '@/lib/api';
 import { ProductCard } from '@/components/ProductCard';
+import { getMediaUrl } from '@/lib/utils';
 
 export default function StorePreviewPage() {
   const router = useRouter();
@@ -25,7 +28,11 @@ export default function StorePreviewPage() {
   const { data: categories = [] } = useGetStoreCategoriesQuery(storeData?.id ?? '', {
     skip: !storeData?.id,
   });
+  const { data: storeSummary } = useGetStoreSummaryQuery(storeData?.id ?? '', {
+    skip: !storeData?.id,
+  });
 
+  const [uploadMedia] = useUploadMediaMutation();
   const [getPresignedUrl] = useGetPresignedUrlMutation();
   const [updateStoreProfile] = useUpdateStoreProfileMutation();
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
@@ -81,35 +88,46 @@ export default function StorePreviewPage() {
         setIsUploadingLogo(true);
       }
 
-      // Get presigned URL
-      const { signedUrl, fileKey } = await getPresignedUrl({
-        contentType: file.type,
-        filename: file.name,
-      }).unwrap();
+      let finalUrl = '';
 
-      if (!signedUrl) {
-        throw new Error('No upload URL returned');
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await uploadMedia(formData).unwrap();
+        finalUrl = getMediaUrl(res.publicUrl || res.url);
+      } catch (directErr) {
+        console.warn('Direct upload fallback to presigned URL:', directErr);
+        const { uploadUrl, signedUrl, fileKey, publicUrl } = await getPresignedUrl({
+          contentType: file.type,
+          filename: file.name,
+        }).unwrap();
+
+        const targetUrl = uploadUrl || signedUrl;
+        if (!targetUrl) throw new Error('No upload URL returned');
+
+        const uploadRes = await fetch(targetUrl, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error(`Failed to upload to storage: ${uploadRes.status}`);
+        }
+
+        finalUrl = getMediaUrl(publicUrl || (fileKey ? `/media/view?key=${encodeURIComponent(fileKey)}` : ''));
       }
 
-      // Upload to R2
-      const uploadRes = await fetch(signedUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error(`Failed to upload to R2: ${uploadRes.status} ${uploadRes.statusText}`);
+      if (!finalUrl) {
+        throw new Error('Could not obtain uploaded image URL');
       }
 
       // Update store profile
-      const publicUrl = `https://pub-9735c0214aaa423b89c9c5f647cc184c.r2.dev/${fileKey}`;
-      
       await updateStoreProfile({
         storeId: storeData.id,
-        body: type === 'banner' ? { bannerUrl: publicUrl } : { logoUrl: publicUrl }
+        body: type === 'banner' ? { bannerUrl: finalUrl } : { logoUrl: finalUrl }
       }).unwrap();
 
     } catch (error: any) {
@@ -144,7 +162,7 @@ export default function StorePreviewPage() {
           {/* Banner Section - Strict 16:9 */}
           <div className="relative w-full aspect-[16/9] bg-indigo-500 group overflow-hidden">
             {previewBanner || storeData?.bannerUrl ? (
-              <img src={previewBanner || storeData?.bannerUrl} alt="Store Banner" className="w-full h-full object-cover" />
+              <img src={getMediaUrl(previewBanner || storeData?.bannerUrl)} alt="Store Banner" className="w-full h-full object-cover" />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-tr from-violet-600 via-indigo-600 to-purple-600" />
             )}
@@ -207,7 +225,7 @@ export default function StorePreviewPage() {
               <div className="relative w-24 h-24 rounded-full bg-white shadow-lg border-4 border-white mb-3 group">
                 <div className="w-full h-full rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center overflow-hidden relative">
                   {previewLogo || storeData?.logoUrl ? (
-                    <img src={previewLogo || storeData?.logoUrl} alt={storeData?.name || 'Store'} className={`w-full h-full object-cover transition-opacity ${isUploadingLogo ? 'opacity-50' : 'opacity-100'}`} />
+                    <img src={getMediaUrl(previewLogo || storeData?.logoUrl)} alt={storeData?.name || 'Store'} className={`w-full h-full object-cover transition-opacity ${isUploadingLogo ? 'opacity-50' : 'opacity-100'}`} />
                   ) : (
                     <span className="text-white font-bold text-3xl leading-tight">
                       {storeData?.name ? storeData.name.charAt(0).toUpperCase() : "S"}
@@ -252,10 +270,12 @@ export default function StorePreviewPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center text-xs font-bold text-gray-700 bg-gray-100 px-2.5 py-1.5 rounded-lg">
                     <Star className="w-3.5 h-3.5 text-amber-500 fill-current mr-1.5" />
-                    4.8 (120+ Reviews)
+                    {storeSummary?.avgRating ? Number(storeSummary.avgRating).toFixed(1) : (storeSummary?.reviewCount ? '5.0' : 'New')} ({storeSummary?.reviewCount || 0} Reviews)
                   </div>
-                  <div className="text-xs font-bold text-green-700 bg-green-100 px-2.5 py-1.5 rounded-lg">
-                    Open until 10:00 PM
+                  <div className={`text-xs font-bold px-2.5 py-1.5 rounded-lg ${
+                    storeSummary?.isOpen ? 'text-green-700 bg-green-100' : 'text-amber-700 bg-amber-100'
+                  }`}>
+                    {storeSummary?.timingLabel || (storeSummary?.isOpen ? 'Open Now' : 'Currently Closed')}
                   </div>
                 </div>
               </div>
@@ -279,7 +299,7 @@ export default function StorePreviewPage() {
             
             {/* Add New Category Button */}
             <button 
-              onClick={() => router.push('/seller/store/categories?add=true')}
+              onClick={() => router.push('/seller/store/categories/add')}
               className="flex flex-col items-center gap-2 min-w-[72px]"
             >
               <div className="w-16 h-16 rounded-2xl bg-indigo-50/80 border border-indigo-100/50 flex items-center justify-center text-indigo-600 shadow-sm transition-transform active:scale-95">
@@ -292,8 +312,8 @@ export default function StorePreviewPage() {
             {categories.map((cat: any) => (
               <div key={cat.id} className="relative flex flex-col items-center gap-2 min-w-[72px]">
                 <div className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-3xl shadow-sm overflow-hidden">
-                  {cat.image ? (
-                    <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
+                  {cat.imageUrl || cat.image ? (
+                    <img src={getMediaUrl(cat.imageUrl || cat.image)} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-[10px] font-medium uppercase tracking-wider">No img</div>
                   )}

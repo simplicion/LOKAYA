@@ -1,5 +1,4 @@
 import { Worker, Job } from 'bullmq';
-import IORedis from 'ioredis';
 import { prisma } from '@workspace/db';
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import fs from 'fs';
@@ -11,14 +10,13 @@ import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 // @ts-ignore
 import ffprobeInstaller from '@ffprobe-installer/ffprobe';
 import sharp from 'sharp';
+import { createRedisConnection } from '../../../shared/services/redis.service';
 
 // Set FFmpeg path from installer
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
-const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null,
-});
+const redisConnection = createRedisConnection();
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'ap-south-1',

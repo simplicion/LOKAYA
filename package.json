@@ -6,7 +6,10 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "postinstall": "turbo run generate"
+    "postinstall": "turbo run generate",
+    "db:start": "powershell -Command \"& 'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_ctl.exe' start -D 'C:\\Users\\saavi\\pgdata' -l 'C:\\Users\\saavi\\pgdata\\logfile.txt'\"",
+    "db:stop": "powershell -Command \"& 'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_ctl.exe' stop -D 'C:\\Users\\saavi\\pgdata'\"",
+    "db:status": "powershell -Command \"& 'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_ctl.exe' status -D 'C:\\Users\\saavi\\pgdata'\""
   },
   "devDependencies": {
     "prettier": "^3.2.5",

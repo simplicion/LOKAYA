@@ -7,7 +7,7 @@ async function main() {
     console.log("Store ID:", stores[0].id);
     
     // Test creating category using the API
-    const res = await fetch('http://localhost:4002/api/v1/categories', {
+    const res = await fetch('http://localhost:4101/api/v1/categories', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

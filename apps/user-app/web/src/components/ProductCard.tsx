@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '@/lib/features/cartSlice';
 import { useGetWishlistQuery, useToggleWishlistMutation } from '@/lib/api';
 import { RootState } from '@/lib/store';
+import { getMediaUrl } from '@/lib/utils';
 
 export interface ProductCardProps {
   product: {
@@ -63,7 +64,7 @@ export function ProductCard({ product }: ProductCardProps) {
     <Link href={`/product/${product.id}`} className="flex flex-col bg-white rounded-[18px] overflow-hidden cursor-pointer border border-gray-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_25px_-5px_rgba(0,0,0,0.1)] transition-all duration-300 relative group">
       {/* Product Image */}
       <div className="relative aspect-[4/5] bg-gray-50 p-4 flex items-center justify-center overflow-hidden">
-        <img src={product.image} alt={product.title} className="w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105" />
+        <img src={getMediaUrl(product.image)} alt={product.title} className="w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105" />
         
         {product.tag && (
           <div className={`absolute top-3 left-3 ${product.tag.bg} text-white text-[10px] font-extrabold px-2 py-1 rounded shadow-sm tracking-wider uppercase`}>

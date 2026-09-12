@@ -43,8 +43,9 @@ export const createProductSchema = z.object({
 
 export const updateProductSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid product ID')
-  }),
+    id: z.string().uuid('Invalid product ID').optional(),
+    productId: z.string().uuid('Invalid product ID').optional()
+  }).optional(),
   body: z.object({
     name: z.string().min(2, 'Name must be at least 2 characters').optional(),
     brand: z.string().optional(),
@@ -77,25 +78,29 @@ export const updateProductSchema = z.object({
 });
 
 export const createCategorySchema = z.object({
+  params: z.object({
+    storeId: z.string().uuid('Invalid store ID').optional(),
+  }).optional(),
   body: z.object({
-    storeId: z.string().uuid('Invalid store ID'),
-    name: z.string().min(2, 'Category name must be at least 2 characters'),
+    storeId: z.string().uuid('Invalid store ID').optional(),
+    name: z.string().min(1, 'Category name is required'),
     description: z.string().optional().nullable(),
-    imageUrl: z.string().url('Invalid image URL').optional().nullable(),
-    displayOrder: z.number().int().default(1),
-    isActive: z.boolean().default(true)
+    imageUrl: z.union([z.string().url(), z.string().startsWith('/'), z.literal('')]).optional().nullable(),
+    displayOrder: z.coerce.number().int().optional().default(1),
+    isActive: z.boolean().optional().default(true)
   })
 });
 
 export const updateCategorySchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid category ID')
-  }),
+    id: z.string().uuid('Invalid category ID').optional(),
+    categoryId: z.string().uuid('Invalid category ID').optional()
+  }).optional(),
   body: z.object({
-    name: z.string().min(2, 'Category name must be at least 2 characters').optional(),
+    name: z.string().min(1, 'Category name is required').optional(),
     description: z.string().optional().nullable(),
-    imageUrl: z.string().url('Invalid image URL').optional().nullable(),
-    displayOrder: z.number().int().optional(),
+    imageUrl: z.union([z.string().url(), z.string().startsWith('/'), z.literal('')]).optional().nullable(),
+    displayOrder: z.coerce.number().int().optional(),
     isActive: z.boolean().optional()
   })
 });

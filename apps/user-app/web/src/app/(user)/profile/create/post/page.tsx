@@ -4,7 +4,15 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Image as ImageIcon, Film, Tag, ChevronRight, X, Plus } from 'lucide-react';
 import Image from 'next/image';
-import { useGetMyStoreQuery, useGetStoreProductsQuery, useCreatePostMutation, useCreateReelMutation, useGetPresignedUrlMutation, useProcessMediaMutation } from '@/lib/api';
+import { 
+  useGetMyStoreQuery, 
+  useGetStoreProductsQuery, 
+  useCreatePostMutation, 
+  useCreateReelMutation, 
+  useGetPresignedUrlMutation, 
+  useProcessMediaMutation,
+  useUploadMediaMutation 
+} from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 import { ProductTagSelector } from '@/components/profile/ProductTagSelector';
 import { cn } from '@/lib/utils';
@@ -21,6 +29,7 @@ export default function CreatePostPage() {
   const [isPosting, setIsPosting] = useState(false);
   const [createPost] = useCreatePostMutation();
   const [createReel] = useCreateReelMutation();
+  const [uploadMedia] = useUploadMediaMutation();
   const [getPresignedUrl] = useGetPresignedUrlMutation();
   const [processMedia] = useProcessMediaMutation();
   const [caption, setCaption] = useState('');
@@ -75,7 +84,25 @@ export default function CreatePostPage() {
         const type = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
         
         try {
-          // Attempt S3 Pipeline
+          // 1. Direct multipart upload to Cloudflare R2
+          const formData = new FormData();
+          formData.append('file', file);
+          const uploadRes = await uploadMedia(formData).unwrap();
+          const mediaUrl = uploadRes.publicUrl || uploadRes.url;
+          
+          if (mediaUrl) {
+            legacyMedia.push({
+              url: mediaUrl,
+              type
+            });
+            continue;
+          }
+        } catch (directErr) {
+          console.warn('Direct upload failed, trying presigned URL fallback:', directErr);
+        }
+
+        try {
+          // 2. Presigned URL Pipeline fallback
           const { signedUrl, fileKey } = await getPresignedUrl({ filename: file.name || 'upload', contentType: file.type }).unwrap();
           
           const uploadRes = await fetch(signedUrl, {
@@ -88,13 +115,9 @@ export default function CreatePostPage() {
           
           const { mediaAsset } = await processMedia({ fileKey, type }).unwrap();
           mediaIds.push(mediaAsset.id);
-          
         } catch (err) {
-          console.warn('S3 upload failed, falling back to local blob (mock):', err);
-          legacyMedia.push({
-            url: URL.createObjectURL(file), // Mock URL
-            type
-          });
+          console.error('All R2 upload strategies failed:', err);
+          throw new Error('Failed to upload media file');
         }
       }
       

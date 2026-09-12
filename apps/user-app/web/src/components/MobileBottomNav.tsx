@@ -37,7 +37,7 @@ export function MobileBottomNav() {
         const Icon = link.icon;
         let isActive = false;
         if (link.href === '/home') {
-          isActive = pathname === '/home';
+          isActive = pathname === '/home' || pathname === '/';
         } else if (link.href === '/explore') {
           isActive = pathname === '/explore';
         } else {

@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { logout, setCredentials } from '@/lib/features/authSlice';
-import { useGetPresignedUrlMutation, useUpdateProfileMutation, useGetMyStoreQuery } from '@/lib/api';
+import { 
+  useGetPresignedUrlMutation, 
+  useUpdateProfileMutation, 
+  useGetMyStoreQuery,
+  useUploadMediaMutation 
+} from '@/lib/api';
 import { toast } from 'sonner';
 import { 
   Bell, 
@@ -29,7 +34,8 @@ import {
   XCircle,
   RotateCcw,
   Users,
-  Loader2
+  Loader2,
+  User as UserIcon
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -40,7 +46,9 @@ export function RegularProfile() {
   const user = useSelector((state: RootState) => state.auth.user);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
+  const [uploadMedia] = useUploadMediaMutation();
   const [getPresignedUrl] = useGetPresignedUrlMutation();
   const [updateProfile] = useUpdateProfileMutation();
 
@@ -60,41 +68,58 @@ export function RegularProfile() {
       toast.error('Please select an image file');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be less than 5MB');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image must be less than 10MB');
       return;
     }
 
     setIsUploading(true);
+    setAvatarError(false);
+
     try {
-      // 1. Get presigned URL from backend
-      const { uploadUrl, publicUrl } = await getPresignedUrl({
-        filename: `avatar-${Date.now()}.${file.name.split('.').pop()}`,
-        contentType: file.type,
-      }).unwrap();
+      let finalAvatarUrl = '';
 
-      // 2. Upload directly to R2
-      await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type },
-      });
+      try {
+        // 1. Direct Multipart upload (fastest & bypasses browser CORS)
+        const formData = new FormData();
+        formData.append('file', file);
+        const uploadRes = await uploadMedia(formData).unwrap();
+        finalAvatarUrl = uploadRes.publicUrl || uploadRes.url;
+      } catch (directErr) {
+        console.warn('Direct upload failed, trying presigned URL:', directErr);
+        // 2. Presigned URL fallback
+        const { uploadUrl, publicUrl } = await getPresignedUrl({
+          filename: `avatar-${Date.now()}.${file.name.split('.').pop()}`,
+          contentType: file.type,
+        }).unwrap();
 
-      // 3. Update profile with new avatar URL
-      const result = await updateProfile({ avatarUrl: publicUrl }).unwrap();
+        await fetch(uploadUrl, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': file.type },
+        });
+
+        finalAvatarUrl = publicUrl;
+      }
+
+      if (!finalAvatarUrl) {
+        throw new Error('Could not get avatar image URL');
+      }
+
+      // 3. Update user profile
+      const result = await updateProfile({ avatarUrl: finalAvatarUrl }).unwrap();
       dispatch(setCredentials({ user: result.user }));
       toast.success('Profile picture updated!');
     } catch (err: any) {
       console.error('Avatar upload failed:', err);
-      toast.error(err?.data?.message || 'Failed to upload image');
+      toast.error(err?.data?.message || err?.message || 'Failed to upload image');
     } finally {
       setIsUploading(false);
-      // Reset input so the same file can be re-selected
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const avatarSrc = (user as any)?.avatarUrl || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80';
+  const hasAvatar = !!user?.avatarUrl && !avatarError;
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FAF9F6] pb-24 md:pb-8">
@@ -103,20 +128,22 @@ export function RegularProfile() {
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-[#E5E2DC] relative">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200">
+              <div className="w-20 h-20 rounded-full overflow-hidden bg-[#F2EFE9] border-2 border-white shadow-sm flex items-center justify-center">
                 {isUploading ? (
                   <div className="w-full h-full flex items-center justify-center bg-gray-100">
                     <Loader2 className="w-6 h-6 text-[#FF5A36] animate-spin" />
                   </div>
-                ) : (
-                  <Image 
-                    src={avatarSrc} 
-                    alt="Profile Avatar" 
-                    width={80} 
-                    height={80} 
-                    className="object-cover w-full h-full"
-                    unoptimized
+                ) : hasAvatar ? (
+                  <img 
+                    src={user!.avatarUrl} 
+                    alt={user?.name || "Profile Avatar"} 
+                    className="w-full h-full object-cover"
+                    onError={() => setAvatarError(true)}
                   />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-100 to-amber-100 text-[#FF5A36] font-bold text-2xl">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="w-8 h-8 text-gray-400" />}
+                  </div>
                 )}
               </div>
               <input

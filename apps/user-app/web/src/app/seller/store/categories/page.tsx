@@ -2,16 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, GripVertical, Trash2, Plus, X, Minus, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, GripVertical, Trash2, Plus, X, Minus, Image as ImageIcon, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { 
   useGetMyStoreQuery,
   useGetStoreCategoriesQuery,
   useCreateCategoryMutation, 
+  useUpdateCategoryMutation,
   useGetPresignedUrlMutation,
+  useUploadMediaMutation,
   useDeleteCategoryMutation
 } from '@/lib/api';
+import { getMediaUrl } from '@/lib/utils';
 
 export default function ManageCategoriesPage() {
   const router = useRouter();
@@ -26,31 +29,61 @@ export default function ManageCategoriesPage() {
 
   // Bottom Sheet State
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
   
   // Auto-open if query param exists
   useEffect(() => {
     if (searchParams.get('add') === 'true') {
-      setIsAddSheetOpen(true);
+      handleOpenAdd();
     }
   }, [searchParams]);
   
-  // Add Category State
-  const [createCategory, { isLoading: isSaving }] = useCreateCategoryMutation();
+  // Category Mutations & State
+  const [createCategory, { isLoading: isCreating }] = useCreateCategoryMutation();
+  const [updateCategory, { isLoading: isUpdating }] = useUpdateCategoryMutation();
+  const [uploadMedia] = useUploadMediaMutation();
   const [getPresignedUrl] = useGetPresignedUrlMutation();
   const [name, setName] = useState('');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [displayOrder, setDisplayOrder] = useState(1);
 
+  const isSaving = isCreating || isUpdating;
+
+  const handleOpenAdd = () => {
+    setEditingCategory(null);
+    setName('');
+    setImageUrl(null);
+    setDisplayOrder(categories.length + 1);
+    setIsAddSheetOpen(true);
+  };
+
+  const handleOpenEdit = (cat: any) => {
+    setEditingCategory(cat);
+    setName(cat.name || '');
+    setImageUrl(cat.imageUrl || null);
+    setDisplayOrder(cat.displayOrder || 1);
+    setIsAddSheetOpen(true);
+  };
+
+  const handleCloseSheet = () => {
+    setIsAddSheetOpen(false);
+    setEditingCategory(null);
+    setName('');
+    setImageUrl(null);
+    setDisplayOrder(1);
+  };
+
   const incrementOrder = () => setDisplayOrder(prev => prev + 1);
   const decrementOrder = () => setDisplayOrder(prev => (prev > 1 ? prev - 1 : 1));
 
   const handleDeleteCategory = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) return;
     try {
       await deleteCategory(id).unwrap();
       toast.success('Category deleted');
-    } catch (err) {
-      toast.error('Failed to delete category');
+    } catch (err: any) {
+      toast.error(err?.data?.message || 'Failed to delete category');
     }
   };
 
@@ -60,23 +93,37 @@ export default function ManageCategoriesPage() {
 
     setIsUploading(true);
     try {
-      const { signedUrl, fileKey } = await getPresignedUrl({
-        filename: file.name,
-        contentType: file.type,
-      }).unwrap();
-      
-      if (!signedUrl) throw new Error('No upload URL returned');
-      
-      const uploadRes = await fetch(signedUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type },
-      });
-      
-      if (!uploadRes.ok) throw new Error('Upload failed');
-      
-      const publicUrl = `https://pub-9735c0214aaa423b89c9c5f647cc184c.r2.dev/${fileKey}`;
-      setImageUrl(publicUrl);
+      let finalUrl = '';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await uploadMedia(formData).unwrap();
+        finalUrl = res.publicUrl || res.url;
+      } catch (directErr) {
+        console.warn('Direct upload fallback:', directErr);
+        const { uploadUrl, signedUrl, publicUrl, fileKey } = await getPresignedUrl({
+          filename: `cat-${Date.now()}-${file.name}`,
+          contentType: file.type,
+        }).unwrap();
+
+        const targetUrl = uploadUrl || signedUrl;
+        if (targetUrl) {
+          await fetch(targetUrl, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': file.type },
+          });
+          finalUrl = getMediaUrl(publicUrl || (fileKey ? `/media/view?key=${encodeURIComponent(fileKey)}` : ''));
+        }
+      }
+
+      if (finalUrl) {
+        setImageUrl(finalUrl);
+        toast.success('Image uploaded successfully');
+      } else {
+        throw new Error('Could not upload image');
+      }
     } catch (error) {
       toast.error('Failed to upload image');
       console.error(error);
@@ -86,29 +133,48 @@ export default function ManageCategoriesPage() {
   };
 
   const handleSave = async () => {
-    if (!store?.id) {
-      toast.error("Store not found");
+    if (!name.trim()) {
+      toast.error('Please enter a category name');
       return;
     }
-    
-    try {
-      await createCategory({
-        storeId: store.id,
-        name,
-        imageUrl,
-        displayOrder,
-      }).unwrap();
+
+    if (editingCategory) {
+      try {
+        await updateCategory({
+          categoryId: editingCategory.id,
+          body: {
+            name: name.trim(),
+            imageUrl: imageUrl || null,
+            displayOrder,
+          }
+        }).unwrap();
+
+        toast.success('Category updated successfully!');
+        handleCloseSheet();
+      } catch (error: any) {
+        toast.error(error?.data?.message || 'Failed to update category');
+        console.error(error);
+      }
+    } else {
+      if (!store?.id) {
+        toast.error("Store not found");
+        return;
+      }
       
-      toast.success('Category created successfully!');
-      
-      // Reset and close sheet
-      setName('');
-      setImageUrl(null);
-      setDisplayOrder(1);
-      setIsAddSheetOpen(false);
-    } catch (error) {
-      toast.error('Failed to create category');
-      console.error(error);
+      try {
+        await createCategory({
+          storeId: store.id,
+          name: name.trim(),
+          imageUrl: imageUrl || null,
+          displayOrder,
+        }).unwrap();
+        
+        toast.success('Category created successfully!');
+        handleCloseSheet();
+      } catch (error: any) {
+        toast.error(error?.data?.message || 'Failed to create category');
+        console.error(error);
+      }
     }
   };
 
@@ -144,24 +210,49 @@ export default function ManageCategoriesPage() {
                 <div className="text-gray-300 cursor-grab active:cursor-grabbing mr-3 hover:text-gray-500">
                   <GripVertical className="w-5 h-5" />
                 </div>
-                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center mr-3 text-lg border border-gray-100 shrink-0 overflow-hidden">
-                  {cat.imageUrl ? (
-                    <img src={cat.imageUrl} alt={cat.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-gray-400 font-bold">{cat.name.charAt(0)}</span>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900">{cat.name}</h3>
-                  <p className="text-xs text-gray-400">Order: {cat.displayOrder || idx + 1}</p>
+                
+                {/* Clickable Category Info (opens edit) */}
+                <div 
+                  onClick={() => handleOpenEdit(cat)}
+                  className="flex items-center flex-1 min-w-0 cursor-pointer group pr-2"
+                >
+                  <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center mr-3 text-lg border border-gray-100 shrink-0 overflow-hidden group-hover:border-indigo-200 transition-colors">
+                    {cat.imageUrl ? (
+                      <img src={getMediaUrl(cat.imageUrl)} alt={cat.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-gray-400 font-bold">{cat.name.charAt(0)}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 truncate group-hover:text-indigo-600 transition-colors">
+                      {cat.name}
+                    </h3>
+                    <p className="text-xs text-gray-400">Order: {cat.displayOrder || idx + 1}</p>
+                  </div>
                 </div>
                 
-                <button 
-                  onClick={() => handleDeleteCategory(cat.id)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                {/* Actions: Edit and Delete */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button 
+                    type="button"
+                    onClick={() => handleOpenEdit(cat)}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 active:scale-95 transition-all"
+                    title="Edit category"
+                    aria-label={`Edit ${cat.name}`}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={() => handleDeleteCategory(cat.id)}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 active:scale-95 transition-all"
+                    title="Delete category"
+                    aria-label={`Delete ${cat.name}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))
           )}
@@ -172,7 +263,7 @@ export default function ManageCategoriesPage() {
       <div className="fixed bottom-0 left-0 w-full p-4 bg-white border-t border-gray-100 z-20 pb-safe">
         <Button 
           className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-lg font-medium shadow-[0_4px_14px_0_rgba(79,70,229,0.39)]"
-          onClick={() => setIsAddSheetOpen(true)}
+          onClick={handleOpenAdd}
         >
           <Plus className="w-5 h-5 mr-2" />
           Add Category
@@ -181,20 +272,24 @@ export default function ManageCategoriesPage() {
 
       {/* Add Category Bottom Sheet Overlay */}
       {isAddSheetOpen && (
-        <div className="fixed inset-0 z-50 flex justify-center">
+        <div className="fixed inset-0 z-[70] flex justify-center">
           {/* Backdrop */}
           <div 
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
-            onClick={() => setIsAddSheetOpen(false)}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={handleCloseSheet}
           />
           
           {/* Sheet */}
-          <div className="absolute bottom-0 w-full max-w-md bg-white rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <div className="absolute bottom-0 w-full max-w-md bg-white rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom duration-300 pb-8 sm:pb-6">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">Add Category</h2>
+              <h2 className="text-lg font-bold text-gray-900">
+                {editingCategory ? 'Edit Category' : 'Add Category'}
+              </h2>
               <button 
-                onClick={() => setIsAddSheetOpen(false)}
-                className="p-2 rounded-full hover:bg-gray-100 text-gray-500"
+                type="button"
+                onClick={handleCloseSheet}
+                className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -220,7 +315,7 @@ export default function ManageCategoriesPage() {
                     {isUploading ? (
                       <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                     ) : imageUrl ? (
-                      <img src={imageUrl} alt="Category" className="w-full h-full object-cover" />
+                      <img src={getMediaUrl(imageUrl)} alt="Category" className="w-full h-full object-cover" />
                     ) : (
                       <div className="flex flex-col items-center justify-center text-gray-400">
                         <ImageIcon className="w-6 h-6 mb-1" />
@@ -246,6 +341,7 @@ export default function ManageCategoriesPage() {
                 <label className="block text-sm font-bold text-gray-900 mb-2">Display Order</label>
                 <div className="flex items-center justify-between p-2 border border-gray-200 rounded-xl shadow-sm max-w-[200px]">
                   <button 
+                    type="button"
                     onClick={decrementOrder}
                     disabled={displayOrder <= 1}
                     className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center text-gray-600 hover:bg-gray-100 active:bg-gray-200 disabled:opacity-50"
@@ -254,6 +350,7 @@ export default function ManageCategoriesPage() {
                   </button>
                   <span className="text-xl font-bold text-gray-900">{displayOrder}</span>
                   <button 
+                    type="button"
                     onClick={incrementOrder}
                     className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center text-gray-600 hover:bg-gray-100 active:bg-gray-200"
                   >
@@ -272,6 +369,8 @@ export default function ManageCategoriesPage() {
                 >
                   {isSaving ? (
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : editingCategory ? (
+                    'Update Category'
                   ) : (
                     'Save Category'
                   )}

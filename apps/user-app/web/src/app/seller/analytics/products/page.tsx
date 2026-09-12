@@ -5,59 +5,19 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
 import Image from 'next/image';
 import { SellerHeader } from '@/components/seller/SellerHeader';
-
-const mockTopProducts = [
-  {
-    id: 1,
-    name: 'Fortune Sunlite Oil (1L)',
-    orders: 120,
-    revenue: 12000,
-    image: 'https://images.unsplash.com/photo-1628102491629-778571d893a3?auto=format&fit=crop&q=80&w=100'
-  },
-  {
-    id: 2,
-    name: 'Aashirvaad Atta (5kg)',
-    orders: 98,
-    revenue: 11500,
-    image: 'https://images.unsplash.com/photo-1627485937980-221c88ac04f9?auto=format&fit=crop&q=80&w=100'
-  },
-  {
-    id: 3,
-    name: 'Tata Salt (1kg)',
-    orders: 76,
-    revenue: 2280,
-    image: 'https://images.unsplash.com/photo-1624467022247-49f3e49e0b1c?auto=format&fit=crop&q=80&w=100'
-  },
-  {
-    id: 4,
-    name: 'Maggi 2-Minute (70g)',
-    orders: 65,
-    revenue: 856,
-    image: 'https://images.unsplash.com/photo-1606755456206-b25206cde27e?auto=format&fit=crop&q=80&w=100'
-  },
-  {
-    id: 5,
-    name: 'Amul Milk (1L)',
-    orders: 54,
-    revenue: 1020,
-    image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=100'
-  },
-];
-
-const mockCategorySales = [
-  { id: 1, name: 'Fruits & Vegetables', icon: '🍎', sales: 12450, orders: 86 },
-  { id: 2, name: 'Dairy & Eggs', icon: '🥛', sales: 8750, orders: 54 },
-  { id: 3, name: 'Snacks & Munchies', icon: '🍪', sales: 7980, orders: 48 },
-  { id: 4, name: 'Beverages', icon: '🥤', sales: 5650, orders: 34 },
-  { id: 5, name: 'Personal Care', icon: '🧴', sales: 4230, orders: 28 },
-  { id: 6, name: 'Others', icon: '📦', sales: 6800, orders: 26 },
-];
+import { DateRangeModal } from '@/components/seller/DateRangeModal';
+import { useGetAnalyticsProductsQuery } from '@/lib/api';
 
 export default function ProductAnalyticsPage() {
   const router = useRouter();
   const [activeDateFilter, setActiveDateFilter] = useState('This Month');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Products');
+
+  const { data: analyticsData } = useGetAnalyticsProductsQuery(activeDateFilter);
+
+  const topProducts = analyticsData?.topProducts || [];
+  const categorySales = analyticsData?.categorySales || [];
 
   return (
     <div className="min-h-screen bg-[#FFFFFF] pb-20">
@@ -77,40 +37,15 @@ export default function ProductAnalyticsPage() {
         }
       />
 
-      {/* Date Selector Modal */}
-      {isDateSelectorOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] w-full max-w-sm rounded-t-3xl sm:rounded-[1.25rem] p-6 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in">
-            <h3 className="text-xl font-bold text-[#171717] mb-4">Select Date Range</h3>
-            
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year'].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => {
-                    setActiveDateFilter(range);
-                    setIsDateSelectorOpen(false);
-                  }}
-                  className={`py-3 px-4 rounded-[1.25rem] border text-sm font-semibold text-center transition-colors ${
-                    activeDateFilter === range 
-                      ? 'bg-[#171717] text-white border-[#171717]' 
-                      : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#E5E2DC] hover:border-[#171717]'
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
-            
-            <button 
-              className="w-full h-12 bg-[#FF5A36] hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
-              onClick={() => setIsDateSelectorOpen(false)}
-            >
-              Apply Filter
-            </button>
-          </div>
-        </div>
-      )}
+      <DateRangeModal
+        isOpen={isDateSelectorOpen}
+        onClose={() => setIsDateSelectorOpen(false)}
+        selectedRange={activeDateFilter}
+        onSelectRange={(range) => {
+          setActiveDateFilter(range);
+          setIsDateSelectorOpen(false);
+        }}
+      />
 
       <div className="bg-[#FFFFFF] px-4 pt-2 pb-0 sticky top-[68px] z-10">
         {/* Tabs */}
@@ -146,11 +81,11 @@ export default function ProductAnalyticsPage() {
             <div className="p-4 border-b border-[#E5E2DC]">
               <h2 className="text-lg font-bold text-[#171717]">Top Selling Products</h2>
             </div>
-            {mockTopProducts.map((product, index) => (
+            {topProducts.map((product, index) => (
               <div 
                 key={product.id}
                 className={`p-4 flex items-center gap-4 hover:bg-[#F9F9F9] transition-colors ${
-                  index !== mockTopProducts.length - 1 ? 'border-b border-[#E5E2DC]' : ''
+                  index !== topProducts.length - 1 ? 'border-b border-[#E5E2DC]' : ''
                 }`}
               >
                 <div className="relative w-12 h-12 rounded-xl bg-[#F9F9F9] overflow-hidden flex-shrink-0 border border-[#E5E2DC]">
@@ -195,7 +130,7 @@ export default function ProductAnalyticsPage() {
               </div>
               
               <div className="space-y-1">
-                {mockCategorySales.map((category) => (
+                {categorySales.map((category) => (
                   <div key={category.id} className="grid grid-cols-12 gap-2 py-3 px-2 items-center hover:bg-[#F9F9F9] rounded-xl transition-colors">
                     <div className="col-span-6 flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-[#F9F9F9] flex items-center justify-center text-sm border border-[#E5E2DC]">

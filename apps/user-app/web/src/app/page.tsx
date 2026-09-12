@@ -1,14 +1,10 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import UserLayout from './(user)/layout';
+import SocialHomePage from './(user)/home/page';
 
 export default function RootPage() {
-  const router = useRouter();
-  
-  useEffect(() => {
-    router.replace('/home');
-  }, [router]);
-  
-  return null;
+  return (
+    <UserLayout>
+      <SocialHomePage />
+    </UserLayout>
+  );
 }

@@ -5,8 +5,9 @@ import { StoriesBar } from '@/components/feed/StoriesBar';
 import { SocialPost } from '@/components/feed/SocialPost';
 import { StoryItemProps } from '@/components/feed/StoryItem';
 import { MOCK_PRODUCTS } from '@/lib/mock/products';
+import { useGetPostsQuery } from '@/lib/api';
 
-// Mock Data
+// Fallback Mock Stories if fresh database has no stories yet
 const MOCK_STORIES: StoryItemProps[] = [
   { id: '1', label: 'Live Shopping', imageUrl: 'https://i.pravatar.cc/150?img=1', type: 'live' },
   { id: '2', label: 'New Arrivals', imageUrl: 'https://i.pravatar.cc/150?img=2', type: 'new' },
@@ -16,8 +17,9 @@ const MOCK_STORIES: StoryItemProps[] = [
   { id: '6', label: 'Accessories', imageUrl: 'https://i.pravatar.cc/150?img=6', type: 'default', hasUnseen: true },
 ];
 
+// Fallback Mock Posts if fresh database has no posts yet
 const MOCK_POSTS = Object.values(MOCK_PRODUCTS).map((product, index) => ({
-  id: `post-${index}`,
+  id: `mock-post-${index}`,
   storeName: product.store.name,
   storeAvatar: product.store.avatar,
   isVerified: product.store.verified,
@@ -27,6 +29,7 @@ const MOCK_POSTS = Object.values(MOCK_PRODUCTS).map((product, index) => ({
     url: img,
   })),
   likes: Math.floor(Math.random() * 10000 + 1000).toLocaleString(),
+  likesCount: Math.floor(Math.random() * 10000 + 1000),
   comments: Math.floor(Math.random() * 500 + 10).toString(),
   shares: Math.floor(Math.random() * 1000 + 50).toString(),
   caption: product.description.substring(0, 80) + '...',
@@ -44,15 +47,39 @@ const MOCK_POSTS = Object.values(MOCK_PRODUCTS).map((product, index) => ({
 }));
 
 export default function SocialHomePage() {
+  const { data: serverPosts, isLoading } = useGetPostsQuery();
+
+  const postsToRender = (serverPosts && serverPosts.length > 0)
+    ? serverPosts.map((p, idx) => ({
+        id: p.id,
+        storeId: p.storeId,
+        storeName: p.storeName,
+        storeAvatar: p.storeAvatar,
+        isVerified: p.isVerified,
+        timeAgo: 'Recently',
+        media: p.media && p.media.length > 0 ? p.media : [{ type: 'image' as const, url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600' }],
+        likes: p.likes || '0',
+        likesCount: p.likesCount || 0,
+        isLikedByMe: p.isLikedByMe,
+        isSavedByMe: p.isSavedByMe,
+        comments: p.comments || '0',
+        shares: p.shares || '0',
+        caption: p.caption || '',
+        hashtags: p.hashtags || [],
+        product: p.product,
+      }))
+    : MOCK_POSTS;
+
   return (
     <div className="flex flex-col min-h-screen bg-[#FAF9F6] pb-20">
       {/* Main Scrollable Area */}
       <div className="flex-1 mt-0">
-        <StoriesBar stories={MOCK_STORIES} />
+        {/* Stories Bar with live and fallback data */}
+        <StoriesBar fallbackStories={MOCK_STORIES} />
         
         {/* Feed Container */}
         <div className="flex flex-col pb-4">
-          {MOCK_POSTS.map((post) => (
+          {postsToRender.map((post) => (
             <SocialPost key={post.id} {...post} />
           ))}
         </div>

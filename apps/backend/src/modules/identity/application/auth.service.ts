@@ -140,7 +140,9 @@ export class AuthService {
   }
 
   async googleLogin(payload: any) {
-    const { email, name, sub: googleId } = payload;
+    const { email, name, given_name, family_name, picture, sub: googleId } = payload;
+    const displayName = name || (given_name ? `${given_name} ${family_name || ''}`.trim() : '') || email.split('@')[0] || 'User';
+
     let user = await prisma.user.findUnique({ where: { email } });
     let isNewUser = false;
 
@@ -149,15 +151,20 @@ export class AuthService {
       user = await prisma.user.create({
         data: {
           email,
-          name,
+          name: displayName,
           googleId,
+          authProvider: 'GOOGLE',
+          avatarUrl: picture || null,
         }
       });
     } else if (!user.googleId) {
       // Link account
       user = await prisma.user.update({
         where: { id: user.id },
-        data: { googleId }
+        data: { 
+          googleId,
+          avatarUrl: user.avatarUrl || picture || null,
+        }
       });
     }
 

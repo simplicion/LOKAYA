@@ -52,7 +52,7 @@ export function MobileTopNav() {
   let centerContent = null;
   let rightContent = null;
 
-  if (pathname === '/home') {
+  if (pathname === '/home' || pathname === '/') {
     leftContent = <h1><Logo className="text-2xl text-[#171717]" /></h1>;
     centerContent = (
       <div className="absolute left-1/2 -translate-x-1/2">

@@ -26,19 +26,28 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 
-const mockData = [
-  { name: '01 May', revenue: 8000 },
-  { name: '08 May', revenue: 18000 },
-  { name: '15 May', revenue: 14000 },
-  { name: '22 May', revenue: 23000 },
-  { name: '29 May', revenue: 19000 },
-  { name: '31 May', revenue: 30000 },
-];
+import { DateRangeModal } from '@/components/seller/DateRangeModal';
+import { useGetAnalyticsOverviewQuery } from '@/lib/api';
 
 export default function AnalyticsPage() {
   const router = useRouter();
   const [dateRange, setDateRange] = useState('This Month');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
+
+  const { data: analyticsData } = useGetAnalyticsOverviewQuery(dateRange);
+
+  const stats = analyticsData?.stats || [
+    { label: "Total Orders", value: "0", trend: "+0%", isPositive: true },
+    { label: "Total Revenue", value: "₹0", trend: "+0%", isPositive: true },
+    { label: "Avg. Order Value", value: "₹0", trend: "+0%", isPositive: true },
+    { label: "Total Customers", value: "0", trend: "+0%", isPositive: true },
+  ];
+
+  const chartData = analyticsData?.chartData || [
+    { name: '01 May', revenue: 0 },
+    { name: '15 May', revenue: 0 },
+    { name: '31 May', revenue: 0 },
+  ];
 
   return (
     <div className="min-h-screen bg-[#FFFFFF] pb-24 md:pb-0">
@@ -56,60 +65,23 @@ export default function AnalyticsPage() {
         }
       />
 
-      {/* Date Selector Modal (simplified for now) */}
-      {isDateSelectorOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] w-full max-w-sm rounded-t-3xl sm:rounded-[1.25rem] p-6 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in">
-            <h3 className="text-xl font-bold text-[#171717] mb-4">Select Date Range</h3>
-            
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year'].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => {
-                    setDateRange(range);
-                    setIsDateSelectorOpen(false);
-                  }}
-                  className={`py-3 px-4 rounded-[1.25rem] border text-sm font-semibold text-center transition-colors ${
-                    dateRange === range 
-                      ? 'bg-[#171717] text-white border-[#171717]' 
-                      : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#E5E2DC] hover:border-[#171717]'
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
-            
-            <Button 
-              variant="outline" 
-              className="w-full h-12 rounded-[1.25rem] mb-4 border-[#E5E2DC] text-[#171717] font-semibold"
-              onClick={() => setIsDateSelectorOpen(false)}
-            >
-              Custom Range
-            </Button>
-            
-            <Button 
-              className="w-full h-12 bg-[#FF5A36] hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
-              onClick={() => setIsDateSelectorOpen(false)}
-            >
-              Apply Filter
-            </Button>
-          </div>
-        </div>
-      )}
+      <DateRangeModal
+        isOpen={isDateSelectorOpen}
+        onClose={() => setIsDateSelectorOpen(false)}
+        selectedRange={dateRange}
+        onSelectRange={(r) => {
+          setDateRange(r);
+          setIsDateSelectorOpen(false);
+        }}
+        showCustomRange={true}
+      />
 
       <div className="p-4 space-y-6">
         {/* Overview Cards */}
         <div>
           <h2 className="text-xl font-bold text-[#171717] mb-4">Overview</h2>
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Total Orders", value: "256", trend: "+18.6%", isPositive: true },
-              { label: "Total Revenue", value: "₹45,860", trend: "+22.3%", isPositive: true },
-              { label: "Avg. Order Value", value: "₹179", trend: "+12.3%", isPositive: true },
-              { label: "Total Customers", value: "98", trend: "+16.2%", isPositive: true },
-            ].map((stat, i) => (
+            {stats.map((stat, i) => (
               <div key={i} className="bg-white p-4 rounded-[1.25rem] border border-[#E5E2DC] flex flex-col justify-between">
                 <span className="text-xl font-bold text-[#171717]">{stat.value}</span>
                 <span className="text-xs text-[#6B6B6B] mt-1">{stat.label}</span>
@@ -130,7 +102,7 @@ export default function AnalyticsPage() {
           <h2 className="text-xl font-bold text-[#171717] mb-6">Revenue Overview</h2>
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mockData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#FF5A36" stopOpacity={0.2}/>

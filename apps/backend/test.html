@@ -5,7 +5,7 @@
   <script>
     document.getElementById('file').addEventListener('change', async (e) => {
       const file = e.target.files[0];
-      const res = await fetch('http://localhost:4002/api/media/presigned-url', {
+      const res = await fetch('http://localhost:4101/api/media/presigned-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // mocked user ID for testing

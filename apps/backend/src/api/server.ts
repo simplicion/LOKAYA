@@ -14,6 +14,7 @@ import { sellerRouter as sellerRoutes } from '../modules/seller/interfaces/selle
 import { mediaRouter } from '../modules/media/presentation/media.routes';
 import searchRoutes from '../modules/search/interfaces/search.routes';
 import { wishlistRoutes } from '../modules/wishlist/interfaces/wishlist.routes';
+import { adminRouter } from '../modules/admin/interfaces/admin.routes';
 import { initSocket } from './socket';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -30,17 +31,36 @@ const apiLimiter = rateLimit({
 export function startApiServer() {
   const app = express();
   const httpServer = createServer(app);
-  const port = process.env.PORT || 4002;
+  const port = process.env.PORT || 4101;
 
-  // Security Headers
-  app.use(helmet());
+  // Security Headers (allow cross-origin resources for media streaming/images)
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
+  }));
 
   // Init socket.io
   initSocket(httpServer);
 
   // Allow credentials for cookies
+  const configuredOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(s => s.trim()) : [];
+  const defaultOrigins = [
+    'http://localhost:3101',
+    'http://localhost:3102',
+    'http://localhost:3103',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+  ];
+  const allAllowedOrigins = new Set([...configuredOrigins, ...defaultOrigins]);
+
   app.use(cors({
-    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
+    origin: (origin, callback) => {
+      if (!origin || allAllowedOrigins.has(origin) || /^http:\/\/localhost:\d+$/.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   }));
   app.use(express.json());
@@ -62,6 +82,7 @@ export function startApiServer() {
   app.use('/api/v1/media', mediaRouter);
   app.use('/api/v1/search', searchRoutes);
   app.use('/api/v1/wishlist', wishlistRoutes);
+  app.use('/api/v1/admin', adminRouter);
 
   app.get('/health', (req, res) => {
     res.json({ 

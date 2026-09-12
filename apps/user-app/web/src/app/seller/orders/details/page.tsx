@@ -2,36 +2,30 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, QrCode, Keyboard } from 'lucide-react';
+import { ArrowLeft, QrCode, Keyboard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { MOCK_ORDERS } from '../page';
+import { useGetOrderQuery, useUpdateOrderStatusMutation, useVerifyOrderPickupMutation } from '@/lib/api';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 
 function OrderDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const id = searchParams.get('id');
-  
-  const initialOrder = MOCK_ORDERS.find(o => o.id === id) || MOCK_ORDERS[0];
-  const [order, setOrder] = useState(initialOrder);
+  const id = searchParams.get('id') || '';
+
+  const { data: order, isLoading, refetch } = useGetOrderQuery(id, { skip: !id });
+  const [updateStatus, { isLoading: isUpdatingStatus }] = useUpdateOrderStatusMutation();
+  const [verifyPickup, { isLoading: isVerifyingPickup }] = useVerifyOrderPickupMutation();
 
   // 'none' | 'otp' | 'qr'
   const [verifyMode, setVerifyMode] = useState<'none' | 'otp' | 'qr'>('none');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (id) {
-      const found = MOCK_ORDERS.find(o => o.id === id);
-      if (found) setOrder(found);
-    }
-  }, [id]);
-
   // Handle QR Scanner
   useEffect(() => {
     let scanner: Html5QrcodeScanner | null = null;
     
-    if (verifyMode === 'qr' && order.status === 'Ready') {
+    if (verifyMode === 'qr' && (order?.status === 'Ready' || order?.rawStatus === 'PACKED')) {
       const timer = setTimeout(() => {
         scanner = new Html5QrcodeScanner(
           'qr-reader-order',
@@ -45,16 +39,20 @@ function OrderDetailsContent() {
         );
         
         scanner.render(
-          (decodedText) => {
-            // Success: Simulate valid QR (e.g. if we had a real backend, we'd verify decodedText)
-            setOrder({...order, status: 'Completed'});
-            setVerifyMode('none');
-            if (scanner) {
-              scanner.clear().catch(console.error);
+          async (decodedText) => {
+            try {
+              await verifyPickup({ orderId: id, qrToken: decodedText }).unwrap();
+              setVerifyMode('none');
+              if (scanner) {
+                scanner.clear().catch(console.error);
+              }
+              refetch();
+            } catch (err: any) {
+              setError(err?.data?.message || 'Invalid QR code. Please try OTP.');
             }
           }, 
           (error) => {
-            // ignore scan errors (it scans continuously)
+            // scan errors continuously ignored
           }
         );
       }, 100);
@@ -66,15 +64,30 @@ function OrderDetailsContent() {
         }
       };
     }
-  }, [verifyMode, order]);
+  }, [verifyMode, order, id, verifyPickup, refetch]);
 
-  const handleVerifyOtp = () => {
-    if (otp.length === 4) { // Mock valid OTP
-      setOrder({...order, status: 'Completed'});
-      setVerifyMode('none');
-      setError('');
+  const handleVerifyOtp = async () => {
+    if (otp.length === 4) {
+      try {
+        setError('');
+        await verifyPickup({ orderId: id, otp }).unwrap();
+        setVerifyMode('none');
+        setOtp('');
+        refetch();
+      } catch (err: any) {
+        setError(err?.data?.message || 'Invalid OTP code. Please check with customer.');
+      }
     } else {
-      setError('Invalid OTP. Use any 4-digit code (e.g., 1234).');
+      setError('Please enter a valid 4-digit OTP code.');
+    }
+  };
+
+  const handleTransitionStatus = async (newStatus: string) => {
+    try {
+      await updateStatus({ orderId: id, status: newStatus }).unwrap();
+      refetch();
+    } catch (err: any) {
+      console.error('Failed to update order status:', err);
     }
   };
 
@@ -89,9 +102,27 @@ function OrderDetailsContent() {
       case 'Completed':
         return <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg">Completed</span>;
       default:
-        return null;
+        return <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg">{status}</span>;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center p-6 text-center bg-gray-50">
+        <h2 className="text-xl font-bold text-gray-800 mb-2">Order Not Found</h2>
+        <p className="text-gray-500 mb-4">This order could not be located in your store records.</p>
+        <Button onClick={() => router.back()}>Go Back</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-gray-50 pb-36">
@@ -109,7 +140,7 @@ function OrderDetailsContent() {
         
         {/* Order ID & Status */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-          <span className="font-bold text-gray-900 text-lg">#{order.id}</span>
+          <span className="font-bold text-gray-900 text-lg">#{order.id.slice(0, 8).toUpperCase()}</span>
           {getStatusBadge(order.status)}
         </div>
 
@@ -129,7 +160,7 @@ function OrderDetailsContent() {
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
           <h3 className="text-sm font-medium text-gray-500 mb-4">Items</h3>
           <div className="space-y-4">
-            {order.items.map((item, idx) => (
+            {(order.items || []).map((item: any, idx: number) => (
               <div key={idx} className="flex justify-between items-start text-sm">
                 <div className="flex-1 pr-4">
                   <p className="font-semibold text-gray-900">{item.name}</p>
@@ -170,9 +201,10 @@ function OrderDetailsContent() {
           {order.status === 'New' && (
             <Button 
               className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-lg font-medium"
-              onClick={() => setOrder({...order, status: 'Preparing'})}
+              disabled={isUpdatingStatus}
+              onClick={() => handleTransitionStatus('Preparing')}
             >
-              Start Preparing Order
+              {isUpdatingStatus ? 'Starting...' : 'Start Preparing Order'}
             </Button>
           )}
           
@@ -180,9 +212,10 @@ function OrderDetailsContent() {
           {order.status === 'Preparing' && (
             <Button 
               className="w-full h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl text-lg font-medium"
-              onClick={() => setOrder({...order, status: 'Ready'})}
+              disabled={isUpdatingStatus}
+              onClick={() => handleTransitionStatus('Ready')}
             >
-              Mark as Ready & Notify Customer
+              {isUpdatingStatus ? 'Updating...' : 'Mark as Ready & Notify Customer'}
             </Button>
           )}
 
@@ -232,10 +265,11 @@ function OrderDetailsContent() {
                   Cancel
                 </Button>
                 <Button 
-                  className="flex-1 h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl"
+                  className="flex-1 h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold"
+                  disabled={isVerifyingPickup || otp.length !== 4}
                   onClick={handleVerifyOtp}
                 >
-                  Verify
+                  {isVerifyingPickup ? 'Verifying...' : 'Verify'}
                 </Button>
               </div>
             </div>
@@ -249,42 +283,19 @@ function OrderDetailsContent() {
                 <p className="text-sm text-gray-500">Point your camera at the customer's phone.</p>
               </div>
               
-              <div id="qr-reader-order" className="w-full max-w-sm rounded-2xl overflow-hidden shadow-lg border-2 border-gray-100 bg-black"></div>
+              <div id="qr-reader-order" className="w-full max-w-[280px] overflow-hidden rounded-2xl border border-gray-200" />
+              {error && <p className="text-sm text-red-500 text-center">{error}</p>}
 
-              <div className="flex gap-3 w-full">
-                <Button 
-                  variant="outline"
-                  className="flex-1 h-14 rounded-2xl text-gray-600"
-                  onClick={() => setVerifyMode('none')}
-                >
-                  Cancel Scan
-                </Button>
-                <Button 
-                  className="flex-1 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl"
-                  onClick={() => {
-                    // Simulate scan success manually just in case camera is broken
-                    setOrder({...order, status: 'Completed'});
-                    setVerifyMode('none');
-                  }}
-                >
-                  Simulate Success
-                </Button>
-              </div>
+              <Button 
+                variant="outline"
+                className="w-full h-14 rounded-2xl text-gray-600"
+                onClick={() => { setVerifyMode('none'); setError(''); }}
+              >
+                Cancel Scanner
+              </Button>
             </div>
           )}
 
-        </div>
-      )}
-      
-      {order.status === 'Completed' && (
-        <div className="bg-white p-4 border-t border-gray-100 fixed bottom-0 left-0 w-full z-20 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-          <Button 
-            variant="outline"
-            className="w-full h-14 border-green-200 text-green-700 bg-green-50 rounded-2xl text-base font-medium"
-            disabled
-          >
-            Order Successfully Handed Over
-          </Button>
         </div>
       )}
     </div>
@@ -293,7 +304,11 @@ function OrderDetailsContent() {
 
 export default function OrderDetailsPage() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    }>
       <OrderDetailsContent />
     </Suspense>
   );

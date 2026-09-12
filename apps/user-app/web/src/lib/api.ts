@@ -3,7 +3,7 @@ import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolk
 import { logout, setCredentials } from './features/authSlice';
 
 const baseQuery = fetchBaseQuery({ 
-  baseUrl: 'http://localhost:4002/api/v1',
+  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1',
   credentials: 'include',
 });
 
@@ -28,7 +28,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist'],
+  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'Story', 'Highlight', 'SavedPost'],
   endpoints: (builder) => ({
     checkAuth: builder.query<any, void>({
       query: () => '/identity/me',
@@ -126,6 +126,13 @@ export const api = createApi({
         body,
       }),
     }),
+    uploadMedia: builder.mutation<any, FormData>({
+      query: (formData) => ({
+        url: '/media/upload',
+        method: 'POST',
+        body: formData,
+      }),
+    }),
     getPresignedUrl: builder.mutation<any, any>({
       query: (body) => ({
         url: '/media/presigned-url',
@@ -197,6 +204,14 @@ export const api = createApi({
       query: (storeId) => `/catalog/store/${storeId}/categories`,
       providesTags: ['Category'],
     }),
+    updateCategory: builder.mutation<any, { categoryId: string; body: any }>({
+      query: ({ categoryId, body }) => ({
+        url: `/catalog/categories/${categoryId}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Category'],
+    }),
     deleteCategory: builder.mutation<any, string>({
       query: (id) => ({
         url: `/catalog/categories/${id}`,
@@ -258,19 +273,17 @@ export const api = createApi({
       },
       providesTags: ['Post'],
     }),
-    likeReel: builder.mutation<any, string>({
+    likeReel: builder.mutation<{ liked: boolean; likesCount: number }, string>({
       query: (reelId) => ({
         url: `/social/like/reel/${reelId}`,
         method: 'POST',
       }),
-      invalidatesTags: ['Reel'],
     }),
-    likePost: builder.mutation<any, string>({
+    likePost: builder.mutation<{ liked: boolean; likesCount: number }, string>({
       query: (postId) => ({
         url: `/social/like/post/${postId}`,
         method: 'POST',
       }),
-      invalidatesTags: ['Post'],
     }),
     followUser: builder.mutation<any, string>({
       query: (userId) => ({
@@ -315,6 +328,99 @@ export const api = createApi({
         body: { content },
       }),
       invalidatesTags: ['Comment'],
+    }),
+
+    // Stories Endpoints
+    getStoriesFeed: builder.query<any[], void>({
+      query: () => '/content/stories/feed',
+      providesTags: ['Story'],
+    }),
+    getStoreStories: builder.query<any[], string>({
+      query: (storeId) => `/content/stories/store/${storeId}`,
+      providesTags: ['Story'],
+    }),
+    createStory: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/content/stories',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Story'],
+    }),
+    viewStory: builder.mutation<any, string>({
+      query: (storyId) => ({
+        url: `/content/stories/${storyId}/view`,
+        method: 'POST',
+      }),
+    }),
+    likeStory: builder.mutation<{ liked: boolean; likesCount: number }, string>({
+      query: (storyId) => ({
+        url: `/content/stories/${storyId}/like`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Story'],
+    }),
+    getStoryArchive: builder.query<any[], void>({
+      query: () => '/content/stories/archive',
+      providesTags: ['Story'],
+    }),
+    deleteStory: builder.mutation<any, string>({
+      query: (storyId) => ({
+        url: `/content/stories/${storyId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Story'],
+    }),
+
+    // Highlights Endpoints
+    createHighlight: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/content/highlights',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Highlight'],
+    }),
+    getStoreHighlights: builder.query<any[], string>({
+      query: (storeId) => `/content/highlights/store/${storeId}`,
+      providesTags: ['Highlight'],
+    }),
+    getHighlightDetails: builder.query<any, string>({
+      query: (highlightId) => `/content/highlights/${highlightId}`,
+      providesTags: ['Highlight'],
+    }),
+    deleteHighlight: builder.mutation<any, string>({
+      query: (highlightId) => ({
+        url: `/content/highlights/${highlightId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Highlight'],
+    }),
+
+    // Store Content Endpoints
+    getStorePosts: builder.query<any[], string>({
+      query: (storeId) => `/content/posts/store/${storeId}`,
+      providesTags: ['Post'],
+    }),
+    getStoreReels: builder.query<any[], string>({
+      query: (storeId) => `/content/reels/store/${storeId}`,
+      providesTags: ['Reel'],
+    }),
+
+    // Saved / Bookmarked Posts
+    savePost: builder.mutation<{ saved: boolean }, string>({
+      query: (postId) => ({
+        url: `/social/save/post/${postId}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['SavedPost', 'Post'],
+    }),
+    saveReel: builder.mutation<{ saved: boolean }, string>({
+      query: (reelId) => ({
+        url: `/social/save/reel/${reelId}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['SavedPost', 'Reel'],
     }),
 
     // Cart Endpoints
@@ -367,6 +473,198 @@ export const api = createApi({
       }),
       invalidatesTags: ['Order'],
     }),
+
+    // ----------------------------------------------------
+    // SELLER WORKSPACE ENDPOINTS (PRODUCTION)
+    // ----------------------------------------------------
+
+    // Dashboard
+    getSellerDashboardStats: builder.query<{
+      todayOrders: number;
+      todayRevenue: number;
+      activeProducts: number;
+      lowStockItems: number;
+      ordersGrowth: string;
+      revenueGrowth: string;
+    }, string | void>({
+      query: (range = 'Today') => `/seller/dashboard/stats?range=${encodeURIComponent(range || 'Today')}`,
+      providesTags: ['SellerDashboard'],
+    }),
+    getSellerRecentOrders: builder.query<any[], number | void>({
+      query: (limit = 10) => `/seller/dashboard/recent-orders?limit=${limit || 10}`,
+      providesTags: ['SellerDashboard', 'Order'],
+    }),
+    getSellerSalesTrend: builder.query<Array<{ name: string; value: number }>, string | void>({
+      query: (range = '7d') => `/seller/dashboard/sales-trend?range=${encodeURIComponent(range || '7d')}`,
+      providesTags: ['SellerDashboard'],
+    }),
+    getStoreSummary: builder.query<{
+      store: any;
+      avgRating: number;
+      reviewCount: number;
+      isOpen: boolean;
+      timingLabel: string;
+    }, string>({
+      query: (storeId) => `/seller/${storeId}/summary`,
+      providesTags: ['Store'],
+    }),
+    updateStoreTheme: builder.mutation<any, { storeId: string; body: { themeColor?: string; secondaryColor?: string } }>({
+      query: ({ storeId, body }) => ({
+        url: `/seller/${storeId}/theme`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['Store'],
+    }),
+
+    // Orders Management
+    getStoreOrders: builder.query<{
+      orders: any[];
+      pagination: { total: number; page: number; limit: number; totalPages: number };
+    }, { storeId: string; tab?: string; search?: string; page?: number; limit?: number }>({
+      query: ({ storeId, tab = 'All', search = '', page = 1, limit = 50 }) => 
+        `/orders/store/${storeId}?tab=${encodeURIComponent(tab)}&search=${encodeURIComponent(search)}&page=${page}&limit=${limit}`,
+      providesTags: ['Order', 'SellerDashboard'],
+    }),
+    verifyOrderPickup: builder.mutation<any, { orderId: string; otp?: string; qrToken?: string }>({
+      query: ({ orderId, otp, qrToken }) => ({
+        url: `/orders/${orderId}/verify-pickup`,
+        method: 'POST',
+        body: { otp, qrToken },
+      }),
+      invalidatesTags: ['Order', 'SellerDashboard', 'SellerFinance'],
+    }),
+
+    // Products Management
+    getProductById: builder.query<any, string>({
+      query: (id) => `/catalog/products/${id}`,
+      providesTags: ['Product'],
+    }),
+    updateProduct: builder.mutation<any, { productId: string; body: any }>({
+      query: ({ productId, body }) => ({
+        url: `/catalog/products/${productId}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Product', 'SellerDashboard'],
+    }),
+    deleteProduct: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/catalog/products/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Product', 'SellerDashboard'],
+    }),
+
+    // Finance & Payouts
+    getFinanceSummary: builder.query<{
+      totalRevenue: number;
+      totalPayouts: number;
+      pendingPayouts: number;
+      availableBalance: number;
+      todayCollected: number;
+      lastCollected: number;
+      todayOrders: number;
+      lastOrders: number;
+    }, void>({
+      query: () => '/seller/finance/summary',
+      providesTags: ['SellerFinance'],
+    }),
+    getBankAccounts: builder.query<any[], void>({
+      query: () => '/seller/finance/bank-accounts',
+      providesTags: ['SellerFinance'],
+    }),
+    addBankAccount: builder.mutation<any, { accountName: string; bankName: string; accountNumber: string; ifsc: string }>({
+      query: (body) => ({
+        url: '/seller/finance/bank-accounts',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['SellerFinance'],
+    }),
+    setPrimaryBankAccount: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/seller/finance/bank-accounts/${id}/primary`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['SellerFinance'],
+    }),
+    deleteBankAccount: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/seller/finance/bank-accounts/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['SellerFinance'],
+    }),
+    getPayouts: builder.query<{ totalPayouts: number; successRate: string; payouts: any[] }, void>({
+      query: () => '/seller/finance/payouts',
+      providesTags: ['SellerFinance'],
+    }),
+    requestPayout: builder.mutation<any, { amount: number; bankAccountId?: string }>({
+      query: (body) => ({
+        url: '/seller/finance/payouts/request',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['SellerFinance'],
+    }),
+    getTransactions: builder.query<{ transactions: any[]; total: number; page: number; limit: number }, { type?: string; page?: number; limit?: number } | void>({
+      query: (params) => {
+        const type = params?.type || 'All';
+        return `/seller/finance/transactions?type=${encodeURIComponent(type)}&page=${params?.page || 1}&limit=${params?.limit || 50}`;
+      },
+      providesTags: ['SellerFinance'],
+    }),
+
+    // In-App Notifications
+    getSellerNotifications: builder.query<{ unreadCount: number; notifications: any[] }, void>({
+      query: () => '/seller/notifications',
+      providesTags: ['SellerNotifications'],
+    }),
+    markNotificationRead: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/seller/notifications/${id}/read`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['SellerNotifications'],
+    }),
+    markAllNotificationsRead: builder.mutation<any, void>({
+      query: () => ({
+        url: '/seller/notifications/read-all',
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['SellerNotifications'],
+    }),
+
+    // Analytics
+    getAnalyticsOverview: builder.query<{ stats: any[]; chartData: any[] }, string | void>({
+      query: (range = 'This Month') => `/seller/analytics/overview?range=${encodeURIComponent(range || 'This Month')}`,
+      providesTags: ['SellerAnalytics'],
+    }),
+    getAnalyticsSalesRevenue: builder.query<{ grossSales: number; netRevenue: number; chartData: any[]; products: any[] }, string | void>({
+      query: (range = 'This Month') => `/seller/analytics/sales-revenue?range=${encodeURIComponent(range || 'This Month')}`,
+      providesTags: ['SellerAnalytics'],
+    }),
+    getAnalyticsProducts: builder.query<{ topProducts: any[]; categorySales: any[] }, string | void>({
+      query: (range = 'This Month') => `/seller/analytics/products?range=${encodeURIComponent(range || 'This Month')}`,
+      providesTags: ['SellerAnalytics'],
+    }),
+    getAnalyticsOrders: builder.query<{ totalOrders: number; completedOrders: number; cancelledOrders: number; chartData: any[] }, string | void>({
+      query: (range = 'This Month') => `/seller/analytics/orders?range=${encodeURIComponent(range || 'This Month')}`,
+      providesTags: ['SellerAnalytics'],
+    }),
+    getAnalyticsCustomers: builder.query<{ pieData: any[]; topCustomers: any[]; totalCustomers: number }, string | void>({
+      query: (range = 'This Month') => `/seller/analytics/customers?range=${encodeURIComponent(range || 'This Month')}`,
+      providesTags: ['SellerAnalytics'],
+    }),
+    exportAnalytics: builder.mutation<string, { reportType: string; dateRange: string; format: string }>({
+      query: (body) => ({
+        url: '/seller/analytics/export',
+        method: 'POST',
+        body,
+        responseHandler: (response) => response.text(),
+      }),
+    }),
   }),
 });
 
@@ -387,6 +685,7 @@ export const {
   useUpdateOrderStatusMutation,
   useCreatePaymentOrderMutation,
   useVerifyPaymentMutation,
+  useUploadMediaMutation,
   useGetPresignedUrlMutation,
   useProcessMediaMutation,
   useUpdateProfileMutation,
@@ -396,6 +695,7 @@ export const {
   useResetPasswordMutation,
   useUpdateStoreProfileMutation,
   useCreateCategoryMutation,
+  useUpdateCategoryMutation,
   useGetStoreCategoriesQuery,
   useDeleteCategoryMutation,
   
@@ -426,4 +726,57 @@ export const {
   useClearCartMutation,
   useApplyCouponMutation,
   useRemoveCouponMutation,
+
+  // Seller Platform Production Hooks
+  useGetSellerDashboardStatsQuery,
+  useGetSellerRecentOrdersQuery,
+  useGetSellerSalesTrendQuery,
+  useGetStoreSummaryQuery,
+  useUpdateStoreThemeMutation,
+  useGetStoreOrdersQuery,
+  useVerifyOrderPickupMutation,
+  useGetProductByIdQuery,
+  useUpdateProductMutation,
+  useDeleteProductMutation,
+  useGetFinanceSummaryQuery,
+  useGetBankAccountsQuery,
+  useAddBankAccountMutation,
+  useSetPrimaryBankAccountMutation,
+  useDeleteBankAccountMutation,
+  useGetPayoutsQuery,
+  useRequestPayoutMutation,
+  useGetTransactionsQuery,
+  useGetSellerNotificationsQuery,
+  useMarkNotificationReadMutation,
+  useMarkAllNotificationsReadMutation,
+  useGetAnalyticsOverviewQuery,
+  useGetAnalyticsSalesRevenueQuery,
+  useGetAnalyticsProductsQuery,
+  useGetAnalyticsOrdersQuery,
+  useGetAnalyticsCustomersQuery,
+  useExportAnalyticsMutation,
+
+  // Stories Hooks
+  useGetStoriesFeedQuery,
+  useGetStoreStoriesQuery,
+  useCreateStoryMutation,
+  useViewStoryMutation,
+  useLikeStoryMutation,
+  useGetStoryArchiveQuery,
+  useDeleteStoryMutation,
+
+  // Highlights Hooks
+  useCreateHighlightMutation,
+  useGetStoreHighlightsQuery,
+  useGetHighlightDetailsQuery,
+  useDeleteHighlightMutation,
+
+  // Store Content Hooks
+  useGetStorePostsQuery,
+  useGetStoreReelsQuery,
+
+  // Save Posts Hooks
+  useSavePostMutation,
+  useSaveReelMutation,
 } = api;
+

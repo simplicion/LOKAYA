@@ -21,6 +21,19 @@ router.post('/', validateRequest(createOrderSchema), async (req: Request, res: R
   }
 });
 
+router.get('/store/:storeId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orders = await OrderService.getStoreOrders(
+      req.params.storeId,
+      (req as any).user.id,
+      req.query as any
+    );
+    res.status(200).json(orders);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/:orderId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const order = await OrderService.getOrder(req.params.orderId, (req as any).user.id);
@@ -43,4 +56,20 @@ router.patch('/:orderId/status', validateRequest(updateOrderStatusSchema), async
   }
 });
 
+router.post('/:orderId/verify-pickup', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { PickupVerificationService } = require('../application/pickup-verification.service');
+    const result = await PickupVerificationService.verifyAndFulfillPickup(
+      req.params.orderId,
+      (req as any).user.id,
+      req.body.otp,
+      req.body.qrToken
+    );
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export const orderRoutes = router;
+

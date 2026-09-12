@@ -2,13 +2,17 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronDown, ChevronRight, Landmark, IndianRupee, ArrowRightLeft } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Landmark, IndianRupee, ArrowRightLeft, Loader2 } from 'lucide-react';
 import { SellerHeader } from '@/components/seller/SellerHeader';
+import { DateRangeModal } from '@/components/seller/DateRangeModal';
+import { useGetFinanceSummaryQuery } from '@/lib/api';
 
 export default function FinanceOverviewPage() {
   const router = useRouter();
   const [activeDateFilter, setActiveDateFilter] = useState('This Month');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
+
+  const { data: summary, isLoading } = useGetFinanceSummaryQuery();
 
   return (
     <div className="min-h-screen bg-[#FFFFFF] pb-20">
@@ -28,61 +32,36 @@ export default function FinanceOverviewPage() {
         }
       />
 
-      {/* Date Selector Modal */}
-      {isDateSelectorOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] w-full max-w-sm rounded-t-3xl sm:rounded-[1.25rem] p-6 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in">
-            <h3 className="text-xl font-bold text-[#171717] mb-4">Select Date Range</h3>
-            
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year'].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => {
-                    setActiveDateFilter(range);
-                    setIsDateSelectorOpen(false);
-                  }}
-                  className={`py-3 px-4 rounded-[1.25rem] border text-sm font-semibold text-center transition-colors ${
-                    activeDateFilter === range 
-                      ? 'bg-[#171717] text-white border-[#171717]' 
-                      : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#E5E2DC] hover:border-[#171717]'
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
-            
-            <button 
-              className="w-full h-12 bg-[#FF5A36] hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
-              onClick={() => setIsDateSelectorOpen(false)}
-            >
-              Apply Filter
-            </button>
-          </div>
-        </div>
-      )}
+      <DateRangeModal
+        isOpen={isDateSelectorOpen}
+        onClose={() => setIsDateSelectorOpen(false)}
+        selectedRange={activeDateFilter}
+        onSelectRange={(range) => {
+          setActiveDateFilter(range);
+          setIsDateSelectorOpen(false);
+        }}
+      />
 
       <div className="p-4 space-y-6">
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
             <p className="text-xs text-[#6B6B6B] mb-1">Total Revenue</p>
-            <p className="text-xl font-bold text-[#171717]">₹45,860</p>
+            <p className="text-xl font-bold text-[#171717]">₹{(summary?.totalRevenue ?? 0).toLocaleString()}</p>
           </div>
           
           <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
             <p className="text-xs text-[#6B6B6B] mb-1">Total Payouts</p>
-            <p className="text-xl font-bold text-[#171717]">₹32,450</p>
+            <p className="text-xl font-bold text-[#171717]">₹{(summary?.totalPayouts ?? 0).toLocaleString()}</p>
           </div>
           
           <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
             <p className="text-xs text-[#6B6B6B] mb-1">Pending Payouts</p>
-            <p className="text-xl font-bold text-[#171717]">₹5,680</p>
+            <p className="text-xl font-bold text-[#171717]">₹{(summary?.pendingPayouts ?? 0).toLocaleString()}</p>
           </div>
           
           <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
             <p className="text-xs text-[#6B6B6B] mb-1">Available Balance</p>
-            <p className="text-xl font-bold text-[#171717]">₹7,730</p>
+            <p className="text-xl font-bold text-[#171717]">₹{(summary?.availableBalance ?? 0).toLocaleString()}</p>
           </div>
         </div>
 
@@ -91,22 +70,22 @@ export default function FinanceOverviewPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
               <p className="text-xs text-[#6B6B6B] mb-1">Today Collected</p>
-              <p className="text-lg font-bold text-[#171717]">₹2,450</p>
+              <p className="text-lg font-bold text-[#171717]">₹{(summary?.todayCollected ?? 0).toLocaleString()}</p>
             </div>
             
             <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
               <p className="text-xs text-[#6B6B6B] mb-1">Last Collected</p>
-              <p className="text-lg font-bold text-[#171717]">₹2,180</p>
+              <p className="text-lg font-bold text-[#171717]">₹{(summary?.lastCollected ?? 0).toLocaleString()}</p>
             </div>
             
             <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
               <p className="text-xs text-[#6B6B6B] mb-1">Today Orders</p>
-              <p className="text-lg font-bold text-[#171717]">18</p>
+              <p className="text-lg font-bold text-[#171717]">{summary?.todayOrders ?? 0}</p>
             </div>
             
             <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
               <p className="text-xs text-[#6B6B6B] mb-1">Last Orders</p>
-              <p className="text-lg font-bold text-[#171717]">16</p>
+              <p className="text-lg font-bold text-[#171717]">{summary?.lastOrders ?? 0}</p>
             </div>
           </div>
         </div>

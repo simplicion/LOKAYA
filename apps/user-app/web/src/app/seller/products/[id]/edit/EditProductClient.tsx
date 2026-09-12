@@ -1,50 +1,65 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-// Shared mock data for demonstration
-const MOCK_PRODUCTS: Record<string, any> = {
-  '1': {
-    name: 'Fortune Sunlite Oil (1L)',
-    category: 'Edible Oil',
-    mrp: 185,
-    price: 165,
-    stock: 5,
-    image: 'https://images.unsplash.com/photo-1625937286074-9ca519d5d9df?auto=format&fit=crop&q=80&w=200&h=200'
-  },
-  '2': {
-    name: 'Aashirvaad Atta (5kg)',
-    category: 'Flour',
-    mrp: 320,
-    price: 295,
-    stock: 20,
-    image: 'https://images.unsplash.com/photo-1574316071802-0d684efa7ab5?auto=format&fit=crop&q=80&w=200&h=200'
-  }
-};
+import { useGetProductByIdQuery, useUpdateProductMutation } from '@/lib/api';
 
 export default function EditProductClient({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const product = MOCK_PRODUCTS[params.id] || MOCK_PRODUCTS['1'];
+  const { data: productData, isLoading } = useGetProductByIdQuery(params.id);
+  const [updateProduct, { isLoading: isSaving }] = useUpdateProductMutation();
 
   const [saved, setSaved] = useState(false);
   const [formData, setFormData] = useState({
-    name: product.name,
-    category: product.category,
-    mrp: product.mrp,
-    price: product.price,
-    stock: product.stock,
+    name: '',
+    category: '',
+    mrp: 0,
+    price: 0,
+    stock: 0,
   });
 
-  const handleSave = () => {
-    // In a real app, make API call here
-    setSaved(true);
-    setTimeout(() => {
-      router.back();
-    }, 1500);
+  useEffect(() => {
+    if (productData) {
+      setFormData({
+        name: productData.name || '',
+        category: productData.categoryModel?.name || productData.category || '',
+        mrp: productData.mrp || 0,
+        price: productData.sellingPrice || 0,
+        stock: productData.stockCount || 0,
+      });
+    }
+  }, [productData]);
+
+  const handleSave = async () => {
+    try {
+      await updateProduct({
+        productId: params.id,
+        body: {
+          name: formData.name,
+          category: formData.category,
+          mrp: Number(formData.mrp),
+          sellingPrice: Number(formData.price),
+          stockCount: Number(formData.stock)
+        }
+      }).unwrap();
+      setSaved(true);
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to update product:', err);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[100dvh] bg-white items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FF5A36]" />
+      </div>
+    );
+  }
 
   if (saved) {
     return (
@@ -77,91 +92,63 @@ export default function EditProductClient({ params }: { params: { id: string } }
               type="text" 
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" 
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-            <select 
+            <input 
+              type="text" 
               value={formData.category}
               onChange={(e) => setFormData({...formData, category: e.target.value})}
-              className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option>Flour</option>
-              <option>Edible Oil</option>
-              <option>Pulses & Dals</option>
-              <option>Snacks</option>
-              <option>Grocery</option>
-            </select>
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
           </div>
 
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">MRP</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">₹</span>
-                <input 
-                  type="number" 
-                  value={formData.mrp}
-                  onChange={(e) => setFormData({...formData, mrp: Number(e.target.value)})}
-                  className="w-full pl-8 p-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" 
-                />
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">MRP (₹)</label>
+              <input 
+                type="number" 
+                value={formData.mrp}
+                onChange={(e) => setFormData({...formData, mrp: Number(e.target.value)})}
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Selling Price</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">₹</span>
-                <input 
-                  type="number" 
-                  value={formData.price}
-                  onChange={(e) => setFormData({...formData, price: Number(e.target.value)})}
-                  className="w-full pl-8 p-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" 
-                />
-              </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Selling Price (₹)</label>
+              <input 
+                type="number" 
+                value={formData.price}
+                onChange={(e) => setFormData({...formData, price: Number(e.target.value)})}
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Stock Count</label>
             <input 
               type="number" 
               value={formData.stock}
               onChange={(e) => setFormData({...formData, stock: Number(e.target.value)})}
-              className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" 
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Product Image</label>
-            <div className="w-full h-40 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-500 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors relative overflow-hidden">
-              {product.image ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={product.image} alt="Preview" className="absolute inset-0 w-full h-full object-contain p-2" />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                     <span className="text-white font-medium flex items-center gap-2"><Upload className="w-4 h-4" /> Change Image</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Upload className="w-6 h-6 mb-2 text-blue-500" />
-                  <span className="text-sm font-medium text-blue-600">Upload Image</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="fixed bottom-0 left-0 w-full p-4 bg-white border-t border-gray-100 z-10 pb-safe">
-            <Button 
-              className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-lg font-medium shadow-md shadow-blue-200"
-              onClick={handleSave}
-            >
-              Save Changes
-            </Button>
-          </div>
         </div>
+      </div>
+
+      {/* Footer Fixed Action Button */}
+      <div className="fixed bottom-0 left-0 w-full p-4 bg-white border-t border-gray-100 z-20 pb-safe">
+        <Button 
+          className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-lg font-medium"
+          onClick={handleSave}
+          disabled={isSaving || !formData.name.trim()}
+        >
+          {isSaving ? 'Saving Changes...' : 'Save Changes'}
+        </Button>
       </div>
     </div>
   );

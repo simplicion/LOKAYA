@@ -45,8 +45,11 @@ export class SocialService {
   // ==========================================
 
   static async toggleLikePost(userId: string, postId: string) {
-    const post = await prisma.post.findUnique({ where: { id: postId } });
+    const post = await prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
     if (!post) throw new AppError('Post not found', 404);
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw new AppError('User not found', 404);
 
     const existingLike = await prisma.like.findFirst({
       where: {
@@ -56,9 +59,10 @@ export class SocialService {
       }
     });
 
+    let liked = false;
     if (existingLike) {
       await prisma.like.delete({ where: { id: existingLike.id } });
-      return { liked: false };
+      liked = false;
     } else {
       await prisma.like.create({
         data: {
@@ -66,13 +70,19 @@ export class SocialService {
           postId
         }
       });
-      return { liked: true };
+      liked = true;
     }
+
+    const likesCount = await prisma.like.count({ where: { postId } });
+    return { liked, likesCount };
   }
 
   static async toggleLikeReel(userId: string, reelId: string) {
-    const reel = await prisma.reel.findUnique({ where: { id: reelId } });
+    const reel = await prisma.reel.findUnique({ where: { id: reelId }, select: { id: true } });
     if (!reel) throw new AppError('Reel not found', 404);
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw new AppError('User not found', 404);
 
     const existingLike = await prisma.like.findFirst({
       where: {
@@ -81,9 +91,10 @@ export class SocialService {
       }
     });
 
+    let liked = false;
     if (existingLike) {
       await prisma.like.delete({ where: { id: existingLike.id } });
-      return { liked: false };
+      liked = false;
     } else {
       await prisma.like.create({
         data: {
@@ -91,9 +102,61 @@ export class SocialService {
           reelId
         }
       });
-      return { liked: true };
+      liked = true;
+    }
+
+    const likesCount = await prisma.like.count({ where: { reelId } });
+    return { liked, likesCount };
+  }
+
+  // ==========================================
+  // Saved Posts & Reels
+  // ==========================================
+
+  static async toggleSavePost(userId: string, postId: string) {
+    const post = await prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
+    if (!post) throw new AppError('Post not found', 404);
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw new AppError('User not found', 404);
+
+    const existing = await prisma.savedPost.findFirst({
+      where: { userId, postId }
+    });
+
+    if (existing) {
+      await prisma.savedPost.delete({ where: { id: existing.id } });
+      return { saved: false };
+    } else {
+      await prisma.savedPost.create({
+        data: { userId, postId }
+      });
+      return { saved: true };
     }
   }
+
+  static async toggleSaveReel(userId: string, reelId: string) {
+    const reel = await prisma.reel.findUnique({ where: { id: reelId }, select: { id: true } });
+    if (!reel) throw new AppError('Reel not found', 404);
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw new AppError('User not found', 404);
+
+    const existing = await prisma.savedPost.findFirst({
+      where: { userId, reelId }
+    });
+
+    if (existing) {
+      await prisma.savedPost.delete({ where: { id: existing.id } });
+      return { saved: false };
+    } else {
+      await prisma.savedPost.create({
+        data: { userId, reelId }
+      });
+      return { saved: true };
+    }
+  }
+
 
   // ==========================================
   // Comments

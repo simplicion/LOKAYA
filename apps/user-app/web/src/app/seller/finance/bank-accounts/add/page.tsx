@@ -4,9 +4,13 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAddBankAccountMutation } from '@/lib/api';
 
 export default function AddBankAccountPage() {
   const router = useRouter();
+  const [addBankAccount, { isLoading }] = useAddBankAccountMutation();
+  const [error, setError] = useState('');
+
   const [formData, setFormData] = useState({
     accountName: '',
     accountNumber: '',
@@ -15,6 +19,26 @@ export default function AddBankAccountPage() {
     branch: '',
     isPrimary: false
   });
+
+  const handleSave = async () => {
+    if (!formData.accountName || !formData.accountNumber || !formData.ifsc || !formData.bankName) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
+    try {
+      setError('');
+      await addBankAccount({
+        accountName: formData.accountName,
+        accountNumber: formData.accountNumber,
+        ifsc: formData.ifsc,
+        bankName: formData.bankName
+      }).unwrap();
+      router.back();
+    } catch (err: any) {
+      setError(err?.data?.message || 'Failed to link bank account. Please verify IFSC and account number.');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -28,9 +52,15 @@ export default function AddBankAccountPage() {
       </div>
 
       <div className="p-4">
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm font-semibold rounded-xl">
+            {error}
+          </div>
+        )}
+
         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-4">
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-500">Account Holder Name</label>
+            <label className="text-xs font-semibold text-gray-500">Account Holder Name *</label>
             <input 
               type="text" 
               placeholder="e.g. Rohit Sharma"
@@ -41,7 +71,7 @@ export default function AddBankAccountPage() {
           </div>
           
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-500">Account Number</label>
+            <label className="text-xs font-semibold text-gray-500">Account Number *</label>
             <input 
               type="text" 
               placeholder="e.g. 1234567890123"
@@ -52,7 +82,7 @@ export default function AddBankAccountPage() {
           </div>
           
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-500">IFSC Code</label>
+            <label className="text-xs font-semibold text-gray-500">IFSC Code *</label>
             <input 
               type="text" 
               placeholder="e.g. HDFC0001234"
@@ -63,7 +93,7 @@ export default function AddBankAccountPage() {
           </div>
           
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-500">Bank Name</label>
+            <label className="text-xs font-semibold text-gray-500">Bank Name *</label>
             <input 
               type="text" 
               placeholder="e.g. HDFC Bank"
@@ -74,7 +104,7 @@ export default function AddBankAccountPage() {
           </div>
           
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-500">Branch</label>
+            <label className="text-xs font-semibold text-gray-500">Branch (Optional)</label>
             <input 
               type="text" 
               placeholder="e.g. Koramangala, Bengaluru"
@@ -83,34 +113,16 @@ export default function AddBankAccountPage() {
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 font-medium"
             />
           </div>
-
-          <div className="pt-4 flex items-center justify-between border-t border-gray-50">
-            <label className="text-sm font-semibold text-gray-900">Set as Primary Account</label>
-            <button
-              onClick={() => setFormData({...formData, isPrimary: !formData.isPrimary})}
-              className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 ${
-                formData.isPrimary ? 'bg-indigo-600' : 'bg-gray-200'
-              }`}
-            >
-              <div 
-                className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                  formData.isPrimary ? 'translate-x-6' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
         </div>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
         <Button 
           className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-white font-semibold text-base shadow-sm"
-          onClick={() => {
-            // Save logic here
-            router.back();
-          }}
+          disabled={isLoading}
+          onClick={handleSave}
         >
-          Save Account
+          {isLoading ? 'Linking Account...' : 'Save Account'}
         </Button>
       </div>
     </div>

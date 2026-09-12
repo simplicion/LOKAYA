@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "./client"
 }
 
 datasource db {
@@ -97,6 +98,10 @@ model User {
   
   reviews      Review[]
   wishlistItems WishlistItem[]
+  stories      Story[]      @relation("UserStories")
+  storyViews   StoryView[]
+  storyLikes   StoryLike[]
+  savedPosts   SavedPost[]
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -116,6 +121,9 @@ model Store {
   landmark      String?
   businessType  String?
   aadharPanUrl  String?
+  aadhaarFrontUrl String?
+  aadhaarBackUrl  String?
+  panCardUrl      String?
   storefrontUrl String?
   bannerUrl     String?
   logoUrl       String?
@@ -139,6 +147,12 @@ model Store {
   orders      Order[]
   categories  Category[]
   reviews     Review[]    @relation("StoreReviews")
+  bankAccounts  SellerBankAccount[]
+  payouts       SellerPayout[]
+  transactions  SellerTransaction[]
+  notifications SellerNotification[]
+  stories       Story[]
+  highlights    Highlight[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -193,6 +207,7 @@ model Product {
   productLinks  ProductLink[]
   reviews       Review[] @relation("ProductReviews")
   wishlistItems WishlistItem[]
+  stories       Story[]
 
   isActive      Boolean  @default(true) // Legacy status flag
   createdAt     DateTime @default(now())
@@ -378,6 +393,8 @@ model Order {
   store         Store       @relation(fields: [storeId], references: [id])
   items         OrderItem[]
   payment       Payment?
+  pickupOtp     OrderPickupOtp?
+  transactions  SellerTransaction[]
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -450,6 +467,7 @@ model Post {
   likes       Like[]
   comments    Comment[]
   reports     Report[]
+  savedPosts  SavedPost[]
   
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -466,6 +484,7 @@ model Reel {
   likes       Like[]
   comments    Comment[]
   reports     Report[]
+  savedPosts  SavedPost[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -571,4 +590,220 @@ model WishlistItem {
   createdAt DateTime @default(now())
   
   @@unique([userId, productId])
+}
+
+// ----------------------------------------------------
+// Seller Platform Extensions (Production-Grade)
+// ----------------------------------------------------
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  PAYOUT
+}
+
+enum NotificationType {
+  ORDER
+  SYSTEM
+  ALERT
+  PAYOUT
+}
+
+model SellerBankAccount {
+  id            String         @id @default(uuid())
+  storeId       String
+  accountName   String
+  bankName      String
+  accountNumber String         // Masked e.g., "****9042"
+  fullAccount   String?
+  ifsc          String
+  isPrimary     Boolean        @default(false)
+  isVerified    Boolean        @default(true)
+  
+  store         Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  payouts       SellerPayout[]
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([storeId])
+}
+
+model SellerPayout {
+  id              String            @id @default(uuid())
+  storeId         String
+  bankAccountId   String
+  amount          Float
+  fee             Float             @default(0)
+  status          PayoutStatus      @default(PENDING)
+  referenceNumber String?           @unique
+  failureReason   String?
+
+  store           Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  bankAccount     SellerBankAccount @relation(fields: [bankAccountId], references: [id])
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([storeId])
+}
+
+model SellerTransaction {
+  id          String          @id @default(uuid())
+  storeId     String
+  orderId     String?
+  title       String
+  amount      Float
+  type        TransactionType
+  description String?
+
+  store       Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order       Order?          @relation(fields: [orderId], references: [id])
+
+  createdAt   DateTime        @default(now())
+
+  @@index([storeId, createdAt])
+}
+
+model SellerNotification {
+  id        String           @id @default(uuid())
+  storeId   String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  linkUrl   String?
+
+  store     Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime         @default(now())
+
+  @@index([storeId, isRead])
+}
+
+model OrderPickupOtp {
+  id        String   @id @default(uuid())
+  orderId   String   @unique
+  otpCode   String   // 4-digit code e.g., "4829"
+  qrToken   String   @unique
+  isUsed    Boolean  @default(false)
+  expiresAt DateTime
+
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// Stories & Highlights
+model Story {
+  id             String          @id @default(uuid())
+  storeId        String
+  authorId       String
+  mediaUrl       String
+  fileKey        String?
+  mediaType      MediaType       @default(IMAGE)
+  caption        String?
+  productId      String?
+
+  // Expiration & Archival Lifecycle
+  expiresAt      DateTime
+  isArchived     Boolean         @default(false)
+  archivedAt     DateTime?
+  purgeAt        DateTime
+  isPurged       Boolean         @default(false)
+
+  store          Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  author         User            @relation("UserStories", fields: [authorId], references: [id], onDelete: Cascade)
+  product        Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  views          StoryView[]
+  likes          StoryLike[]
+  highlightItems HighlightItem[]
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([storeId, expiresAt])
+  @@index([storeId, isArchived])
+  @@index([purgeAt, isPurged])
+}
+
+model StoryView {
+  id        String   @id @default(uuid())
+  storyId   String
+  viewerId  String
+
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  viewer    User     @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([storyId, viewerId])
+  @@index([storyId])
+}
+
+model StoryLike {
+  id        String   @id @default(uuid())
+  storyId   String
+  userId    String
+
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([storyId, userId])
+  @@index([storyId])
+}
+
+model Highlight {
+  id        String          @id @default(uuid())
+  storeId   String
+  title     String
+  coverUrl  String?
+
+  store     Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items     HighlightItem[]
+
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([storeId])
+}
+
+model HighlightItem {
+  id           String    @id @default(uuid())
+  highlightId  String
+  storyId      String
+  displayOrder Int       @default(0)
+
+  highlight    Highlight @relation(fields: [highlightId], references: [id], onDelete: Cascade)
+  story        Story     @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime  @default(now())
+
+  @@unique([highlightId, storyId])
+  @@index([highlightId])
+}
+
+model SavedPost {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String?
+  reelId    String?
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reel      Reel?    @relation(fields: [reelId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId, reelId])
+  @@index([userId])
 }

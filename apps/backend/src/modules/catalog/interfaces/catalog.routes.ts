@@ -18,9 +18,15 @@ const router: Router = Router();
 // Create Category
 router.post('/store/:storeId/categories', requireAuth, validateRequest(createCategorySchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Inject storeId from params into the body for the service
-    const data = { ...req.body, storeId: req.params.storeId };
-    // TODO: Verify if req.user is an owner/manager of the storeId
+    const storeId = req.params.storeId || req.body?.storeId;
+    if (!storeId) {
+      return res.status(400).json({ message: 'Store ID is required' });
+    }
+    const data = { 
+      ...req.body, 
+      storeId,
+      imageUrl: req.body.imageUrl || null 
+    };
     const category = await CatalogService.createCategory(data);
     res.status(201).json(category);
   } catch (error) {
@@ -41,7 +47,12 @@ router.get('/store/:storeId/categories', async (req: Request, res: Response, nex
 // Update Category
 router.put('/categories/:categoryId', requireAuth, validateRequest(updateCategorySchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const category = await CatalogService.updateCategory(req.params.categoryId, req.body);
+    const categoryId = req.params.categoryId || req.params.id;
+    const data = {
+      ...req.body,
+      imageUrl: req.body.imageUrl !== undefined ? (req.body.imageUrl || null) : undefined
+    };
+    const category = await CatalogService.updateCategory(categoryId, data);
     res.status(200).json(category);
   } catch (error) {
     next(error);
@@ -93,6 +104,26 @@ router.put('/products/:productId', requireAuth, validateRequest(updateProductSch
   }
 });
 
+// Get Single Product by ID
+router.get('/products/:productId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const product = await CatalogService.getProductById(req.params.productId);
+    res.status(200).json(product);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete Product
+router.delete('/products/:productId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await CatalogService.deleteProduct(req.params.productId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Resolve Product via QR
 router.get('/qr/:qrUuid', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -104,3 +135,4 @@ router.get('/qr/:qrUuid', async (req: Request, res: Response, next: NextFunction
 });
 
 export const catalogRoutes = router;
+

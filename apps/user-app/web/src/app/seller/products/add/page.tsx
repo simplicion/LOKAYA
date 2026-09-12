@@ -9,8 +9,9 @@ import { toast } from 'sonner';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAddProductMutation, useGetMyStoreQuery, useGetPresignedUrlMutation, useGetStoreCategoriesQuery } from '@/lib/api';
+import { useAddProductMutation, useGetMyStoreQuery, useGetPresignedUrlMutation, useUploadMediaMutation, useGetStoreCategoriesQuery } from '@/lib/api';
 import { Dropdown } from '@/components/ui/dropdown';
+import { getMediaUrl } from '@/lib/utils';
 const variantSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'Variant name is required'),
@@ -54,6 +55,7 @@ export default function ManualAddProductPage() {
     skip: !storeData?.id
   });
   const [addProduct, { isLoading: isSubmitting }] = useAddProductMutation();
+  const [uploadMedia] = useUploadMediaMutation();
   const [getPresignedUrl] = useGetPresignedUrlMutation();
   const [uploadingFiles, setUploadingFiles] = useState<{ [key: string]: boolean }>({});
 
@@ -89,6 +91,12 @@ export default function ManualAddProductPage() {
     if (savedDraft) {
       try {
         const parsed = JSON.parse(savedDraft);
+        if (Array.isArray(parsed.media)) {
+          parsed.media = parsed.media.map((m: any) => ({
+            ...m,
+            url: getMediaUrl(m.url)
+          }));
+        }
         form.reset(parsed);
       } catch (e) {
         console.error('Failed to load draft', e);
@@ -158,40 +166,52 @@ export default function ManualAddProductPage() {
       setUploadingFiles(prev => ({ ...prev, [fileId]: true }));
       
       try {
-        // 1. Get presigned URL
-        const { signedUrl, fileKey } = await getPresignedUrl({
-          filename: file.name,
-          contentType: file.type,
-        }).unwrap();
-        
-        if (!signedUrl) throw new Error('No upload URL returned');
-        
-        // 2. Upload file directly to R2
-        const uploadRes = await fetch(signedUrl, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type,
-          },
-        });
-        
-        if (!uploadRes.ok) throw new Error('Upload failed');
-        
-        // 3. Update form media state
-        const publicUrl = `https://pub-9735c0214aaa423b89c9c5f647cc184c.r2.dev/${fileKey}`;
+        let finalUrl = '';
+
+        try {
+          // 1. Direct Multipart upload (fastest, bypasses CORS, returns reliable publicUrl)
+          const formData = new FormData();
+          formData.append('file', file);
+          const res = await uploadMedia(formData).unwrap();
+          finalUrl = getMediaUrl(res.publicUrl || res.url);
+        } catch (directErr) {
+          console.warn('Direct upload fallback to presigned:', directErr);
+          // 2. Presigned URL fallback
+          const presignedRes = await getPresignedUrl({
+            filename: file.name,
+            contentType: file.type,
+          }).unwrap();
+
+          const targetUrl = presignedRes.uploadUrl || presignedRes.signedUrl;
+          if (!targetUrl) throw new Error('No upload URL returned');
+
+          const uploadRes = await fetch(targetUrl, {
+            method: 'PUT',
+            body: file,
+            headers: {
+              'Content-Type': file.type,
+            },
+          });
+
+          if (!uploadRes.ok) throw new Error('Upload failed');
+          finalUrl = getMediaUrl(presignedRes.publicUrl || (presignedRes.fileKey ? `/media/view?key=${encodeURIComponent(presignedRes.fileKey)}` : ''));
+        }
+
+        if (!finalUrl) throw new Error('Failed to obtain uploaded file URL');
+
         const currentMedia = form.getValues('media') || [];
         const isPrimary = currentMedia.length === 0;
-        
+
         setValue('media', [
           ...currentMedia,
           {
-            url: publicUrl,
+            url: finalUrl,
             type: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
             isPrimary,
             displayOrder: currentMedia.length
           }
         ]);
-        
+
         toast.success(`Uploaded ${file.name}`);
       } catch (error) {
         console.error('Upload failed', error);
@@ -475,9 +495,9 @@ export default function ManualAddProductPage() {
               {(watch('media') || []).map((m, idx) => (
                 <div key={idx} className="aspect-square bg-gray-100 rounded-xl relative overflow-hidden group border border-gray-200">
                   {m.type === 'IMAGE' ? (
-                    <img src={m.url} alt="Product media" className="w-full h-full object-cover" />
+                    <img src={getMediaUrl(m.url)} alt="Product media" className="w-full h-full object-cover" />
                   ) : (
-                    <video src={m.url} className="w-full h-full object-cover" />
+                    <video src={getMediaUrl(m.url)} className="w-full h-full object-cover" />
                   )}
                   {m.isPrimary && (
                     <span className="absolute bottom-2 left-2 bg-brand-navy text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Primary</span>
@@ -509,8 +529,12 @@ export default function ManualAddProductPage() {
             </div>
             
             <div className="bg-white rounded-2xl border border-[#E5E2DC] overflow-hidden">
-              <div className="h-40 bg-gray-100 flex items-center justify-center border-b border-[#E5E2DC]">
-                <ImageIcon className="w-12 h-12 text-gray-300" />
+              <div className="h-48 bg-gray-100 flex items-center justify-center border-b border-[#E5E2DC] overflow-hidden">
+                {watch('media')?.[0]?.url ? (
+                  <img src={getMediaUrl(watch('media')?.[0]?.url || '')} alt={watch('name') || 'Product preview'} className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon className="w-12 h-12 text-gray-300" />
+                )}
               </div>
               <div className="p-4">
                 <div className="flex justify-between items-start">

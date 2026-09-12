@@ -12,7 +12,7 @@ async function setupAdmin() {
       data: {
         email: adminEmail,
         password,
-        role: 'SYSTEM_ADMIN',
+        isSystemAdmin: true,
         name: 'System Admin',
         authProvider: 'LOCAL'
       }
@@ -23,7 +23,7 @@ async function setupAdmin() {
       where: { email: adminEmail },
       data: {
         password,
-        role: 'SYSTEM_ADMIN'
+        isSystemAdmin: true
       }
     });
     console.log('Updated existing admin user password');

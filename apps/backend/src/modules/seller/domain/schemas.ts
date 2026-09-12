@@ -5,9 +5,12 @@ export const onboardSellerSchema = z.object({
     name: z.string().min(2),
     address: z.string().default("Address not provided"),
     contactPhone: z.string().min(10),
-    aadharPanUrl: z.string().url(),
-    gstOrLicenseUrl: z.string().url(),
-    shopPhotos: z.array(z.string().url()).max(4)
+    aadhaarFrontUrl: z.string().url().optional(),
+    aadhaarBackUrl: z.string().url().optional(),
+    panCardUrl: z.string().url().optional(),
+    aadharPanUrl: z.string().url().optional(),
+    gstOrLicenseUrl: z.string().url().optional().or(z.literal('')),
+    shopPhotos: z.array(z.string().url()).max(4).optional().default([])
   })
 });
 

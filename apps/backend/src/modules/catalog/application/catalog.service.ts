@@ -18,10 +18,10 @@ export class CatalogService {
       data: {
         storeId: data.storeId,
         name: data.name,
-        description: data.description,
-        imageUrl: data.imageUrl,
-        displayOrder: data.displayOrder,
-        isActive: data.isActive
+        description: data.description || null,
+        imageUrl: data.imageUrl || null,
+        displayOrder: data.displayOrder !== undefined ? Number(data.displayOrder) : 1,
+        isActive: data.isActive !== undefined ? Boolean(data.isActive) : true
       }
     });
   }
@@ -271,4 +271,47 @@ export class CatalogService {
 
     return product;
   }
+
+  static async getProductById(id: string) {
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        variants: true,
+        media: {
+          orderBy: { displayOrder: 'asc' }
+        },
+        categoryModel: true,
+        orderItems: {
+          take: 10,
+          orderBy: { id: 'desc' },
+          include: {
+            order: {
+              select: { id: true, createdAt: true, buyer: { select: { name: true } } }
+            }
+          }
+        }
+      }
+    });
+
+    if (!product) {
+      throw new AppError('Product not found', 404);
+    }
+
+    return product;
+  }
+
+  static async deleteProduct(id: string) {
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (!product) throw new AppError('Product not found', 404);
+
+    // Soft delete
+    return await prisma.product.update({
+      where: { id },
+      data: {
+        isActive: false,
+        status: 'ARCHIVED'
+      }
+    });
+  }
 }
+

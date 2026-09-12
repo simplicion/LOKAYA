@@ -3,20 +3,28 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useGetMyStoreQuery, useGetStoreProductsQuery } from '@/lib/api';
+import { 
+  useGetMyStoreQuery, 
+  useGetStoreProductsQuery,
+  useGetSellerDashboardStatsQuery,
+  useGetSellerRecentOrdersQuery,
+  useGetSellerSalesTrendQuery
+} from '@/lib/api';
 import { 
   Package, TrendingUp, PlusCircle, Settings, BarChart3, 
-  ChevronRight, Store, ChevronDown, Bell, Loader2
+  ChevronRight, Store, ChevronDown, Bell, Loader2, Clock, 
+  CheckCircle2, AlertTriangle, RefreshCw, FileText, ArrowRight, ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { SellerHeader } from '@/components/seller/SellerHeader';
+import { DateRangeModal } from '@/components/seller/DateRangeModal';
 
 export default function SellerDashboardPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: store, isLoading, error } = useGetMyStoreQuery();
-  const { data: products } = useGetStoreProductsQuery(store?.id || '', { skip: !store?.id });
+  const { data: store, isLoading, error, refetch, isFetching } = useGetMyStoreQuery();
+  const { data: products } = useGetStoreProductsQuery(store?.id || '', { skip: !store?.id || store?.status !== 'VERIFIED' });
   
   // Date Filter State
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
@@ -30,7 +38,7 @@ export default function SellerDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full min-h-[50vh] items-center justify-center">
+      <div className="flex h-full min-h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-[#FF5A36]" />
       </div>
     );
@@ -38,38 +46,137 @@ export default function SellerDashboardPage() {
 
   if (!store) return null;
 
-  // Real + Mock data for top level stats
+  // 1. Pending Verification Holding Screen
+  if (store.status === 'PENDING') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8 md:py-16">
+        <div className="bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-[#E5E2DC] text-center space-y-6">
+          {/* Icon Header */}
+          <div className="w-16 h-16 rounded-3xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto">
+            <Clock className="w-8 h-8 animate-pulse" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+              KYC Under Review
+            </span>
+            <h1 className="text-2xl md:text-3xl font-bold text-[#171717] pt-1">
+              {store.name} is Pending Verification
+            </h1>
+            <p className="text-[#6B6B6B] text-sm max-w-md mx-auto">
+              Your store details and identification documents have been submitted and are currently being reviewed by our verification team.
+            </p>
+          </div>
+
+          {/* Timeline */}
+          <div className="bg-[#FAF9F6] rounded-2xl p-5 border border-[#E5E2DC] text-left space-y-4 max-w-lg mx-auto">
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0 mt-0.5">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-gray-900">Application & Documents Submitted</h4>
+                <p className="text-[11px] text-gray-500">Aadhaar, PAN & Store details received.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0 mt-0.5 animate-pulse">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-amber-900">Admin Document Verification</h4>
+                <p className="text-[11px] text-amber-700">Verification in progress. Typically takes 1-4 hours.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 opacity-50">
+              <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 shrink-0 mt-0.5">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-gray-700">Store Activated</h4>
+                <p className="text-[11px] text-gray-500">Start listing products and receiving customer orders.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="rounded-2xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold h-12 px-6 gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+              Check Verification Status
+            </Button>
+            <Link href="/home">
+              <Button variant="outline" className="rounded-2xl h-12 px-6 w-full sm:w-auto">
+                Back to Shopping
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Rejected Screen
+  if (store.status === 'REJECTED') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8 md:py-16">
+        <div className="bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-red-200 text-center space-y-6">
+          <div className="w-16 h-16 rounded-3xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 mx-auto">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-red-700 bg-red-50 px-3 py-1 rounded-full border border-red-200">
+              Verification Unsuccessful
+            </span>
+            <h1 className="text-2xl md:text-3xl font-bold text-[#171717] pt-1">
+              Store Verification Needs Attention
+            </h1>
+            <p className="text-[#6B6B6B] text-sm max-w-md mx-auto">
+              Your application could not be approved. Please review your documents and resubmit your KYC verification.
+            </p>
+          </div>
+
+          <div className="pt-2 flex justify-center">
+            <Link href="/seller/onboarding">
+              <Button className="rounded-2xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold h-12 px-8 gap-2">
+                Resubmit KYC Documents <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Verified Seller Dashboard - Live Data Hooks
+  const { data: statsData } = useGetSellerDashboardStatsQuery(activeDateFilter, { skip: !store?.id || store?.status !== 'VERIFIED' });
+  const { data: liveRecentOrders = [] } = useGetSellerRecentOrdersQuery(10, { skip: !store?.id || store?.status !== 'VERIFIED' });
+  const { data: liveSalesData = [] } = useGetSellerSalesTrendQuery(activeDateFilter, { skip: !store?.id || store?.status !== 'VERIFIED' });
+
   const dashboardStats = {
-    todayOrders: 24,
-    todayRevenue: 12450,
-    activeProducts: products?.length || 128,
-    lowStockItems: 7
+    todayOrders: statsData?.todayOrders ?? 0,
+    todayRevenue: statsData?.todayRevenue ?? 0,
+    activeProducts: statsData?.activeProducts ?? (products?.length || 0),
+    lowStockItems: statsData?.lowStockItems ?? 0
   };
 
-  // Mock data for recent orders
-  
-  const recentOrders = [
-    {
-      id: '#ORD1345',
-      customerName: 'Rohit Kumar',
-      itemsCount: 2,
-      total: 245,
-      status: 'NEW',
-      pickupTime: 'Today, 10:30 AM',
-      statusColor: 'text-green-600',
-      statusBg: 'bg-green-50'
-    },
-    {
-      id: '#ORD1344',
-      customerName: 'Neha Singh',
-      itemsCount: 4,
-      total: 560,
-      status: 'PREPARING',
-      pickupTime: 'Yesterday',
-      statusColor: 'text-blue-600',
-      statusBg: 'bg-blue-50'
-    }
-  ];
+  const recentOrders = liveRecentOrders.map(order => ({
+    id: `#${order.id.slice(0, 8).toUpperCase()}`,
+    customerName: order.customerName || 'Customer',
+    itemsCount: order.itemsCount || 1,
+    total: order.total || 0,
+    status: order.status || 'NEW',
+    pickupTime: order.pickupTime || 'Today',
+    statusColor: order.statusColor || 'text-green-600',
+    statusBg: order.statusBg || 'bg-green-50'
+  }));
 
   const filteredRecentOrders = recentOrders.filter(order => {
     if (!searchQuery) return true;
@@ -82,14 +189,14 @@ export default function SellerDashboardPage() {
     );
   });
 
-  const salesData = [
-    { name: 'Mon', value: 4000 },
-    { name: 'Tue', value: 3000 },
-    { name: 'Wed', value: 5500 },
-    { name: 'Thu', value: 4500 },
-    { name: 'Fri', value: 7000 },
-    { name: 'Sat', value: 6500 },
-    { name: 'Sun', value: 8000 },
+  const salesData = liveSalesData.length > 0 ? liveSalesData : [
+    { name: 'Mon', value: 0 },
+    { name: 'Tue', value: 0 },
+    { name: 'Wed', value: 0 },
+    { name: 'Thu', value: 0 },
+    { name: 'Fri', value: 0 },
+    { name: 'Sat', value: 0 },
+    { name: 'Sun', value: 0 },
   ];
 
   const quickLinks = [
@@ -97,7 +204,7 @@ export default function SellerDashboardPage() {
       icon: Package,
       label: 'Manage Orders',
       href: '/seller/orders',
-      badge: '3 New',
+      badge: dashboardStats.todayOrders > 0 ? `${dashboardStats.todayOrders} New` : undefined,
       color: 'text-[#FF5A36]',
       bgColor: 'bg-[#FF5A36]/10'
     },
@@ -160,40 +267,15 @@ export default function SellerDashboardPage() {
         }
       />
       
-      {/* Date Selector Modal */}
-      {isDateSelectorOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] w-full max-w-sm rounded-t-3xl sm:rounded-[1.25rem] p-6 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in">
-            <h3 className="text-xl font-bold text-[#171717] mb-4">Select Date Range</h3>
-            
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year'].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => {
-                    setActiveDateFilter(range);
-                    setIsDateSelectorOpen(false);
-                  }}
-                  className={`py-3 px-4 rounded-[1.25rem] border text-sm font-semibold text-center transition-colors ${
-                    activeDateFilter === range 
-                      ? 'bg-[#171717] text-white border-[#171717]' 
-                      : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#E5E2DC] hover:border-[#171717]'
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
-            
-            <button 
-              className="w-full h-12 bg-brand-orange hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
-              onClick={() => setIsDateSelectorOpen(false)}
-            >
-              Apply Filter
-            </button>
-          </div>
-        </div>
-      )}
+      <DateRangeModal
+        isOpen={isDateSelectorOpen}
+        onClose={() => setIsDateSelectorOpen(false)}
+        selectedRange={activeDateFilter}
+        onSelectRange={(range) => {
+          setActiveDateFilter(range);
+          setIsDateSelectorOpen(false);
+        }}
+      />
 
       <div className="max-w-7xl mx-auto w-full px-4 pt-4">
         {/* Subtitle */}
@@ -209,7 +291,9 @@ export default function SellerDashboardPage() {
               <p className="text-[10px] text-[#6B6B6B] mt-1 font-medium">Today's Sales</p>
             </div>
             <div className="flex justify-end mt-2">
-              <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md tracking-wide">+10.6%</span>
+              <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md tracking-wide">
+                {statsData?.revenueGrowth || '+0.0%'}
+              </span>
             </div>
           </div>
           
@@ -219,7 +303,9 @@ export default function SellerDashboardPage() {
               <p className="text-[10px] text-[#6B6B6B] mt-1 font-medium">Orders</p>
             </div>
             <div className="flex justify-end mt-2">
-              <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md tracking-wide">+12.3%</span>
+              <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md tracking-wide">
+                {statsData?.ordersGrowth || '+0.0%'}
+              </span>
             </div>
           </div>
           
@@ -314,7 +400,9 @@ export default function SellerDashboardPage() {
           
           <div className="bg-white rounded-[1.25rem] border border-[#E5E2DC] overflow-hidden pt-4 h-[200px] flex flex-col relative">
              <div className="px-4 mb-2 absolute top-4 left-0">
-               <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md inline-block">₹12,450</div>
+               <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md inline-block">
+                 ₹{dashboardStats.todayRevenue.toLocaleString()}
+               </div>
              </div>
             <div className="flex-1 w-full mt-6">
               <ResponsiveContainer width="100%" height="100%">

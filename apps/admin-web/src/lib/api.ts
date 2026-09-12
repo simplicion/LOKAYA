@@ -4,7 +4,7 @@ import { RootState } from './store';
 import { logout, setCredentials } from './features/authSlice';
 
 const baseQuery = fetchBaseQuery({
-  baseUrl: 'http://localhost:4002/api/v1',
+  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4101/api/v1',
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as RootState).auth.token;
     if (token) {
@@ -45,6 +45,13 @@ export const adminApi = createApi({
       query: () => '/seller/pending',
       providesTags: ['Stores'],
     }),
+    getAllStores: builder.query<any[], { status?: string } | void>({
+      query: (params) => ({
+        url: '/seller/all',
+        params: params || {},
+      }),
+      providesTags: ['Stores'],
+    }),
     login: builder.mutation<any, any>({
       query: (credentials) => ({
         url: '/identity/login',
@@ -59,16 +66,30 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['Stores'],
     }),
+    rejectStore: builder.mutation<any, { storeId: string; reason?: string }>({
+      query: ({ storeId, reason }) => ({
+        url: `/seller/${storeId}/reject`,
+        method: 'PATCH',
+        body: { reason },
+      }),
+      invalidatesTags: ['Stores'],
+    }),
     getPlatformStats: builder.query<any, void>({
       query: () => '/admin/stats',
       providesTags: ['Stores'],
+    }),
+    getUsers: builder.query<any[], void>({
+      query: () => '/admin/users',
     }),
   }),
 });
 
 export const {
   useGetPendingStoresQuery,
+  useGetAllStoresQuery,
   useLoginMutation,
   useVerifyStoreMutation,
+  useRejectStoreMutation,
   useGetPlatformStatsQuery,
+  useGetUsersQuery,
 } = adminApi;

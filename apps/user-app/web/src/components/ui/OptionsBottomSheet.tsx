@@ -28,7 +28,7 @@ export function OptionsBottomSheet({ isOpen, onClose, onReport, url }: OptionsBo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-[70] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
       <div className="relative bg-white w-full rounded-t-[24px] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out shadow-[0_-8px_30px_rgba(0,0,0,0.12)]">
         <div className="flex items-center justify-between p-4 border-b border-gray-100">

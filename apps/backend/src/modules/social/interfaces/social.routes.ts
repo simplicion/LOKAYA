@@ -42,6 +42,28 @@ router.post('/like/reel/:reelId', requireAuth, async (req: Request, res: Respons
 });
 
 // ==========================================
+// Saves / Bookmarks
+// ==========================================
+
+router.post('/save/post/:postId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await SocialService.toggleSavePost((req as any).user.id, req.params.postId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/save/reel/:reelId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await SocialService.toggleSaveReel((req as any).user.id, req.params.reelId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
 
 router.get('/like/post/:postId', async (req: Request, res: Response, next: NextFunction) => {
   try {

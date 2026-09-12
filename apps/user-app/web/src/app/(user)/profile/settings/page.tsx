@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, User, Store, ShieldCheck, Bell, Lock, Package, ShoppingBag, LayoutDashboard, CreditCard, MapPin, ChevronRight } from 'lucide-react';
+import { ArrowLeft, User, Store, ShieldCheck, Bell, Lock, Package, ShoppingBag, LayoutDashboard, CreditCard, MapPin, ChevronRight, Archive } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SellerSettingsPage() {
@@ -42,6 +42,7 @@ export default function SellerSettingsPage() {
             <SettingsItem icon={Package} label="My Orders" href="/seller/orders" />
             <SettingsItem icon={ShoppingBag} label="My Products" href="/seller/products" />
             <SettingsItem icon={LayoutDashboard} label="Store Management" href="/seller/store/settings" />
+            <SettingsItem icon={Archive} label="Stories Archive (30-Day)" href="/profile/archive" rightContent={<span className="text-[#FF5A36] font-semibold text-xs bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">Archive</span>} />
             <SettingsItem icon={CreditCard} label="Payments & Payouts" href="/seller/finance" />
             <SettingsItem icon={MapPin} label="Addresses" href="/seller/store/locations" />
           </div>

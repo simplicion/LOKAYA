@@ -13,6 +13,7 @@ import {
   ShoppingCart
 } from 'lucide-react';
 import { SellerHeader } from '@/components/seller/SellerHeader';
+import { DateRangeModal } from '@/components/seller/DateRangeModal';
 import { Button } from '@/components/ui/button';
 import { 
   BarChart, 
@@ -25,61 +26,27 @@ import {
   Legend
 } from 'recharts';
 import Image from 'next/image';
-
-const mockChartData = [
-  { name: '01 May', gross: 12000, net: 3000 },
-  { name: '08 May', gross: 18000, net: 4500 },
-  { name: '15 May', gross: 14000, net: 3800 },
-  { name: '22 May', gross: 23000, net: 6200 },
-  { name: '29 May', gross: 19000, net: 5100 },
-  { name: '31 May', gross: 30000, net: 8500 },
-];
-
-const mockProducts = [
-  { 
-    id: 1, 
-    name: 'Fortune Sunlite Refined Sunflower Oil', 
-    sold: 145, 
-    cp: 145, 
-    sp: 165,
-    image: 'https://images.unsplash.com/photo-1625937286074-9ca519d5d9df?auto=format&fit=crop&q=80&w=100&h=100'
-  },
-  { 
-    id: 2, 
-    name: 'Aashirvaad Superior MP Sharbati Atta', 
-    sold: 89, 
-    cp: 260, 
-    sp: 295,
-    image: 'https://images.unsplash.com/photo-1574316071802-0d684efa7ab5?auto=format&fit=crop&q=80&w=100&h=100'
-  },
-  { 
-    id: 3, 
-    name: 'Tata Salt Iodized', 
-    sold: 312, 
-    cp: 20, 
-    sp: 25,
-    image: 'https://images.unsplash.com/photo-1626815340656-3c0762cf0508?auto=format&fit=crop&q=80&w=100&h=100'
-  },
-  { 
-    id: 4, 
-    name: 'Maggi 2-Minute Noodles Masala', 
-    sold: 450, 
-    cp: 11, 
-    sp: 14,
-    image: 'https://images.unsplash.com/photo-1605631248404-e51c8535a0ce?auto=format&fit=crop&q=80&w=100&h=100'
-  },
-];
+import { useGetAnalyticsSalesRevenueQuery } from '@/lib/api';
 
 export default function SalesRevenueAnalyticsPage() {
   const router = useRouter();
   const [activeDateFilter, setActiveDateFilter] = useState('This Month');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
 
-  // Derived calculations for the overview cards based on mockProducts
-  const totalItemsSold = mockProducts.reduce((acc, curr) => acc + curr.sold, 0);
-  const grossSales = mockProducts.reduce((acc, curr) => acc + (curr.sold * curr.sp), 0);
-  const totalCost = mockProducts.reduce((acc, curr) => acc + (curr.sold * curr.cp), 0);
-  const netRevenue = grossSales - totalCost;
+  const { data: analyticsData } = useGetAnalyticsSalesRevenueQuery(activeDateFilter);
+
+  const revenueProducts = analyticsData?.products || [];
+  const chartData = analyticsData?.chartData || [
+    { name: 'Week 1', gross: 0, net: 0 },
+    { name: 'Week 2', gross: 0, net: 0 },
+    { name: 'Week 3', gross: 0, net: 0 },
+    { name: 'Week 4', gross: 0, net: 0 }
+  ];
+
+  const totalItemsSold = revenueProducts.reduce((acc: number, curr: any) => acc + curr.sold, 0);
+  const grossSales = analyticsData?.grossSales ?? 0;
+  const netRevenue = analyticsData?.netRevenue ?? 0;
+  const totalCost = revenueProducts.reduce((acc: number, curr: any) => acc + (curr.sold * curr.cp), 0);
   const overallMargin = grossSales > 0 ? ((netRevenue / grossSales) * 100).toFixed(1) : '0.0';
 
   return (
@@ -101,40 +68,15 @@ export default function SalesRevenueAnalyticsPage() {
         }
       />
 
-      {/* Date Selector Modal */}
-      {isDateSelectorOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-[#FFFFFF] w-full max-w-sm rounded-t-3xl sm:rounded-[1.25rem] p-6 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in">
-            <h3 className="text-xl font-bold text-[#171717] mb-4">Select Date Range</h3>
-            
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {['Today', 'Yesterday', 'This Week', 'This Month', 'Last Month', 'This Year'].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => {
-                    setActiveDateFilter(range);
-                    setIsDateSelectorOpen(false);
-                  }}
-                  className={`py-3 px-4 rounded-[1.25rem] border text-sm font-semibold text-center transition-colors ${
-                    activeDateFilter === range 
-                      ? 'bg-[#171717] text-white border-[#171717]' 
-                      : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#E5E2DC] hover:border-[#171717]'
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
-            
-            <button 
-              className="w-full h-12 bg-[#FF5A36] hover:bg-[#E04B2A] text-white font-bold rounded-[1.25rem]"
-              onClick={() => setIsDateSelectorOpen(false)}
-            >
-              Apply Filter
-            </button>
-          </div>
-        </div>
-      )}
+      <DateRangeModal
+        isOpen={isDateSelectorOpen}
+        onClose={() => setIsDateSelectorOpen(false)}
+        selectedRange={activeDateFilter}
+        onSelectRange={(range) => {
+          setActiveDateFilter(range);
+          setIsDateSelectorOpen(false);
+        }}
+      />
 
       <div className="p-4 space-y-6">
         {/* Overview Metric Cards */}
@@ -216,7 +158,7 @@ export default function SalesRevenueAnalyticsPage() {
           <h2 className="text-sm font-bold text-[#171717] mb-4">Gross vs Net Revenue</h2>
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockChartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+              <BarChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                 <XAxis 
                   dataKey="name" 
@@ -253,7 +195,7 @@ export default function SalesRevenueAnalyticsPage() {
           </div>
           
           <div className="divide-y divide-[#E5E2DC]">
-            {mockProducts.map((product) => {
+            {revenueProducts.map((product) => {
               const productGross = product.sold * product.sp;
               const productCost = product.sold * product.cp;
               const productNet = productGross - productCost;

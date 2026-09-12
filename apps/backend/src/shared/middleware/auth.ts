@@ -26,11 +26,18 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
     req.user = {
-      id: payload.id,
+      id: payload.id || payload.userId,
       isSystemAdmin: payload.isSystemAdmin || false
     };
     next();
   } catch (err) {
     next(new AppError('Invalid token', 401));
   }
+};
+
+export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user || !req.user.isSystemAdmin) {
+    return next(new AppError('Forbidden: Admin access required', 403));
+  }
+  next();
 };

@@ -53,8 +53,8 @@ export function ShareBottomSheet({ isOpen, onClose, url = '', title = 'Check thi
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Check out this post on Snapick',
-          url: url
+          title: title || 'Check out this on Lokaya',
+          url: shareUrl
         });
         onClose();
       } catch (err) {
@@ -87,8 +87,6 @@ export function ShareBottomSheet({ isOpen, onClose, url = '', title = 'Check thi
       icon: <Instagram className="w-6 h-6 text-white" />,
       bg: 'bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF]',
       onClick: () => {
-        // Instagram doesn't have a direct web share API for URLs that works reliably on desktop,
-        // but this is standard for mobile fallback or they use native share API if available.
         handleCopy();
         alert('Link copied! Open Instagram to share.');
       }
@@ -111,7 +109,7 @@ export function ShareBottomSheet({ isOpen, onClose, url = '', title = 'Check thi
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-[120] flex flex-col justify-end">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"

@@ -46,22 +46,30 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  const isHiddenFooterPage = pathname === '/seller/products/add' || pathname === '/seller/store/categories/add';
+  // Only show bottom navigation on root tab screens of the seller workspace
+  // All internal pages (hours, settings, add/edit products, categories, details, finance, sub-analytics) hide the footer
+  const ROOT_SELLER_TABS = new Set([
+    '/seller',
+    '/seller/products',
+    '/seller/orders',
+    '/seller/analytics',
+    '/seller/store',
+  ]);
+
+  const cleanPath = pathname?.replace(/\/$/, '') || '/seller';
+  const isRootTab = ROOT_SELLER_TABS.has(cleanPath);
 
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row">
       <SellerSidebar />
       
-      <div className={cn("flex-1 flex flex-col min-w-0 md:pb-0", !isHiddenFooterPage && "pb-20")}>
-
-
+      <div className={cn("flex-1 flex flex-col min-w-0 md:pb-0", isRootTab && "pb-20")}>
         <main className="flex-1 w-full mx-auto overflow-x-hidden">
           {children}
         </main>
       </div>
       
-      <FloatingCartBar />
-      {!isHiddenFooterPage && <SellerBottomNav />}
+      {isRootTab && <SellerBottomNav />}
     </div>
   );
 }

@@ -8,3 +8,4 @@ build/
 .turbo/
 .next/
 *.log
+packages/db/prisma/client/

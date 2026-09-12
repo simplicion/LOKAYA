@@ -1,15 +1,39 @@
-'use client';
-
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useExportAnalyticsMutation } from '@/lib/api';
 
 export default function AnalyticsExportPage() {
   const router = useRouter();
   const [reportType, setReportType] = useState('Sales Report');
   const [dateRange, setDateRange] = useState('This Month');
-  const [exportFormat, setExportFormat] = useState('PDF');
+  const [exportFormat, setExportFormat] = useState('CSV');
+  const [exportAnalytics, { isLoading }] = useExportAnalyticsMutation();
+
+  const handleExport = async () => {
+    try {
+      const csvData = await exportAnalytics({
+        reportType,
+        dateRange,
+        format: exportFormat
+      }).unwrap();
+
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute(
+        'download',
+        `${reportType.toLowerCase().replace(/\s+/g, '_')}_${dateRange.toLowerCase().replace(/\s+/g, '_')}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      alert(err?.data?.message || err?.message || 'Failed to export report');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -87,8 +111,22 @@ export default function AnalyticsExportPage() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
-        <Button className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-white font-semibold text-base shadow-sm">
-          Export Report
+        <Button 
+          onClick={handleExport}
+          disabled={isLoading}
+          className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-white font-semibold text-base shadow-sm flex items-center justify-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Generating Report...</span>
+            </>
+          ) : (
+            <>
+              <Download className="w-5 h-5" />
+              <span>Export Report</span>
+            </>
+          )}
         </Button>
       </div>
     </div>

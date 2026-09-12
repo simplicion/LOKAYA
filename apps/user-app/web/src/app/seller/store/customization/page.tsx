@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Moon, Edit2, Bell, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useGetMyStoreQuery, useUpdateStoreThemeMutation } from '@/lib/api';
 import Image from 'next/image';
 
 const PRIMARY_COLORS = [
@@ -30,8 +31,31 @@ const SECONDARY_COLORS = [
 
 export default function StoreCustomizationPage() {
   const router = useRouter();
+  const { data: storeData } = useGetMyStoreQuery();
+  const [updateTheme, { isLoading: isUpdating }] = useUpdateStoreThemeMutation();
+
   const [primaryColor, setPrimaryColor] = useState(PRIMARY_COLORS[0]);
   const [secondaryColor, setSecondaryColor] = useState(SECONDARY_COLORS[0]);
+
+  React.useEffect(() => {
+    if (storeData) {
+      if (storeData.themeColor) setPrimaryColor(storeData.themeColor);
+      if (storeData.secondaryColor) setSecondaryColor(storeData.secondaryColor);
+    }
+  }, [storeData]);
+
+  const handleSaveTheme = async () => {
+    if (!storeData?.id) return;
+    try {
+      await updateTheme({
+        storeId: storeData.id,
+        body: { themeColor: primaryColor, secondaryColor }
+      }).unwrap();
+      router.back();
+    } catch (err) {
+      console.error('Failed to save theme:', err);
+    }
+  };
 
   // Map Tailwind bg classes to actual hex/rgb for the gradient background
   // For a simple implementation, we can just use tailwind from-X to-Y if we map them,
@@ -99,11 +123,13 @@ export default function StoreCustomizationPage() {
             <div className={`p-5 ${primaryColor} transition-colors duration-300`}>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-green-600 border-2 border-white/20 flex items-center justify-center overflow-hidden shrink-0">
-                  <span className="text-white font-bold text-xs text-center leading-tight">SHARMA<br/>KIRANA</span>
+                  <span className="text-white font-bold text-xs text-center leading-tight">
+                    {storeData?.name ? storeData.name.slice(0, 6).toUpperCase() : 'STORE'}
+                  </span>
                 </div>
                 <div className="flex-1 text-white">
-                  <h4 className="font-bold text-base leading-tight">Sharma Kirana Store</h4>
-                  <p className="text-xs text-white/80 mt-0.5">Har Ghar Ki Zaroorat</p>
+                  <h4 className="font-bold text-base leading-tight">{storeData?.name || 'Your Store'}</h4>
+                  <p className="text-xs text-white/80 mt-0.5">{storeData?.description || storeData?.category || 'Neighborhood Store'}</p>
                 </div>
                 <div className="flex gap-2 text-white/80">
                   <Moon className="w-4 h-4" />
@@ -148,12 +174,11 @@ export default function StoreCustomizationPage() {
       <div className="fixed bottom-0 left-0 w-full p-4 bg-white border-t border-gray-100 z-20 pb-safe">
         <Button 
           className={`w-full h-14 text-white rounded-2xl text-lg font-medium transition-colors ${primaryColor.replace('bg-', 'bg-').replace(']', ']').replace('[', '[')}`}
-          // For Button, since primaryColor is a bg class, we can just append it as className 
-          // However Button uses variants. Let's just override styles manually.
           style={{ backgroundColor: primaryColor.includes('#') ? primaryColor.match(/#([0-9a-f]{6})/i)?.[0] : undefined }}
-          onClick={() => router.back()}
+          onClick={handleSaveTheme}
+          disabled={isUpdating}
         >
-          Save Theme
+          {isUpdating ? 'Saving Theme...' : 'Save Theme'}
         </Button>
       </div>
     </div>
