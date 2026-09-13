@@ -1,5 +1,5 @@
 # ==============================================================================
-# 🚀 Lokaya Unified Production Docker Compose Stack
+# Lokaya Unified Production Docker Compose Stack
 # ==============================================================================
 # Usage:
 #   docker compose -f docker-compose.prod.yml pull

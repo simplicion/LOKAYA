@@ -1,10 +1,10 @@
-# 🚀 Lokaya Production Container Registry, CI/CD & Deployment Guide
+# Lokaya Production Container Registry, CI/CD and Deployment Guide
 
 This guide documents the production multi-stage Docker containerization, automated GitHub Container Registry (GHCR) publishing, and centralized deployment pipeline for the **Backend API**, **User Application**, and **Admin Web Portal**.
 
 ---
 
-## 1. Architecture & Container Registry Matrix
+## 1. Architecture and Container Registry Matrix
 
 All three applications are packaged as multi-stage, hardened Docker containers and automatically published to GitHub Container Registry (GHCR):
 
@@ -24,7 +24,7 @@ All three applications are packaged as multi-stage, hardened Docker containers a
 2. **Layer Caching**:
    - Manifest files (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `turbo.json`) are copied and installed first.
    - GitHub Actions leverages GitHub Actions Cache (`type=gha,mode=max`) for lightning-fast sub-minute builds.
-3. **Security & Non-Root Execution**:
+3. **Security and Non-Root Execution**:
    - Dedicated unprivileged runtime user (`nextjs:nodejs`, UID 1001).
    - Read-only container root support.
 4. **Built-in Health Checks**:
@@ -68,7 +68,7 @@ docker run -d --name lokaya-admin-web -p 3102:3000 ghcr.io/prince364133/lokaya-a
 
 ## 4. GitHub Repository Secrets Reference
 
-Configured in **Repository Settings ➔ Secrets and variables ➔ Actions**:
+Configured in **Repository Settings -> Secrets and variables -> Actions**:
 
 | Secret Name | Service | Purpose |
 | :--- | :--- | :--- |
@@ -88,8 +88,8 @@ Configured in **Repository Settings ➔ Secrets and variables ➔ Actions**:
 
 ## 5. Automated CI/CD Workflow (`centralized-cicd.yml`)
 
-1. **Path-Filtered Builds**: Changes to `apps/backend/**` rebuild the backend Docker image; changes to `apps/user-app/**` rebuild the user app Docker image & Cloudflare Pages; changes to `apps/admin-web/**` rebuild the admin Docker image & Cloudflare Pages.
-2. **Quality & Validation Gate**: Runs full Turbo typecheck and build check before pushing images.
+1. **Path-Filtered Builds**: Changes to `apps/backend/**` rebuild the backend Docker image; changes to `apps/user-app/**` rebuild the user app Docker image and Cloudflare Pages; changes to `apps/admin-web/**` rebuild the admin Docker image and Cloudflare Pages.
+2. **Quality and Validation Gate**: Runs full Turbo typecheck and build check before pushing images.
 3. **Automated GHCR Push**: Automatically tags images with `:latest` and the commit SHA `:${{ github.sha }}`.
 4. **AWS SSM Automated Deployment**: Automatically logs into GHCR on EC2, pulls the fresh image, and restarts the container zero-downtime with health checks.
-5. **Manual Dispatch**: Trigger individual builds or all builds on demand via **Actions ➔ Centralized CI/CD ➔ Run workflow**.
+5. **Manual Dispatch**: Trigger individual builds or all builds on demand via **Actions -> Centralized CI/CD -> Run workflow**.

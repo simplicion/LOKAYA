@@ -1,5 +1,5 @@
 # ==============================================================================
-# 🛡️ Lokaya Admin Web Portal - Production Multi-Stage Dockerfile
+# Lokaya Admin Web Portal - Production Multi-Stage Dockerfile
 # ==============================================================================
 FROM node:20-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
@@ -49,7 +49,7 @@ ENV NODE_ENV=production
 RUN pnpm --filter admin-web build
 
 # ==============================================================================
-# Production Runner Stage (Minimal & Secure Non-Root Container)
+# Production Runner Stage (Minimal and Secure Non-Root Container)
 # ==============================================================================
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app

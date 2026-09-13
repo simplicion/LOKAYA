@@ -1,4 +1,4 @@
-name: 🚀 Centralized CI/CD Pipeline (AWS, GHCR & Cloudflare)
+name: Centralized CI/CD Pipeline (AWS, GHCR and Cloudflare)
 
 on:
   push:
@@ -65,10 +65,10 @@ env:
 
 jobs:
   # ============================================================================
-  # 1. CHANGE DETECTION & PATH FILTERING
+  # 1. CHANGE DETECTION AND PATH FILTERING
   # ============================================================================
   detect-changes:
-    name: 🔍 Detect Monorepo Changes
+    name: Detect Monorepo Changes
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend == 'true' || github.event.inputs.target == 'backend' || github.event.inputs.target == 'all' }}
@@ -113,10 +113,10 @@ jobs:
               - '.github/workflows/**'
 
   # ============================================================================
-  # 2. VALIDATION & QUALITY CHECKS
+  # 2. VALIDATION AND QUALITY CHECKS
   # ============================================================================
   validate:
-    name: 🧪 Quality & Typecheck
+    name: Quality and Typecheck
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -154,10 +154,10 @@ jobs:
         run: pnpm turbo run build
 
   # ============================================================================
-  # 3. BACKEND: DOCKER BUILD ➔ GHCR ➔ AWS EC2 SSM
+  # 3. BACKEND: DOCKER BUILD -> GHCR -> AWS EC2 SSM
   # ============================================================================
   deploy-backend:
-    name: 🐳 Backend (GHCR & AWS EC2)
+    name: Backend (GHCR and AWS EC2)
     needs: [detect-changes, validate]
     if: |
       always() && 
@@ -191,7 +191,7 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
 
-      - name: Build & Push Backend Docker Image to GHCR
+      - name: Build and Push Backend Docker Image to GHCR
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -273,10 +273,10 @@ jobs:
           fi
 
   # ============================================================================
-  # 4. USER APP: DOCKER BUILD ➔ GHCR & CLOUDFLARE PAGES
+  # 4. USER APP: DOCKER BUILD -> GHCR AND CLOUDFLARE PAGES
   # ============================================================================
   deploy-user-app:
-    name: ⚡ User App (GHCR & Cloudflare)
+    name: User App (GHCR and Cloudflare)
     needs: [detect-changes, validate]
     if: |
       always() && 
@@ -309,7 +309,7 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
 
-      - name: Build & Push User App Docker Image to GHCR
+      - name: Build and Push User App Docker Image to GHCR
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -362,10 +362,10 @@ jobs:
           pnpm exec wrangler pages deploy apps/user-app/web/.next --project-name=lokaya-user-app --branch=${{ github.ref_name }}
 
   # ============================================================================
-  # 5. ADMIN APP: DOCKER BUILD ➔ GHCR & CLOUDFLARE PAGES
+  # 5. ADMIN APP: DOCKER BUILD -> GHCR AND CLOUDFLARE PAGES
   # ============================================================================
   deploy-admin-app:
-    name: 🛡️ Admin App (GHCR & Cloudflare)
+    name: Admin App (GHCR and Cloudflare)
     needs: [detect-changes, validate]
     if: |
       always() && 
@@ -398,7 +398,7 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
 
-      - name: Build & Push Admin App Docker Image to GHCR
+      - name: Build and Push Admin App Docker Image to GHCR
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -445,23 +445,23 @@ jobs:
           pnpm exec wrangler pages deploy apps/admin-web/.next --project-name=lokaya-admin-app --branch=${{ github.ref_name }}
 
   # ============================================================================
-  # 6. PIPELINE SUMMARY & REGISTRY REPORT
+  # 6. PIPELINE SUMMARY AND REGISTRY REPORT
   # ============================================================================
   summary:
-    name: 📊 Pipeline Summary & Registry Report
+    name: Pipeline Summary and Registry Report
     needs: [validate, deploy-backend, deploy-user-app, deploy-admin-app]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Generate Summary Report
         run: |
-          echo "## 🚀 Lokaya Centralized CI/CD & Docker Registry Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Lokaya Centralized CI/CD and Docker Registry Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Published Docker Images (GHCR)" >> $GITHUB_STEP_SUMMARY
+          echo "### Published Docker Images (GHCR)" >> $GITHUB_STEP_SUMMARY
           echo "| Service | GHCR Image Tag | Target Platform | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
           echo "| **Backend API** | \`ghcr.io/${{ github.repository_owner }}/lokaya-backend:latest\` | AWS EC2 (Docker/SSM) | ${{ needs.deploy-backend.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **User App** | \`ghcr.io/${{ github.repository_owner }}/lokaya-user-app:latest\` | GHCR & Cloudflare Pages | ${{ needs.deploy-user-app.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Admin App** | \`ghcr.io/${{ github.repository_owner }}/lokaya-admin-web:latest\` | GHCR & Cloudflare Pages | ${{ needs.deploy-admin-app.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **User App** | \`ghcr.io/${{ github.repository_owner }}/lokaya-user-app:latest\` | GHCR and Cloudflare Pages | ${{ needs.deploy-user-app.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Admin App** | \`ghcr.io/${{ github.repository_owner }}/lokaya-admin-web:latest\` | GHCR and Cloudflare Pages | ${{ needs.deploy-admin-app.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🎉 **Deployment Run ID:** \`${{ github.run_id }}\` triggered by \`${{ github.actor }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Run ID:** \`${{ github.run_id }}\` triggered by \`${{ github.actor }}\`" >> $GITHUB_STEP_SUMMARY
