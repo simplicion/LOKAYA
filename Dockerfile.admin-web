@@ -1,0 +1,84 @@
+# ==============================================================================
+# 🛡️ Lokaya Admin Web Portal - Production Multi-Stage Dockerfile
+# ==============================================================================
+FROM node:20-bookworm-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+FROM base AS builder
+WORKDIR /app
+
+# Install build essentials and OpenSSL for Prisma client generation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 1. Copy workspace manifests first for optimal layer caching
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
+COPY packages/db/package.json ./packages/db/
+COPY packages/common/package.json ./packages/common/
+COPY packages/typescript-config/package.json ./packages/typescript-config/
+COPY packages/ui/package.json ./packages/ui/
+COPY apps/admin-web/package.json ./apps/admin-web/
+
+# 2. Install workspace dependencies
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# 3. Copy packages and generate Prisma client
+COPY packages/db ./packages/db
+COPY packages/common ./packages/common
+COPY packages/typescript-config ./packages/typescript-config
+COPY packages/ui ./packages/ui
+RUN pnpm --filter @workspace/db run generate
+
+# 4. Copy Admin Web App source code
+COPY apps/admin-web ./apps/admin-web
+
+# 5. Build arguments for frontend configuration
+ARG NEXT_PUBLIC_API_URL="https://api.lokaya.com/api/v1"
+ARG NEXT_PUBLIC_SOCKET_URL="https://api.lokaya.com"
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+# 6. Build the standalone Next.js application
+RUN pnpm --filter admin-web build
+
+# ==============================================================================
+# Production Runner Stage (Minimal & Secure Non-Root Container)
+# ==============================================================================
+FROM node:20-bookworm-slim AS runner
+WORKDIR /app
+
+# Install curl for container health checks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create unprivileged runtime user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Copy public static assets and standalone bundle
+COPY --from=builder /app/apps/admin-web/public ./apps/admin-web/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/admin-web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/admin-web/.next/static ./apps/admin-web/.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:3000/ || exit 1
+
+CMD ["node", "apps/admin-web/server.js"]

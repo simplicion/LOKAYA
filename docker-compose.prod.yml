@@ -1,0 +1,70 @@
+# ==============================================================================
+# 🚀 Lokaya Unified Production Docker Compose Stack
+# ==============================================================================
+# Usage:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+# ==============================================================================
+services:
+  backend:
+    image: ghcr.io/prince364133/lokaya-backend:latest
+    container_name: lokaya-backend
+    restart: unless-stopped
+    ports:
+      - "4002:4002"
+    env_file:
+      - /opt/lokaya/.env
+    networks:
+      - lokaya-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4002/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  user-app:
+    image: ghcr.io/prince364133/lokaya-user-app:latest
+    container_name: lokaya-user-app
+    restart: unless-stopped
+    ports:
+      - "3101:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - lokaya-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  admin-web:
+    image: ghcr.io/prince364133/lokaya-admin-web:latest
+    container_name: lokaya-admin-web
+    restart: unless-stopped
+    ports:
+      - "3102:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - lokaya-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  lokaya-net:
+    driver: bridge

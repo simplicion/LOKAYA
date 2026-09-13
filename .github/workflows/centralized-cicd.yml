@@ -1,4 +1,4 @@
-name: 🚀 Centralized CI/CD Pipeline (AWS & Cloudflare)
+name: 🚀 Centralized CI/CD Pipeline (AWS, GHCR & Cloudflare)
 
 on:
   push:
@@ -7,8 +7,10 @@ on:
     paths:
       - 'apps/**'
       - 'packages/**'
-      - 'Dockerfile.backend'
+      - 'Dockerfile*'
+      - 'docker-compose*'
       - 'docker-entrypoint.sh'
+      - '.dockerignore'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'turbo.json'
@@ -19,7 +21,8 @@ on:
     paths:
       - 'apps/**'
       - 'packages/**'
-      - 'Dockerfile.backend'
+      - 'Dockerfile*'
+      - 'docker-compose*'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'turbo.json'
@@ -52,7 +55,9 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/lokaya-backend
+  BACKEND_IMAGE_NAME: ${{ github.repository_owner }}/lokaya-backend
+  USER_APP_IMAGE_NAME: ${{ github.repository_owner }}/lokaya-user-app
+  ADMIN_APP_IMAGE_NAME: ${{ github.repository_owner }}/lokaya-admin-web
   AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
   EC2_INSTANCE_ID: ${{ secrets.AWS_EC2_INSTANCE_ID || 'i-0a1b4f249d8a965c6' }}
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -83,18 +88,26 @@ jobs:
               - 'packages/**'
               - 'Dockerfile.backend'
               - 'docker-entrypoint.sh'
+              - 'docker-compose*'
+              - '.dockerignore'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - '.github/workflows/**'
             user_app:
               - 'apps/user-app/**'
               - 'packages/**'
+              - 'Dockerfile.user-app'
+              - 'docker-compose*'
+              - '.dockerignore'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - '.github/workflows/**'
             admin_app:
               - 'apps/admin-web/**'
               - 'packages/**'
+              - 'Dockerfile.admin-web'
+              - 'docker-compose*'
+              - '.dockerignore'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - '.github/workflows/**'
@@ -141,10 +154,10 @@ jobs:
         run: pnpm turbo run build
 
   # ============================================================================
-  # 3. BACKEND DEPLOYMENT TO AWS (EC2 / SSM)
+  # 3. BACKEND: DOCKER BUILD ➔ GHCR ➔ AWS EC2 SSM
   # ============================================================================
   deploy-backend:
-    name: 🐳 Deploy Backend ➔ AWS EC2
+    name: 🐳 Backend (GHCR & AWS EC2)
     needs: [detect-changes, validate]
     if: |
       always() && 
@@ -167,7 +180,7 @@ jobs:
 
       - name: Normalize Image Name
         run: |
-          echo "IMAGE_LOWER=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[A-Z]' '[a-z]')" >> $GITHUB_ENV
+          echo "IMAGE_LOWER=$(echo '${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}' | tr '[A-Z]' '[a-z]')" >> $GITHUB_ENV
 
       - name: Extract Docker Metadata
         id: meta
@@ -178,7 +191,7 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
 
-      - name: Build & Push Docker Image
+      - name: Build & Push Backend Docker Image to GHCR
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -260,10 +273,10 @@ jobs:
           fi
 
   # ============================================================================
-  # 4. USER APP DEPLOYMENT TO CLOUDFLARE PAGES
+  # 4. USER APP: DOCKER BUILD ➔ GHCR & CLOUDFLARE PAGES
   # ============================================================================
   deploy-user-app:
-    name: ⚡ Deploy User App ➔ Cloudflare Pages
+    name: ⚡ User App (GHCR & Cloudflare)
     needs: [detect-changes, validate]
     if: |
       always() && 
@@ -273,7 +286,47 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalize Image Name
+        run: |
+          echo "IMAGE_LOWER=$(echo '${{ env.REGISTRY }}/${{ env.USER_APP_IMAGE_NAME }}' | tr '[A-Z]' '[a-z]')" >> $GITHUB_ENV
+
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_LOWER }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: Build & Push User App Docker Image to GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.user-app
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.com/api/v1' }}
+            NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.com' }}
+            NEXT_PUBLIC_CDN_DOMAIN=${{ secrets.NEXT_PUBLIC_CDN_DOMAIN || 'https://cdn.lokaya.com' }}
+            NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+            NEXT_PUBLIC_RAZORPAY_KEY_ID=${{ secrets.NEXT_PUBLIC_RAZORPAY_KEY_ID }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Setup Node.js 20 for Cloudflare Pages
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -281,13 +334,13 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Install Dependencies
+      - name: Install Dependencies for Cloudflare Pages
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client
         run: pnpm turbo run generate
 
-      - name: Build User Web App
+      - name: Build User Web App for Cloudflare
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.com/api/v1' }}
           NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.com' }}
@@ -309,10 +362,10 @@ jobs:
           pnpm exec wrangler pages deploy apps/user-app/web/.next --project-name=lokaya-user-app --branch=${{ github.ref_name }}
 
   # ============================================================================
-  # 5. ADMIN APP DEPLOYMENT TO CLOUDFLARE PAGES
+  # 5. ADMIN APP: DOCKER BUILD ➔ GHCR & CLOUDFLARE PAGES
   # ============================================================================
   deploy-admin-app:
-    name: 🛡️ Deploy Admin App ➔ Cloudflare Pages
+    name: 🛡️ Admin App (GHCR & Cloudflare)
     needs: [detect-changes, validate]
     if: |
       always() && 
@@ -322,7 +375,44 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalize Image Name
+        run: |
+          echo "IMAGE_LOWER=$(echo '${{ env.REGISTRY }}/${{ env.ADMIN_APP_IMAGE_NAME }}' | tr '[A-Z]' '[a-z]')" >> $GITHUB_ENV
+
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_LOWER }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: Build & Push Admin App Docker Image to GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.admin-web
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.com/api/v1' }}
+            NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.com' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Setup Node.js 20 for Cloudflare Pages
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -330,13 +420,13 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Install Dependencies
+      - name: Install Dependencies for Cloudflare Pages
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client
         run: pnpm turbo run generate
 
-      - name: Build Admin Web App
+      - name: Build Admin Web App for Cloudflare
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.com/api/v1' }}
           NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.com' }}
@@ -355,22 +445,23 @@ jobs:
           pnpm exec wrangler pages deploy apps/admin-web/.next --project-name=lokaya-admin-app --branch=${{ github.ref_name }}
 
   # ============================================================================
-  # 6. PIPELINE SUMMARY & REPORT
+  # 6. PIPELINE SUMMARY & REGISTRY REPORT
   # ============================================================================
   summary:
-    name: 📊 Pipeline Summary
+    name: 📊 Pipeline Summary & Registry Report
     needs: [validate, deploy-backend, deploy-user-app, deploy-admin-app]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Generate Summary Report
         run: |
-          echo "## 🚀 Lokaya Centralized CI/CD Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Service | Target Platform | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Quality & Validation** | Monorepo Turbo | ${{ needs.validate.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Backend API** | AWS EC2 (Docker/SSM) | ${{ needs.deploy-backend.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **User App** | Cloudflare Pages (\`lokaya-user-app\`) | ${{ needs.deploy-user-app.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Admin App** | Cloudflare Pages (\`lokaya-admin-app\`) | ${{ needs.deploy-admin-app.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Lokaya Centralized CI/CD & Docker Registry Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🎉 **Deployment Run ID:** \`${{ github.run_id }}\` by \`${{ github.actor }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Published Docker Images (GHCR)" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | GHCR Image Tag | Target Platform | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Backend API** | \`ghcr.io/${{ github.repository_owner }}/lokaya-backend:latest\` | AWS EC2 (Docker/SSM) | ${{ needs.deploy-backend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **User App** | \`ghcr.io/${{ github.repository_owner }}/lokaya-user-app:latest\` | GHCR & Cloudflare Pages | ${{ needs.deploy-user-app.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Admin App** | \`ghcr.io/${{ github.repository_owner }}/lokaya-admin-web:latest\` | GHCR & Cloudflare Pages | ${{ needs.deploy-admin-app.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎉 **Deployment Run ID:** \`${{ github.run_id }}\` triggered by \`${{ github.actor }}\`" >> $GITHUB_STEP_SUMMARY

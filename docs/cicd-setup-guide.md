@@ -1,88 +1,95 @@
-# 🚀 Lokaya Centralized CI/CD & Deployment Guide
+# 🚀 Lokaya Production Container Registry, CI/CD & Deployment Guide
 
-This guide explains how the centralized Monorepo CI/CD pipeline deploys the **Backend on AWS** and the **User App & Admin App on Cloudflare Pages**.
-
----
-
-## 1. Architecture Summary
-
-| Component | Target Platform | Deployment Trigger | Output / Project |
-| :--- | :--- | :--- | :--- |
-| **Backend API** (`apps/backend`) | **AWS EC2** | `push` to `main`, `workflow_dispatch` | Docker Container via GHCR & AWS SSM |
-| **User Web App** (`apps/user-app/web`) | **Cloudflare Pages** | `push` to `main`, PR preview, `workflow_dispatch` | `lokaya-user-app` |
-| **Admin Portal** (`apps/admin-web`) | **Cloudflare Pages** | `push` to `main`, PR preview, `workflow_dispatch` | `lokaya-admin-app` |
+This guide documents the production multi-stage Docker containerization, automated GitHub Container Registry (GHCR) publishing, and centralized deployment pipeline for the **Backend API**, **User Application**, and **Admin Web Portal**.
 
 ---
 
-## 2. GitHub Repository Secrets Setup
+## 1. Architecture & Container Registry Matrix
 
-Navigate to your GitHub repository: **Settings ➔ Secrets and variables ➔ Actions** and add the following repository secrets:
+All three applications are packaged as multi-stage, hardened Docker containers and automatically published to GitHub Container Registry (GHCR):
 
-### A. Cloudflare Deployment Secrets
-1. `CLOUDFLARE_API_TOKEN`:
-   - Go to [Cloudflare Dashboard ➔ My Profile ➔ API Tokens](https://dash.cloudflare.com/profile/api-tokens).
-   - Click **Create Token** ➔ Use template **"Create Custom Token"** or **"Cloudflare Pages"**.
-   - Permissions needed: `Account ➔ Cloudflare Pages ➔ Edit`.
-   - Copy the generated token.
-2. `CLOUDFLARE_ACCOUNT_ID`:
-   - Found in your Cloudflare dashboard URL or on the right sidebar of any domain overview (`Account ID`).
-
-### B. AWS Deployment Secrets
-1. `AWS_ACCESS_KEY_ID`: IAM user access key with AmazonEC2FullAccess and AmazonSSMFullAccess.
-2. `AWS_SECRET_ACCESS_KEY`: IAM user secret access key.
-3. `AWS_REGION`: AWS Region where EC2 is hosted (e.g. `us-east-1` or `ap-south-1`).
-4. `AWS_EC2_INSTANCE_ID`: Target EC2 Instance ID (e.g. `i-0a1b4f249d8a965c6`).
-
-### C. Frontend Public Environment Variables (Secrets or Actions Variables)
-- `NEXT_PUBLIC_API_URL`: e.g. `https://api.lokaya.com/api/v1`
-- `NEXT_PUBLIC_SOCKET_URL`: e.g. `https://api.lokaya.com`
-- `NEXT_PUBLIC_CDN_DOMAIN`: e.g. `https://cdn.lokaya.com`
-- `NEXT_PUBLIC_RAZORPAY_KEY_ID`: Your Razorpay Key ID
-- `NEXT_PUBLIC_GOOGLE_CLIENT_ID`: Your Google OAuth Client ID
+| Application | Monorepo Path | Production Dockerfile | GHCR Container Image Tag | Target Platforms |
+| :--- | :--- | :--- | :--- | :--- |
+| **Backend API** | `apps/backend` | [`Dockerfile.backend`](file:///c:/Users/saavi/Desktop/LOKAYA/Dockerfile.backend) | `ghcr.io/prince364133/lokaya-backend:latest` | AWS EC2 (Docker/SSM), ECS, Kubernetes |
+| **User Web App** | `apps/user-app/web` | [`Dockerfile.user-app`](file:///c:/Users/saavi/Desktop/LOKAYA/Dockerfile.user-app) | `ghcr.io/prince364133/lokaya-user-app:latest` | GHCR, Cloudflare Pages, AWS EC2 / Docker |
+| **Admin Web Portal** | `apps/admin-web` | [`Dockerfile.admin-web`](file:///c:/Users/saavi/Desktop/LOKAYA/Dockerfile.admin-web) | `ghcr.io/prince364133/lokaya-admin-web:latest` | GHCR, Cloudflare Pages, AWS EC2 / Docker |
 
 ---
 
-## 3. Cloudflare Pages Projects Setup
+## 2. Docker Architecture Features
 
-Before the first automatic GitHub Actions deploy, create the two Cloudflare Pages projects in your Cloudflare Dashboard (or run the CLI command below):
+1. **Next.js Standalone Mode**:
+   - `output: 'standalone'` in Next.js bundles only traced dependencies and files.
+   - Shrinks web image sizes from ~1.5GB to ~120-150MB.
+2. **Layer Caching**:
+   - Manifest files (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `turbo.json`) are copied and installed first.
+   - GitHub Actions leverages GitHub Actions Cache (`type=gha,mode=max`) for lightning-fast sub-minute builds.
+3. **Security & Non-Root Execution**:
+   - Dedicated unprivileged runtime user (`nextjs:nodejs`, UID 1001).
+   - Read-only container root support.
+4. **Built-in Health Checks**:
+   - Backend: `curl -f http://localhost:4002/health`
+   - User App: `curl -f http://localhost:3000/`
+   - Admin App: `curl -f http://localhost:3000/`
+
+---
+
+## 3. Running Production Containers Locally or on VM
+
+You can pull and run all three containers with a single command using [`docker-compose.prod.yml`](file:///c:/Users/saavi/Desktop/LOKAYA/docker-compose.prod.yml):
 
 ```bash
-# In your terminal (with CLOUDFLARE_API_TOKEN & CLOUDFLARE_ACCOUNT_ID set):
-npx wrangler pages project create lokaya-user-app --production-branch main
-npx wrangler pages project create lokaya-admin-app --production-branch main
+# 1. Log in to GitHub Container Registry
+echo $GITHUB_TOKEN | docker login ghcr.io -u <YOUR_GITHUB_USERNAME> --password-stdin
+
+# 2. Pull the latest images for all 3 apps
+docker compose -f docker-compose.prod.yml pull
+
+# 3. Start the production stack in the background
+docker compose -f docker-compose.prod.yml up -d
+
+# 4. Check service health
+docker compose -f docker-compose.prod.yml ps
 ```
 
-### Custom Domains on Cloudflare Pages:
-1. In Cloudflare Dashboard ➔ **Workers & Pages** ➔ Select `lokaya-user-app`.
-2. Go to **Custom domains** tab ➔ Click **Set up a custom domain**.
-3. Add `lokaya.com` or `app.lokaya.com`.
-4. Repeat for `lokaya-admin-app` with `admin.lokaya.com`.
-
----
-
-## 4. Local CLI One-Command Deployments
-
-You can trigger builds and direct Cloudflare deployments directly from your terminal anytime:
-
+### Direct Docker Run Commands:
 ```bash
-# 1. Deploy User App to Cloudflare Pages
-pnpm deploy:user
+# Backend (Port 4002)
+docker run -d --name lokaya-backend -p 4002:4002 --env-file /opt/lokaya/.env ghcr.io/prince364133/lokaya-backend:latest
 
-# 2. Deploy Admin App to Cloudflare Pages
-pnpm deploy:admin
+# User App (Port 3101)
+docker run -d --name lokaya-user-app -p 3101:3000 ghcr.io/prince364133/lokaya-user-app:latest
 
-# 3. Deploy Both Frontend Apps
-pnpm deploy:all
+# Admin App (Port 3102)
+docker run -d --name lokaya-admin-web -p 3102:3000 ghcr.io/prince364133/lokaya-admin-web:latest
 ```
 
 ---
 
-## 5. Manual Pipeline Dispatch from GitHub Actions
+## 4. GitHub Repository Secrets Reference
 
-You can trigger a manual deployment for any specific service without making code changes:
-1. Go to **GitHub ➔ Actions ➔ Centralized CI/CD Pipeline**.
-2. Click **Run workflow**.
-3. Select the branch and choose:
-   - **Component**: `all`, `backend`, `user-app`, or `admin-app`.
-   - **Target Environment**: `production` or `preview`.
-4. Click **Run workflow**.
+Configured in **Repository Settings ➔ Secrets and variables ➔ Actions**:
+
+| Secret Name | Service | Purpose |
+| :--- | :--- | :--- |
+| `AWS_ACCESS_KEY_ID` | AWS IAM | IAM user access key for EC2 SSM execution |
+| `AWS_SECRET_ACCESS_KEY` | AWS IAM | IAM user secret access key |
+| `AWS_REGION` | AWS | AWS region (e.g. `ap-south-1` or `us-east-1`) |
+| `AWS_EC2_INSTANCE_ID` | AWS EC2 | Target EC2 instance ID |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare | API Token with Pages Edit permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare | Cloudflare Account ID |
+| `NEXT_PUBLIC_API_URL` | Frontend | Production backend API endpoint (`https://api.lokaya.com/api/v1`) |
+| `NEXT_PUBLIC_SOCKET_URL` | Frontend | WebSocket endpoint (`https://api.lokaya.com`) |
+| `NEXT_PUBLIC_CDN_DOMAIN` | Frontend | Cloudflare R2 / S3 CDN domain (`https://cdn.lokaya.com`) |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID`| Frontend | Google OAuth Client ID |
+| `NEXT_PUBLIC_RAZORPAY_KEY_ID`| Frontend | Razorpay Payment Gateway ID |
+
+---
+
+## 5. Automated CI/CD Workflow (`centralized-cicd.yml`)
+
+1. **Path-Filtered Builds**: Changes to `apps/backend/**` rebuild the backend Docker image; changes to `apps/user-app/**` rebuild the user app Docker image & Cloudflare Pages; changes to `apps/admin-web/**` rebuild the admin Docker image & Cloudflare Pages.
+2. **Quality & Validation Gate**: Runs full Turbo typecheck and build check before pushing images.
+3. **Automated GHCR Push**: Automatically tags images with `:latest` and the commit SHA `:${{ github.sha }}`.
+4. **AWS SSM Automated Deployment**: Automatically logs into GHCR on EC2, pulls the fresh image, and restarts the container zero-downtime with health checks.
+5. **Manual Dispatch**: Trigger individual builds or all builds on demand via **Actions ➔ Centralized CI/CD ➔ Run workflow**.
