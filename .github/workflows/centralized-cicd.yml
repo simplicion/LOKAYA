@@ -62,6 +62,8 @@ env:
   EC2_INSTANCE_ID: ${{ secrets.AWS_EC2_INSTANCE_ID || 'i-0a1b4f249d8a965c6' }}
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+  CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
 
 jobs:
   # ============================================================================
@@ -353,10 +355,12 @@ jobs:
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::warning ::CLOUDFLARE_API_TOKEN secret is not configured in GitHub Secrets. Skipping Cloudflare Pages upload."
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] && [ -z "$CLOUDFLARE_API_KEY" ]; then
+            echo "::warning ::Neither CLOUDFLARE_API_TOKEN nor CLOUDFLARE_API_KEY is configured in GitHub Secrets. Skipping Cloudflare Pages upload."
             exit 0
           fi
           pnpm exec wrangler pages deploy apps/user-app/web/.next --project-name=lokaya-user-app --branch=${{ github.ref_name }}
@@ -436,10 +440,12 @@ jobs:
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::warning ::CLOUDFLARE_API_TOKEN secret is not configured in GitHub Secrets. Skipping Cloudflare Pages upload."
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] && [ -z "$CLOUDFLARE_API_KEY" ]; then
+            echo "::warning ::Neither CLOUDFLARE_API_TOKEN nor CLOUDFLARE_API_KEY is configured in GitHub Secrets. Skipping Cloudflare Pages upload."
             exit 0
           fi
           pnpm exec wrangler pages deploy apps/admin-web/.next --project-name=lokaya-admin-app --branch=${{ github.ref_name }}
