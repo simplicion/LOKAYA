@@ -26,7 +26,7 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
 
     if (allowedRoles && !allowedRoles.includes(user.role)) {
       // Try to self-heal stale roles by forcing a refresh check
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4101/api/v1';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
       fetch(`${apiUrl}/identity/me`, {
         method: 'GET',
         credentials: 'include'
