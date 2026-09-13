@@ -56,6 +56,9 @@ importers:
       redux-persist:
         specifier: ^6.0.0
         version: 6.0.0(react@19.2.4)(redux@5.0.1)
+      shadcn:
+        specifier: ^4.13.0
+        version: 4.13.0(typescript@5.9.3)
       socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
@@ -11523,7 +11526,7 @@ snapshots:
       tailwind-merge: 3.6.0
       ts-morph: 26.0.0
       tsconfig-paths: 4.2.0
-      undici: 7.28.0
+      undici: 7.29.0
       validate-npm-package-name: 7.0.2
       zod: 3.25.76
       zod-to-json-schema: 3.25.2(zod@3.25.76)
