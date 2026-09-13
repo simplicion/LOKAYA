@@ -2,6 +2,6 @@ export function generateStaticParams() {
   return [{ id: '1' }, { id: '2' }, { id: '3' }];
 }
 
-export default function OrderLayout({ children }: { children: React.ReactNode }) {
+export default function ProductLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }

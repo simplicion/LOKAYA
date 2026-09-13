@@ -320,9 +320,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.com/api/v1' }}
-            NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.com' }}
-            NEXT_PUBLIC_CDN_DOMAIN=${{ secrets.NEXT_PUBLIC_CDN_DOMAIN || 'https://cdn.lokaya.com' }}
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.shop/api/v1' }}
+            NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.shop' }}
+            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL || 'https://api.lokaya.shop' }}
+            NEXT_PUBLIC_CDN_DOMAIN=${{ secrets.NEXT_PUBLIC_CDN_DOMAIN || 'https://7158d01d5e0dd9e7f5be050ed3717b14.r2.cloudflarestorage.com/lokaya-cdn' }}
             NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
             NEXT_PUBLIC_RAZORPAY_KEY_ID=${{ secrets.NEXT_PUBLIC_RAZORPAY_KEY_ID }}
           cache-from: type=gha
@@ -342,11 +343,13 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm turbo run generate
 
-      - name: Build User Web App for Cloudflare
+      - name: Build User Web App Static Export for Cloudflare
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.com/api/v1' }}
-          NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.com' }}
-          NEXT_PUBLIC_CDN_DOMAIN: ${{ secrets.NEXT_PUBLIC_CDN_DOMAIN || 'https://cdn.lokaya.com' }}
+          NEXT_OUTPUT: export
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.shop/api/v1' }}
+          NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.shop' }}
+          NEXT_PUBLIC_BACKEND_URL: ${{ secrets.NEXT_PUBLIC_BACKEND_URL || 'https://api.lokaya.shop' }}
+          NEXT_PUBLIC_CDN_DOMAIN: ${{ secrets.NEXT_PUBLIC_CDN_DOMAIN || 'https://7158d01d5e0dd9e7f5be050ed3717b14.r2.cloudflarestorage.com/lokaya-cdn' }}
           NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
           NEXT_PUBLIC_RAZORPAY_KEY_ID: ${{ secrets.NEXT_PUBLIC_RAZORPAY_KEY_ID }}
         run: |
@@ -363,7 +366,7 @@ jobs:
             echo "::warning ::Neither CLOUDFLARE_API_TOKEN nor CLOUDFLARE_API_KEY is configured in GitHub Secrets. Skipping Cloudflare Pages upload."
             exit 0
           fi
-          pnpm exec wrangler pages deploy apps/user-app/web/.next --project-name=lokaya-user-app --branch=${{ github.ref_name }}
+          pnpm exec wrangler pages deploy apps/user-app/web/out --project-name=lokaya-user-app --branch=${{ github.ref_name }}
 
   # ============================================================================
   # 5. ADMIN APP: DOCKER BUILD -> GHCR AND CLOUDFLARE PAGES
@@ -411,8 +414,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.com/api/v1' }}
-            NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.com' }}
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.shop/api/v1' }}
+            NEXT_PUBLIC_SOCKET_URL=${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.shop' }}
+            NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL || 'https://api.lokaya.shop' }}
+            NEXT_PUBLIC_CDN_DOMAIN=${{ secrets.NEXT_PUBLIC_CDN_DOMAIN || 'https://7158d01d5e0dd9e7f5be050ed3717b14.r2.cloudflarestorage.com/lokaya-cdn' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -430,10 +435,13 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm turbo run generate
 
-      - name: Build Admin Web App for Cloudflare
+      - name: Build Admin Web App Static Export for Cloudflare
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.com/api/v1' }}
-          NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.com' }}
+          NEXT_OUTPUT: export
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.shop/api/v1' }}
+          NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.shop' }}
+          NEXT_PUBLIC_BACKEND_URL: ${{ secrets.NEXT_PUBLIC_BACKEND_URL || 'https://api.lokaya.shop' }}
+          NEXT_PUBLIC_CDN_DOMAIN: ${{ secrets.NEXT_PUBLIC_CDN_DOMAIN || 'https://7158d01d5e0dd9e7f5be050ed3717b14.r2.cloudflarestorage.com/lokaya-cdn' }}
         run: |
           pnpm --filter admin-web build
 
@@ -448,7 +456,7 @@ jobs:
             echo "::warning ::Neither CLOUDFLARE_API_TOKEN nor CLOUDFLARE_API_KEY is configured in GitHub Secrets. Skipping Cloudflare Pages upload."
             exit 0
           fi
-          pnpm exec wrangler pages deploy apps/admin-web/.next --project-name=lokaya-admin-app --branch=${{ github.ref_name }}
+          pnpm exec wrangler pages deploy apps/admin-web/out --project-name=lokaya-admin-app --branch=${{ github.ref_name }}
 
   # ============================================================================
   # 6. PIPELINE SUMMARY AND REGISTRY REPORT
