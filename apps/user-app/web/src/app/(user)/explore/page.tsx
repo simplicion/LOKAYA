@@ -15,6 +15,7 @@ import {
   Check
 } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
+import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 import { useGetBannersQuery, useGetPublicProductsQuery } from '@/lib/api';
 import { cn, getMediaUrl } from '@/lib/utils';
 
@@ -229,16 +230,7 @@ export default function ExplorePage() {
       <div className="px-2 py-3">
         {/* Loading Skeleton */}
         {isProductsLoading && (
-          <div className="grid grid-cols-2 gap-2">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-2 flex flex-col gap-2.5 animate-pulse">
-                <div className="w-full aspect-[4/5] bg-gray-100 rounded-xl" />
-                <div className="w-3/4 h-3.5 bg-gray-200 rounded" />
-                <div className="w-1/2 h-3 bg-gray-100 rounded" />
-                <div className="w-full h-8 bg-gray-100 rounded-xl mt-1" />
-              </div>
-            ))}
-          </div>
+          <AdaptiveSkeleton variant="product-grid" count={6} />
         )}
 
         {/* Real Products */}

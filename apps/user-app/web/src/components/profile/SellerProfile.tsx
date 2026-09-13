@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useDispatch } from 'react-redux';
-import { Grid, PlaySquare, MapPin, Plus, CheckCircle2, Camera, Loader2 } from 'lucide-react';
+import { Grid, PlaySquare, MapPin, Plus, CheckCircle2, Loader2 } from 'lucide-react';
 import { 
   useGetStoreHighlightsQuery, 
   useGetStorePostsQuery, 
@@ -195,9 +195,7 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
               className="hidden" 
             />
             <div 
-              onClick={() => avatarInputRef.current?.click()}
-              className="w-20 h-20 rounded-full overflow-hidden bg-white border-2 border-gray-200 p-0.5 shadow-sm shrink-0 cursor-pointer relative"
-              title="Change Profile Picture"
+              className="w-20 h-20 rounded-full overflow-hidden bg-white border-2 border-gray-200 p-0.5 shadow-sm shrink-0 relative"
             >
               {resolvedAvatar ? (
                 <img 
@@ -218,17 +216,6 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
                 </div>
               )}
             </div>
-
-            {/* Camera badge button anchored on avatar */}
-            <button 
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              disabled={isUploadingAvatar}
-              className="absolute bottom-0 right-0 bg-[#FF5A36] text-white p-1.5 rounded-full shadow-md border-2 border-white hover:opacity-90 active:scale-95 transition-all z-10"
-              title="Change Profile Picture"
-            >
-              <Camera className="w-3 h-3" />
-            </button>
           </div>
           
           <div className="flex gap-6 pr-4">

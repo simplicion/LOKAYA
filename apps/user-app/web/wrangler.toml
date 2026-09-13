@@ -1,0 +1,7 @@
+name = "lokaya-user-app"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".next"
+
+[vars]
+NEXT_PUBLIC_APP_NAME = "Lokaya"

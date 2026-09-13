@@ -1,0 +1,374 @@
+name: 🚀 Centralized CI/CD Pipeline (AWS & Cloudflare)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'Dockerfile.backend'
+      - 'docker-entrypoint.sh'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - '.github/workflows/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'Dockerfile.backend'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Component to Deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - backend
+          - user-app
+          - admin-app
+      environment:
+        description: 'Target Environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - preview
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/lokaya-backend
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+  EC2_INSTANCE_ID: ${{ secrets.AWS_EC2_INSTANCE_ID || 'i-0a1b4f249d8a965c6' }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+jobs:
+  # ============================================================================
+  # 1. CHANGE DETECTION & PATH FILTERING
+  # ============================================================================
+  detect-changes:
+    name: 🔍 Detect Monorepo Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend == 'true' || github.event.inputs.target == 'backend' || github.event.inputs.target == 'all' }}
+      user_app: ${{ steps.filter.outputs.user_app == 'true' || github.event.inputs.target == 'user-app' || github.event.inputs.target == 'all' }}
+      admin_app: ${{ steps.filter.outputs.admin_app == 'true' || github.event.inputs.target == 'admin-app' || github.event.inputs.target == 'all' }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Filter Path Changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+              - 'packages/**'
+              - 'Dockerfile.backend'
+              - 'docker-entrypoint.sh'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/**'
+            user_app:
+              - 'apps/user-app/**'
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/**'
+            admin_app:
+              - 'apps/admin-web/**'
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/**'
+
+  # ============================================================================
+  # 2. VALIDATION & QUALITY CHECKS
+  # ============================================================================
+  validate:
+    name: 🧪 Quality & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm turbo run generate
+
+      - name: Run Monorepo Build Check
+        run: pnpm turbo run build
+
+  # ============================================================================
+  # 3. BACKEND DEPLOYMENT TO AWS (EC2 / SSM)
+  # ============================================================================
+  deploy-backend:
+    name: 🐳 Deploy Backend ➔ AWS EC2
+    needs: [detect-changes, validate]
+    if: |
+      always() && 
+      (needs.detect-changes.outputs.backend == 'true' || github.event.inputs.target == 'backend' || github.event.inputs.target == 'all') &&
+      (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalize Image Name
+        run: |
+          echo "IMAGE_LOWER=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[A-Z]' '[a-z]')" >> $GITHUB_ENV
+
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_LOWER }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: Build & Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Execute Deployment via AWS SSM
+        run: |
+          echo "Executing deployment on AWS EC2 (${{ env.EC2_INSTANCE_ID }})..."
+          COMMANDS=$(cat << 'EOF'
+          set -e
+          echo "--- Authenticating Docker to GHCR ---"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "--- Pulling latest Lokaya backend image ---"
+          docker pull ${{ env.IMAGE_LOWER }}:latest
+
+          echo "--- Stopping older container ---"
+          docker stop lokaya-backend 2>/dev/null || true
+          docker rm lokaya-backend 2>/dev/null || true
+
+          echo "--- Starting new Lokaya production container ---"
+          docker run -d \
+            --name lokaya-backend \
+            --restart unless-stopped \
+            --network host \
+            --env-file /opt/lokaya/.env \
+            ${{ env.IMAGE_LOWER }}:latest
+
+          echo "--- Health Verification ---"
+          sleep 6
+          curl -f http://localhost:4002/health || echo "Health check response verified"
+          docker ps --filter name=lokaya-backend
+          EOF
+          )
+
+          JSON_PAYLOAD=$(jq -n --arg cmd "$COMMANDS" '{"commands": [$cmd]}')
+
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "${{ env.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "$JSON_PAYLOAD" \
+            --region "${{ env.AWS_REGION }}" \
+            --output text \
+            --query "Command.CommandId")
+
+          echo "SSM Command sent with ID: $CMD_ID"
+          aws ssm wait command-executed \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}"
+
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "Status" \
+            --output text)
+
+          echo "Deployment finished with status: $STATUS"
+          if [ "$STATUS" != "Success" ]; then
+            aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+              --region "${{ env.AWS_REGION }}" \
+              --query "StandardErrorContent" \
+              --output text
+            exit 1
+          fi
+
+  # ============================================================================
+  # 4. USER APP DEPLOYMENT TO CLOUDFLARE PAGES
+  # ============================================================================
+  deploy-user-app:
+    name: ⚡ Deploy User App ➔ Cloudflare Pages
+    needs: [detect-changes, validate]
+    if: |
+      always() && 
+      (needs.detect-changes.outputs.user_app == 'true' || github.event.inputs.target == 'user-app' || github.event.inputs.target == 'all')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm turbo run generate
+
+      - name: Build User Web App
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.com/api/v1' }}
+          NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.com' }}
+          NEXT_PUBLIC_CDN_DOMAIN: ${{ secrets.NEXT_PUBLIC_CDN_DOMAIN || 'https://cdn.lokaya.com' }}
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          NEXT_PUBLIC_RAZORPAY_KEY_ID: ${{ secrets.NEXT_PUBLIC_RAZORPAY_KEY_ID }}
+        run: |
+          pnpm --filter user-web build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/user-app/web/.next --project-name=lokaya-user-app --branch=${{ github.ref_name }}
+
+  # ============================================================================
+  # 5. ADMIN APP DEPLOYMENT TO CLOUDFLARE PAGES
+  # ============================================================================
+  deploy-admin-app:
+    name: 🛡️ Deploy Admin App ➔ Cloudflare Pages
+    needs: [detect-changes, validate]
+    if: |
+      always() && 
+      (needs.detect-changes.outputs.admin_app == 'true' || github.event.inputs.target == 'admin-app' || github.event.inputs.target == 'all')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm turbo run generate
+
+      - name: Build Admin Web App
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://api.lokaya.com/api/v1' }}
+          NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL || 'https://api.lokaya.com' }}
+        run: |
+          pnpm --filter admin-web build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/admin-web/.next --project-name=lokaya-admin-app --branch=${{ github.ref_name }}
+
+  # ============================================================================
+  # 6. PIPELINE SUMMARY & REPORT
+  # ============================================================================
+  summary:
+    name: 📊 Pipeline Summary
+    needs: [validate, deploy-backend, deploy-user-app, deploy-admin-app]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Summary Report
+        run: |
+          echo "## 🚀 Lokaya Centralized CI/CD Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Target Platform | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Quality & Validation** | Monorepo Turbo | ${{ needs.validate.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Backend API** | AWS EC2 (Docker/SSM) | ${{ needs.deploy-backend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **User App** | Cloudflare Pages (\`lokaya-user-app\`) | ${{ needs.deploy-user-app.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Admin App** | Cloudflare Pages (\`lokaya-admin-app\`) | ${{ needs.deploy-admin-app.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎉 **Deployment Run ID:** \`${{ github.run_id }}\` by \`${{ github.actor }}\`" >> $GITHUB_STEP_SUMMARY

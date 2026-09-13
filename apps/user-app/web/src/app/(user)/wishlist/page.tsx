@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
+import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 import { useGetWishlistQuery } from '@/lib/api';
 
 export default function WishlistPage() {
@@ -48,16 +49,7 @@ export default function WishlistPage() {
       {/* Product Grid */}
       <div className="px-2 py-3">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-2 flex flex-col gap-2 animate-pulse">
-                <div className="w-full aspect-square bg-gray-100 rounded-xl" />
-                <div className="w-3/4 h-3.5 bg-gray-200 rounded" />
-                <div className="w-1/2 h-3 bg-gray-100 rounded" />
-                <div className="w-full h-8 bg-gray-100 rounded-xl mt-1" />
-              </div>
-            ))}
-          </div>
+          <AdaptiveSkeleton variant="product-grid" count={4} />
         ) : wishlistProducts.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">
             {wishlistProducts.map((product: any) => (

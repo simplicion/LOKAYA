@@ -12,6 +12,8 @@ import {
   useGetStoreCategoriesQuery 
 } from '@/lib/api';
 
+import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
+
 export default function StoreProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const storeId = resolvedParams.id;
@@ -51,21 +53,7 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
 
   // Loading Skeleton State
   if (isStoreLoading) {
-    return (
-      <div className="flex flex-col min-h-screen bg-[#FAF9F6]">
-        {/* Banner Skeleton */}
-        <div className="w-full aspect-[16/9] max-h-56 bg-gray-200 animate-pulse relative" />
-        <div className="p-4 bg-white border-b border-gray-100 flex flex-col gap-3">
-          <div className="w-20 h-20 -mt-12 rounded-full bg-gray-300 border-4 border-white animate-pulse" />
-          <div className="h-6 w-48 bg-gray-200 rounded-md animate-pulse" />
-          <div className="h-4 w-72 bg-gray-100 rounded-md animate-pulse" />
-        </div>
-        <div className="flex items-center justify-center p-12 text-gray-400 gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-[#FF5A36]" />
-          <span className="text-sm font-medium">Loading store catalog...</span>
-        </div>
-      </div>
-    );
+    return <AdaptiveSkeleton variant="store-page" />;
   }
 
   // Not Found / Error State
@@ -113,14 +101,24 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
           {/* Top Floating Navigation Bar */}
           <div className="absolute top-0 left-0 right-0 p-4 pt-safe-offset-4 flex justify-between items-center z-10">
             <button 
-              onClick={() => router.back()} 
-              className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 active:scale-95 transition-all shadow-md"
+              onClick={() => {
+                if (selectedCategoryId) {
+                  setSelectedCategoryId(null);
+                } else if (typeof window !== 'undefined' && window.history.length > 2) {
+                  router.back();
+                } else {
+                  router.push('/home');
+                }
+              }} 
+              className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 active:scale-95 transition-all shadow-md cursor-pointer"
+              aria-label="Back"
             >
               <ArrowLeft className="w-5 h-5" strokeWidth={2.5} />
             </button>
             <button 
               onClick={() => setIsShareOpen(true)}
-              className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 active:scale-95 transition-all shadow-md"
+              className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 active:scale-95 transition-all shadow-md cursor-pointer"
+              aria-label="Share Store"
             >
               <Share2 className="w-5 h-5" strokeWidth={2.5} />
             </button>
@@ -231,14 +229,20 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
               {/* Dynamic Categories */}
               {categories.map((cat: any) => {
                 const catImg = cat.imageUrl || cat.image;
+                const isSelected = selectedCategoryId === cat.id;
 
                 return (
                   <button 
                     key={cat.id} 
-                    onClick={() => router.push(`/store/${storeId}/category/${cat.id}`)}
+                    onClick={() => setSelectedCategoryId(isSelected ? null : cat.id)}
                     className="relative flex flex-col items-center gap-1.5 min-w-[68px] group transition-transform active:scale-95 cursor-pointer"
                   >
-                    <div className="w-14 h-14 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-gray-100 flex items-center justify-center shadow-xs overflow-hidden transition-all group-hover:border-[#FF5A36] group-hover:ring-2 group-hover:ring-[#FF5A36]/15">
+                    <div className={cn(
+                      "w-14 h-14 rounded-2xl border flex items-center justify-center shadow-xs overflow-hidden transition-all",
+                      isSelected
+                        ? "border-[#FF5A36] ring-2 ring-[#FF5A36]/25 bg-orange-50/80"
+                        : "border-gray-100 bg-gray-50 hover:bg-gray-100 group-hover:border-gray-300"
+                    )}>
                       {catImg ? (
                         <img 
                           src={getMediaUrl(catImg)} 
@@ -246,12 +250,18 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
                           className="w-full h-full object-cover" 
                         />
                       ) : (
-                        <span className="text-xs font-bold text-gray-500 uppercase">
+                        <span className={cn(
+                          "text-xs font-bold uppercase",
+                          isSelected ? "text-[#FF5A36]" : "text-gray-500"
+                        )}>
                           {cat.name.slice(0, 2)}
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px] font-medium text-center truncate w-full max-w-[76px] text-gray-600 group-hover:text-[#FF5A36] transition-colors">
+                    <span className={cn(
+                      "text-[11px] font-medium text-center truncate w-full max-w-[76px] transition-colors",
+                      isSelected ? "text-[#FF5A36] font-bold" : "text-gray-600 group-hover:text-[#FF5A36]"
+                    )}>
                       {cat.name}
                     </span>
                   </button>

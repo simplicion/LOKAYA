@@ -7,6 +7,7 @@ import { SocialPost } from '@/components/feed/SocialPost';
 import { useGetPostsQuery } from '@/lib/api';
 import { Sparkles, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
+import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 
 export default function SocialHomePage() {
   const { data: serverPosts, isLoading } = useGetPostsQuery();
@@ -45,25 +46,7 @@ export default function SocialHomePage() {
 
         {/* Loading Skeleton */}
         {isLoading && (
-          <div className="flex flex-col gap-6 px-4 pt-2">
-            {[1, 2].map((i) => (
-              <div key={i} className="w-full bg-white rounded-2xl border border-gray-100 p-4 animate-pulse flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-200" />
-                  <div className="flex flex-col gap-1.5 flex-1">
-                    <div className="w-32 h-3.5 bg-gray-200 rounded" />
-                    <div className="w-20 h-2.5 bg-gray-100 rounded" />
-                  </div>
-                </div>
-                <div className="w-full aspect-[4/5] bg-gray-200 rounded-xl" />
-                <div className="flex gap-4 pt-1">
-                  <div className="w-6 h-6 rounded-full bg-gray-200" />
-                  <div className="w-6 h-6 rounded-full bg-gray-200" />
-                  <div className="w-6 h-6 rounded-full bg-gray-200" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <AdaptiveSkeleton variant="feed-post" count={2} />
         )}
 
         {/* Feed Container */}

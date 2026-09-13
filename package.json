@@ -7,6 +7,9 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "postinstall": "turbo run generate",
+    "deploy:user": "pnpm --filter user-web build && npx wrangler pages deploy apps/user-app/web/.next --project-name=lokaya-user-app",
+    "deploy:admin": "pnpm --filter admin-web build && npx wrangler pages deploy apps/admin-web/.next --project-name=lokaya-admin-app",
+    "deploy:all": "pnpm deploy:user && pnpm deploy:admin",
     "db:start": "powershell -Command \"& 'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_ctl.exe' start -D 'C:\\Users\\saavi\\pgdata' -l 'C:\\Users\\saavi\\pgdata\\logfile.txt'\"",
     "db:stop": "powershell -Command \"& 'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_ctl.exe' stop -D 'C:\\Users\\saavi\\pgdata'\"",
     "db:status": "powershell -Command \"& 'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_ctl.exe' status -D 'C:\\Users\\saavi\\pgdata'\""

@@ -11,10 +11,9 @@ import {
   Store as StoreIcon, 
   CheckCircle2, 
   ChevronDown, 
-  Loader2,
-  Sparkles
+  Loader2
 } from 'lucide-react';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
 import { 
@@ -22,6 +21,7 @@ import {
   useGetStoreProductsQuery, 
   useGetStoreCategoriesQuery 
 } from '@/lib/api';
+import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 
 type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'rating';
 
@@ -61,8 +61,6 @@ export default function StoreCategoryPage({
   }, [categories, categoryId]);
 
   const categoryName = activeCategory?.name || 'Category Products';
-  const categoryDescription = activeCategory?.description;
-  const categoryImage = activeCategory?.imageUrl || activeCategory?.image;
 
   // Filter products by this category
   const categoryProducts = useMemo(() => {
@@ -85,26 +83,16 @@ export default function StoreCategoryPage({
 
   // Loading state
   if (isStoreLoading || isCategoriesLoading || isProductsLoading) {
-    return (
-      <div className="flex flex-col min-h-screen bg-[#FAF9F6]">
-        <div className="h-14 bg-white border-b border-gray-100 flex items-center px-4 gap-3">
-          <div className="w-9 h-9 rounded-full bg-gray-100 animate-pulse" />
-          <div className="h-5 w-40 bg-gray-100 rounded animate-pulse" />
-        </div>
-        <div className="p-4 space-y-4">
-          <div className="w-full h-32 rounded-3xl bg-gray-200 animate-pulse" />
-          <div className="flex gap-2">
-            <div className="w-24 h-9 rounded-xl bg-gray-100 animate-pulse" />
-            <div className="w-24 h-9 rounded-xl bg-gray-100 animate-pulse" />
-          </div>
-          <div className="grid grid-cols-2 gap-2 pt-2">
-            <div className="aspect-[3/4] rounded-2xl bg-gray-100 animate-pulse" />
-            <div className="aspect-[3/4] rounded-2xl bg-gray-100 animate-pulse" />
-          </div>
-        </div>
-      </div>
-    );
+    return <AdaptiveSkeleton variant="store-category" />;
   }
+
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 2) {
+      router.back();
+    } else {
+      router.replace(`/store/${storeId}`);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-[#FAF9F6] pb-24">
@@ -113,7 +101,7 @@ export default function StoreCategoryPage({
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
             <button 
-              onClick={() => router.push(`/store/${storeId}`)}
+              onClick={handleBack}
               className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 transition-all active:scale-90"
               aria-label="Back to Store"
             >
@@ -125,6 +113,7 @@ export default function StoreCategoryPage({
                 {categoryName}
               </span>
               <Link 
+                replace
                 href={`/store/${storeId}`}
                 className="flex items-center gap-1 text-xs text-[#6B6B6B] hover:text-[#FF5A36] transition-colors truncate"
               >
@@ -147,45 +136,6 @@ export default function StoreCategoryPage({
       </header>
 
       <main className="max-w-4xl mx-auto w-full px-4 pt-4 space-y-4">
-        {/* Category Hero Banner */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-tr from-[#171717] via-[#242424] to-[#FF5A36]/80 text-white p-5 shadow-lg border border-white/10">
-          <div className="relative z-10 flex items-start justify-between gap-4">
-            <div className="space-y-1.5 flex-1">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[11px] font-bold text-white/90 uppercase tracking-wider">
-                <Sparkles className="w-3 h-3 text-[#FF5A36]" />
-                Store Category
-              </div>
-              <h1 className="text-2xl font-black tracking-tight drop-shadow-sm text-white">
-                {categoryName}
-              </h1>
-              {categoryDescription ? (
-                <p className="text-xs text-white/80 line-clamp-2 max-w-md leading-relaxed">
-                  {categoryDescription}
-                </p>
-              ) : (
-                <p className="text-xs text-white/70 max-w-md leading-relaxed">
-                  Handcrafted & curated collection available directly from {storeName}.
-                </p>
-              )}
-            </div>
-
-            {/* Thumbnail or Badge */}
-            <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-              {categoryImage ? (
-                <img 
-                  src={getMediaUrl(categoryImage)} 
-                  alt={categoryName} 
-                  className="w-full h-full object-cover" 
-                />
-              ) : (
-                <span className="text-white font-black text-xl uppercase">
-                  {categoryName.slice(0, 2)}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* Other Categories Pills (Quick Switcher) */}
         {categories.length > 1 && (
           <div className="space-y-1.5">
@@ -194,6 +144,7 @@ export default function StoreCategoryPage({
             </span>
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
               <Link
+                replace
                 href={`/store/${storeId}`}
                 className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white border border-[#E5E2DC] text-gray-700 hover:bg-gray-50 shrink-0 transition-all active:scale-95 flex items-center gap-1.5"
               >
@@ -205,6 +156,7 @@ export default function StoreCategoryPage({
                 return (
                   <Link
                     key={cat.id}
+                    replace
                     href={`/store/${storeId}/category/${cat.id}`}
                     className={cn(
                       "px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all active:scale-95 border",
