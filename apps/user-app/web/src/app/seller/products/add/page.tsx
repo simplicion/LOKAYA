@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Image as ImageIcon, Upload, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Image as ImageIcon, Upload, ChevronRight, X, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SellerHeader } from '@/components/seller/SellerHeader';
 import { toast } from 'sonner';
@@ -11,7 +11,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAddProductMutation, useGetMyStoreQuery, useGetPresignedUrlMutation, useUploadMediaMutation, useGetStoreCategoriesQuery } from '@/lib/api';
 import { Dropdown } from '@/components/ui/dropdown';
-import { getMediaUrl } from '@/lib/utils';
+import { getMediaUrl, generateStandardSku } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 const variantSchema = z.object({
   id: z.string().optional(),
@@ -66,7 +66,7 @@ export default function ManualAddProductPage() {
       name: '',
       description: '',
       category: '',
-      sku: '',
+      sku: generateStandardSku(),
       mrp: undefined,
       sellingPrice: undefined,
       stockCount: undefined,
@@ -98,9 +98,16 @@ export default function ManualAddProductPage() {
             url: getMediaUrl(m.url)
           }));
         }
-        form.reset(parsed);
+        form.reset({
+          ...parsed,
+          sku: parsed.sku || generateStandardSku()
+        });
       } catch (e) {
         console.error('Failed to load draft', e);
+      }
+    } else {
+      if (!form.getValues('sku')) {
+        form.setValue('sku', generateStandardSku());
       }
     }
     setIsLoaded(true);
@@ -453,13 +460,32 @@ export default function ManualAddProductPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-gray-700">SKU (Optional)</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  SKU (Item Code)
+                  <span className="text-[10px] font-semibold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-200">
+                    Auto-assigned (8-Digit)
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setValue('sku', generateStandardSku(), { shouldValidate: true })}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 transition-colors px-2 py-0.5 rounded hover:bg-blue-50"
+                  title="Generate new standard 8-digit SKU"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Regenerate
+                </button>
+              </div>
               <input 
                 {...register('sku')}
                 type="text" 
-                placeholder="e.g. TSH-BLK-M"
-                className="w-full p-3.5 bg-white border border-[#E5E2DC] rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-sm" 
+                placeholder="e.g. LKY-84920153"
+                className="w-full p-3.5 bg-white border border-[#E5E2DC] rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-sm font-mono tracking-wider font-semibold text-gray-800" 
               />
+              <p className="text-[11px] text-gray-500">
+                Standard 8-digit unique code automatically assigned for inventory tracking & barcodes. Editable if you have a custom store code.
+              </p>
             </div>
           </div>
         )}
@@ -537,8 +563,13 @@ export default function ManualAddProductPage() {
                         {errors.variants?.[index]?.name && <span className="text-[10px] text-red-500">{errors.variants[index]?.name?.message}</span>}
                       </div>
                       <div className="flex-1 space-y-1">
-                        <label className="text-xs font-semibold text-gray-700">SKU</label>
-                        <input {...register(`variants.${index}.sku`)} placeholder="SKU" className="w-full p-2 bg-white border border-[#E5E2DC] rounded-lg text-sm" />
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-gray-700">Variant SKU</label>
+                          <span className="text-[9px] font-medium text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100">
+                            Auto
+                          </span>
+                        </div>
+                        <input {...register(`variants.${index}.sku`)} placeholder="SKU" className="w-full p-2 bg-white border border-[#E5E2DC] rounded-lg text-sm font-mono" />
                         {errors.variants?.[index]?.sku && <span className="text-[10px] text-red-500">{errors.variants[index]?.sku?.message}</span>}
                       </div>
                     </div>
@@ -560,7 +591,15 @@ export default function ManualAddProductPage() {
                   type="button" 
                   variant="outline" 
                   className="w-full border-dashed border-2 border-gray-300 text-gray-600 hover:border-brand-navy hover:text-brand-navy"
-                  onClick={() => appendVariant({ name: '', sku: '', price: 0, stockCount: 0 })}
+                  onClick={() => {
+                    const parentSku = watch('sku') || generateStandardSku();
+                    appendVariant({
+                      name: '',
+                      sku: `${parentSku}-V${variantFields.length + 1}`,
+                      price: 0,
+                      stockCount: 0
+                    });
+                  }}
                 >
                   + Add Variant Option
                 </Button>
@@ -735,6 +774,11 @@ export default function ManualAddProductPage() {
                   {hasVariants && variants.length > 0 && (
                     <span className="bg-purple-50 text-purple-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
                       {variants.length} Variants ({previewStock ?? 0} in stock)
+                    </span>
+                  )}
+                  {watch('sku') && (
+                    <span className="bg-slate-100 text-slate-800 text-[11px] font-mono font-bold px-2.5 py-1 rounded-full border border-slate-200">
+                      SKU: {watch('sku')}
                     </span>
                   )}
                 </div>

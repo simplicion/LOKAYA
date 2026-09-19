@@ -151,3 +151,12 @@ export function formatTimeAgo(date: string | Date | number | undefined | null): 
   }
 }
 
+/**
+ * Generates an industry-standard 8-digit alphanumeric SKU with platform prefix.
+ * e.g. "LKY-84920153"
+ */
+export function generateStandardSku(prefix = 'LKY'): string {
+  const random8Digits = Math.floor(10000000 + Math.random() * 90000000);
+  return `${prefix}-${random8Digits}`;
+}
+

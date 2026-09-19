@@ -18,18 +18,19 @@ import {
   ShoppingBag, 
   Tag, 
   X,
-  Plus
+  Plus,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
   useGetProductByIdQuery, 
   useUpdateProductMutation, 
   useUploadMediaMutation, 
-  useGetPresignedUrlMutation,
-  useGetStoreCategoriesQuery
+  useGetStoreCategoriesQuery,
+  useGetPresignedUrlMutation 
 } from '@/lib/api';
 import { toast } from 'sonner';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { cn, getMediaUrl, generateStandardSku } from '@/lib/utils';
 
 interface MediaItem {
   id?: string;
@@ -79,7 +80,7 @@ export default function EditProductClient({ params }: { params: { id: string } }
       setSelectedCategoryId(productData.categoryId || '');
       setBrand(productData.brand || '');
       setDescription(productData.description || '');
-      setSku(productData.sku || '');
+      setSku(productData.sku || generateStandardSku());
       setMrp(productData.mrp ?? '');
       setPrice(productData.sellingPrice ?? '');
       setStock(productData.stockCount ?? '');
@@ -538,13 +539,24 @@ export default function EditProductClient({ params }: { params: { id: string } }
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">SKU / Item Code</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-gray-700">SKU / Item Code</label>
+                <button
+                  type="button"
+                  onClick={() => setSku(generateStandardSku())}
+                  className="text-[10px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded hover:bg-blue-50"
+                  title="Generate standard 8-digit SKU"
+                >
+                  <RefreshCw className="w-2.5 h-2.5" />
+                  Auto-generate
+                </button>
+              </div>
               <input 
                 type="text" 
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
-                placeholder="Auto-generated or custom"
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
+                placeholder="e.g. LKY-84920153"
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
               />
             </div>
           </div>
