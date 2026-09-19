@@ -17,7 +17,13 @@ export const metadata: Metadata = {
   title: "Lokaya - See It. Know It. Buy It.",
   description: "Social commerce + local commerce",
   icons: {
-    icon: '/logo.svg',
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icon.png', type: 'image/png' },
+      { url: '/favicon.ico' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
   },
 };
 

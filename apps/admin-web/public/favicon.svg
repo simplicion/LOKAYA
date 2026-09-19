@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="100%" height="100%" fill="#FFFFFF" rx="14" />
+  <g transform="translate(6, 12)">
+    <!-- L -->
+    <text x="2" y="32" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="900" font-size="34" fill="#111111">L</text>
+    <!-- O in bright orange -->
+    <circle cx="36" cy="20" r="15" fill="none" stroke="#FF5400" stroke-width="8" />
+  </g>
+</svg>

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { logout } from '@/lib/features/authSlice';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, Store, PackageCheck, Users, LogOut, Sparkles, Ticket, Headphones } from 'lucide-react';
+import { Logo } from '@/components/ui/logo';
 
 export default function AdminLayout({
   children,
@@ -32,8 +33,9 @@ export default function AdminLayout({
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b">
-          <h1 className="text-xl font-bold">Admin Portal</h1>
+        <div className="h-16 flex items-center px-5 border-b justify-between">
+          <Logo className="text-xl" />
+          <span className="text-[10px] font-bold tracking-wider uppercase bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Admin</span>
         </div>
         
         <nav className="flex-1 p-4 flex flex-col gap-2">
