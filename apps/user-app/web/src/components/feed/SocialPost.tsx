@@ -3,8 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Sparkles } from 'lucide-react';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Sparkles, CheckCircle2 } from 'lucide-react';
+import { cn, getMediaUrl, formatTimeAgo } from '@/lib/utils';
 import { ProductOverlayCard } from './ProductOverlayCard';
 import { ShareBottomSheet } from '../ui/ShareBottomSheet';
 import { LikesBottomSheet } from '../ui/LikesBottomSheet';
@@ -25,7 +25,8 @@ export interface SocialPostProps {
   storeName: string;
   storeAvatar: string;
   isVerified: boolean;
-  timeAgo: string;
+  timeAgo?: string;
+  createdAt?: string | Date;
   media: {
     type: 'image' | 'video';
     url: string;
@@ -72,10 +73,13 @@ export function SocialPost({
   likedByText,
   likedByAvatars,
   product,
+  createdAt,
 }: SocialPostProps) {
   const router = useRouter();
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isAuthor = Boolean(currentUser?.id && authorId && currentUser.id === authorId);
+
+  const displayTime = timeAgo && timeAgo !== 'Recently' ? timeAgo : formatTimeAgo(createdAt || timeAgo);
 
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -262,14 +266,10 @@ export function SocialPost({
             <div className="flex items-center gap-1">
               <span className="text-[#171717] font-bold text-[15px] leading-tight group-hover:text-[#FF5A36] transition-colors">{storeName}</span>
               {isVerified && (
-                <div className="w-3.5 h-3.5 bg-[#171717] rounded-full flex items-center justify-center">
-                  <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
+                <CheckCircle2 className="w-4 h-4 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
               )}
             </div>
-            <span className="text-[#6B6B6B] text-[11px] font-medium mt-0.5">{timeAgo}</span>
+            <span className="text-[#6B6B6B] text-[11px] font-medium mt-0.5">{displayTime}</span>
           </div>
         </Link>
         <button onClick={() => setIsOptionsOpen(true)} className="text-[#171717] p-1 active:bg-gray-100 rounded-full transition-colors">

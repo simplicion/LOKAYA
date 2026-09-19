@@ -10,6 +10,7 @@ import { RootState } from '@/lib/store';
 import { Sparkles, PlusCircle, Compass, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
+import { formatTimeAgo } from '@/lib/utils';
 
 export default function SocialHomePage() {
   const { data: serverPosts, isLoading } = useGetPostsQuery();
@@ -24,7 +25,8 @@ export default function SocialHomePage() {
         storeName: p.storeName,
         storeAvatar: p.storeAvatar,
         isVerified: p.isVerified,
-        timeAgo: 'Recently',
+        createdAt: p.createdAt,
+        timeAgo: formatTimeAgo(p.createdAt),
         media: p.media && p.media.length > 0 ? p.media : [],
         likes: p.likes || '0',
         likesCount: p.likesCount || 0,

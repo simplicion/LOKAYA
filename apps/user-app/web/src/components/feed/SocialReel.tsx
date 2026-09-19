@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { MoreHorizontal, Heart, MessageCircle, Send, Play, Volume2, VolumeX, Check } from 'lucide-react';
+import { MoreHorizontal, Heart, MessageCircle, Send, Play, Volume2, VolumeX, Check, CheckCircle2 } from 'lucide-react';
 import { ProductOverlayCard } from './ProductOverlayCard';
 import { CommentsBottomSheet } from '../ui/CommentsBottomSheet';
 import { ShareBottomSheet } from '../ui/ShareBottomSheet';
@@ -10,7 +10,7 @@ import { OptionsBottomSheet } from '../ui/OptionsBottomSheet';
 import { ReportBottomSheet } from '../ui/ReportBottomSheet';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { useLikeReelMutation, useFollowUserMutation, useDeleteReelMutation } from '@/lib/api';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { cn, getMediaUrl, formatTimeAgo } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -24,7 +24,8 @@ export interface SocialReelProps {
   storeName: string;
   storeAvatar: string;
   isVerified: boolean;
-  timeAgo: string;
+  timeAgo?: string;
+  createdAt?: string | Date;
   videoUrl: string;
   posterUrl?: string;
   status?: string;
@@ -420,11 +421,7 @@ export function SocialReel({
             >
               <span className="text-white font-bold text-[14px] leading-tight shadow-sm hover:underline truncate">{storeName}</span>
               {isVerified && (
-                <div className="w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
-                  <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
+                <CheckCircle2 className="w-4 h-4 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
               )}
             </Link>
 

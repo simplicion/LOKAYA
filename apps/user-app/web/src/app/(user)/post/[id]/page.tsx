@@ -7,7 +7,7 @@ import { SocialPost } from '@/components/feed/SocialPost';
 import { useGetPostByIdQuery, useGetPostsQuery } from '@/lib/api';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
-import { cn } from '@/lib/utils';
+import { cn, formatTimeAgo } from '@/lib/utils';
 import Link from 'next/link';
 
 export default function SinglePostPage({ params }: { params: Promise<{ id: string }> }) {
@@ -86,7 +86,8 @@ export default function SinglePostPage({ params }: { params: Promise<{ id: strin
               storeName={post.storeName}
               storeAvatar={post.storeAvatar}
               isVerified={post.isVerified}
-              timeAgo="Recently"
+              createdAt={post.createdAt}
+              timeAgo={formatTimeAgo(post.createdAt)}
               media={post.media || []}
               likes={post.likes || '0'}
               likesCount={post.likesCount || 0}

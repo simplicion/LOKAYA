@@ -271,7 +271,7 @@ export class ContentService {
             stores: {
               include: {
                 store: {
-                  select: { id: true, name: true, logoUrl: true, status: true }
+                  select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
                 }
               }
             }
@@ -306,7 +306,7 @@ export class ContentService {
         storeId: store?.id || '',
         storeName: store?.name || post.author.name,
         storeAvatar: store?.logoUrl || post.author.avatarUrl || '',
-        isVerified: store?.status === 'VERIFIED',
+        isVerified: Boolean(store?.isVerified || store?.status === 'VERIFIED' || store?.verificationStatus === 'APPROVED'),
         media: post.media.map(m => ({
           id: m.id,
           type: (m.type?.toLowerCase() || 'image') as 'image' | 'video',
@@ -359,7 +359,7 @@ export class ContentService {
             stores: {
               include: {
                 store: {
-                  select: { id: true, name: true, logoUrl: true, status: true }
+                  select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
                 }
               }
             }
@@ -394,7 +394,7 @@ export class ContentService {
         storeId: store?.id || '',
         storeName: store?.name || post.author.name,
         storeAvatar: store?.logoUrl || post.author.avatarUrl || '',
-        isVerified: store?.status === 'VERIFIED',
+        isVerified: Boolean(store?.isVerified || store?.status === 'VERIFIED' || store?.verificationStatus === 'APPROVED'),
         media: post.media.map(m => ({
           id: m.id,
           type: (m.type?.toLowerCase() || 'image') as 'image' | 'video',
@@ -435,7 +435,7 @@ export class ContentService {
             stores: {
               include: {
                 store: {
-                  select: { id: true, name: true, logoUrl: true, status: true }
+                  select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
                 }
               }
             }
@@ -470,7 +470,7 @@ export class ContentService {
         storeId: store?.id || '',
         storeName: store?.name || reel.author.name,
         storeAvatar: store?.logoUrl || reel.author.avatarUrl || '',
-        isVerified: store?.status === 'VERIFIED',
+        isVerified: Boolean(store?.isVerified || store?.status === 'VERIFIED' || store?.verificationStatus === 'APPROVED'),
         media: reel.media.map(m => ({
           id: m.id,
           type: 'video' as const,
@@ -532,7 +532,7 @@ export class ContentService {
             stores: {
               include: {
                 store: {
-                  select: { id: true, name: true, logoUrl: true, status: true }
+                  select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
                 }
               }
             }
@@ -581,7 +581,7 @@ export class ContentService {
             stores: {
               include: {
                 store: {
-                  select: { id: true, name: true, logoUrl: true, status: true }
+                  select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
                 }
               }
             }
@@ -624,7 +624,7 @@ export class ContentService {
         storeId: store?.id || '',
         storeName: store?.name || item.author.name,
         storeAvatar: store?.logoUrl || item.author.avatarUrl || '',
-        isVerified: store?.status === 'VERIFIED',
+        isVerified: Boolean(store?.isVerified || store?.status === 'VERIFIED' || store?.verificationStatus === 'APPROVED'),
         videoUrl: videoMedia?.url || '',
         posterUrl: videoMedia?.posterUrl || '',
         status: videoStatus,

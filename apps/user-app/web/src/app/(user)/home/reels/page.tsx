@@ -7,7 +7,7 @@ import { ChevronLeft, PlaySquare, PlusCircle, ChevronDown, Users, MapPin, Check,
 import { useGetReelsQuery, useGetMyStoreQuery } from '@/lib/api';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
-import { cn } from '@/lib/utils';
+import { cn, formatTimeAgo } from '@/lib/utils';
 import Link from 'next/link';
 
 type FeedTab = 'for-you' | 'following' | 'nearby';
@@ -95,7 +95,8 @@ function ReelsContent() {
           storeName: r.storeName,
           storeAvatar: r.storeAvatar,
           isVerified: r.isVerified,
-          timeAgo: 'Recently',
+          createdAt: r.createdAt,
+          timeAgo: formatTimeAgo(r.createdAt),
           videoUrl: r.videoUrl || r.media?.[0]?.url || '',
           posterUrl: r.posterUrl || r.media?.[0]?.posterUrl || '',
           status: r.status || r.media?.[0]?.status || 'READY',

@@ -111,3 +111,43 @@ export function generateVideoThumbnail(file: File): Promise<{ thumbnailBlob: Blo
   });
 }
 
+export function formatTimeAgo(date: string | Date | number | undefined | null): string {
+  if (!date) return 'Recently';
+
+  try {
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+
+    if (isNaN(diffMs)) return 'Recently';
+    
+    // Future or right now (< 10 seconds)
+    if (diffMs < 10000 && diffMs >= 0) return 'Just now';
+    if (diffMs < 0) return 'Just now';
+
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return `${diffSec}s ago`;
+
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 4) return `${diffWeeks}w ago`;
+
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) return `${diffMonths}mo ago`;
+
+    const diffYears = Math.floor(diffDays / 365);
+    return `${diffYears}y ago`;
+  } catch {
+    return 'Recently';
+  }
+}
+

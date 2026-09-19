@@ -7,6 +7,7 @@ import { useSearchGlobalQuery } from '@/lib/api';
 import { StoreProfileCard } from '@/components/StoreProfileCard';
 import { ProductCard } from '@/components/ProductCard';
 import { SocialPost } from '@/components/feed/SocialPost';
+import { formatTimeAgo } from '@/lib/utils';
 
 const RECENT_SEARCHES = [
   'Shoes',
@@ -151,7 +152,8 @@ export default function SearchPage() {
                   storeName={post.storeName}
                   storeAvatar={post.storeAvatar}
                   isVerified={post.isVerified}
-                  timeAgo={post.timeAgo || 'Recently'}
+                  createdAt={post.createdAt}
+                  timeAgo={formatTimeAgo(post.createdAt || post.timeAgo)}
                   media={post.media && post.media.length > 0 ? post.media : []}
                   likes={post.likes || '0'}
                   likesCount={post.likesCount || 0}
