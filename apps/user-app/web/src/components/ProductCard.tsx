@@ -33,9 +33,10 @@ export interface ProductCardProps {
     reviews?: string | number;
     stockCount?: number;
   };
+  isPreview?: boolean;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, isPreview = false }: ProductCardProps) {
   const dispatch = useDispatch();
   const cartItems = useSelector((state: RootState) => state.cart.items);
   const user = useSelector((state: RootState) => (state as any).auth?.user);
@@ -80,6 +81,10 @@ export function ProductCard({ product }: ProductCardProps) {
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isPreview) {
+      toast.info('Preview mode: Wishlist is disabled');
+      return;
+    }
     try {
       await toggleWishlist({ productId: product.id }).unwrap();
     } catch (error) {
@@ -90,6 +95,11 @@ export function ProductCard({ product }: ProductCardProps) {
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (isPreview) {
+      toast.info('Preview mode: Add to bag is disabled');
+      return;
+    }
 
     if (isOutOfStock) {
       toast.error('This product is currently out of stock');
@@ -128,7 +138,16 @@ export function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Link href={`/product/${product.id}`} className="flex flex-col bg-white rounded-2xl p-1.5 border border-gray-100/90 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-md transition-all duration-300 relative group cursor-pointer">
+    <Link 
+      href={isPreview ? '#' : `/product/${product.id}`} 
+      onClick={(e) => {
+        if (isPreview) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+      className="flex flex-col bg-white rounded-2xl p-1.5 border border-gray-100/90 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-md transition-all duration-300 relative group cursor-pointer"
+    >
       {/* 1. Product Image Container with Badges */}
       <div className="relative aspect-square w-full rounded-xl bg-[#F8F8F8] border border-gray-100 overflow-hidden">
         {rawImage ? (

@@ -12,6 +12,7 @@ import * as z from 'zod';
 import { useAddProductMutation, useGetMyStoreQuery, useGetPresignedUrlMutation, useUploadMediaMutation, useGetStoreCategoriesQuery } from '@/lib/api';
 import { Dropdown } from '@/components/ui/dropdown';
 import { getMediaUrl } from '@/lib/utils';
+import { ProductCard } from '@/components/ProductCard';
 const variantSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'Variant name is required'),
@@ -587,35 +588,69 @@ export default function ManualAddProductPage() {
 
         {currentStep === 3 && (
           <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
-            <div className="flex items-center gap-3 text-brand-navy mb-4">
-              <CheckCircle2 className="w-8 h-8 text-green-500" />
-              <h2 className="text-xl font-bold">Ready to Publish</h2>
+            <div className="flex items-center gap-3 text-brand-navy">
+              <CheckCircle2 className="w-8 h-8 text-green-500 shrink-0" />
+              <div>
+                <h2 className="text-xl font-bold leading-tight">Ready to Publish</h2>
+                <p className="text-xs text-gray-500 font-medium">Customer store card preview</p>
+              </div>
             </div>
             
-            <div className="bg-white rounded-2xl border border-[#E5E2DC] overflow-hidden">
-              <div className="h-48 bg-gray-100 flex items-center justify-center border-b border-[#E5E2DC] overflow-hidden">
-                {watch('media')?.[0]?.url ? (
-                  <img src={getMediaUrl(watch('media')?.[0]?.url || '')} alt={watch('name') || 'Product preview'} className="w-full h-full object-cover" />
-                ) : (
-                  <ImageIcon className="w-12 h-12 text-gray-300" />
+            {/* Exact Product Card Preview */}
+            <div className="bg-white rounded-2xl border border-[#E5E2DC] p-5 shadow-xs flex flex-col items-center">
+              <div className="w-full max-w-[240px]">
+                <ProductCard
+                  isPreview={true}
+                  product={{
+                    id: 'preview',
+                    title: watch('name') || 'Product Name',
+                    name: watch('name') || 'Product Name',
+                    brand: storeData?.storeName || storeData?.name || 'Store',
+                    image: watch('media')?.[0]?.url || '',
+                    imageUrl: watch('media')?.[0]?.url || '',
+                    sellingPrice: watch('sellingPrice') !== undefined ? Number(watch('sellingPrice')) : 0,
+                    price: watch('sellingPrice') !== undefined ? Number(watch('sellingPrice')) : 0,
+                    originalPrice: watch('mrp') ? Number(watch('mrp')) : undefined,
+                    mrp: watch('mrp') ? Number(watch('mrp')) : undefined,
+                    store: {
+                      id: storeData?.id,
+                      name: storeData?.storeName || storeData?.name || 'Store',
+                      isVerified: storeData?.status === 'VERIFIED'
+                    },
+                    stockCount: watch('stockCount') !== undefined ? Number(watch('stockCount')) : undefined,
+                  }}
+                />
+              </div>
+
+              {/* Delivery & Category Badges */}
+              <div className="w-full pt-4 mt-4 border-t border-gray-100 flex flex-wrap gap-2 justify-center items-center">
+                {watch('category') && (
+                  <span className="bg-orange-50 text-brand-orange text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    {categories.find((c: any) => c.id === watch('category'))?.name || watch('category')}
+                  </span>
+                )}
+                {watch('isAvailableForDelivery') && (
+                  <span className="bg-green-50 text-green-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                    ✓ Delivery Available
+                  </span>
+                )}
+                {watch('isAvailableForPickup') && (
+                  <span className="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                    ✓ Store Pickup
+                  </span>
+                )}
+                {watch('hasVariants') && (
+                  <span className="bg-purple-50 text-purple-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                    {watch('variants')?.length || 0} Variants
+                  </span>
                 )}
               </div>
-              <div className="p-4">
-                <div className="flex justify-between items-start">
-                  <h3 className="font-bold text-gray-900 text-lg leading-tight pr-4">{watch('name') || 'Product Name'}</h3>
-                  <span className="font-bold text-brand-navy text-lg shrink-0">₹{watch('sellingPrice') || '0'}</span>
+
+              {watch('description') && (
+                <div className="w-full mt-3 text-xs text-gray-500 text-center line-clamp-2 px-2">
+                  {watch('description')}
                 </div>
-                <p className="text-xs font-semibold text-brand-orange uppercase tracking-wider mt-1">
-                  {categories.find((c: any) => c.id === watch('category'))?.name || watch('category') || 'Category'}
-                </p>
-                <div className="mt-3 text-sm text-gray-600 line-clamp-2">
-                  {watch('description') || 'No description provided.'}
-                </div>
-                <div className="mt-4 flex gap-2">
-                  {watch('isAvailableForDelivery') && <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-1 rounded-md">Delivery</span>}
-                  {watch('isAvailableForPickup') && <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-md">Store Pickup</span>}
-                </div>
-              </div>
+              )}
             </div>
           </div>
         )}
