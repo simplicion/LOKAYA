@@ -8,9 +8,7 @@ import {
   Trash2, 
   Plus, 
   Minus, 
-  Check, 
-  Sparkles,
-  Layers
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -21,17 +19,6 @@ import {
   useGetPresignedUrlMutation 
 } from '@/lib/api';
 import { getMediaUrl } from '@/lib/utils';
-
-const QUICK_SUGGESTIONS = [
-  'Handloom & Textiles',
-  'Organic & Spices',
-  'Jewellery & Crafts',
-  'Footwear & Bags',
-  'Home & Decor',
-  'Beauty & Wellness',
-  'Electronics & Gadgets',
-  'Food & Beverages'
-];
 
 export default function AddCategoryPage() {
   const router = useRouter();
@@ -173,37 +160,8 @@ export default function AddCategoryPage() {
       {/* Main Content Form */}
       <main className="max-w-2xl w-full mx-auto p-4 sm:p-6 space-y-6">
         
-        {/* Quick Suggestions Chips */}
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-4 h-4 text-indigo-600" />
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-700">Quick Suggestions</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {QUICK_SUGGESTIONS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setName(item)}
-                className={`text-xs px-3 py-1.5 rounded-xl font-medium transition-all ${
-                  name === item 
-                    ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-200' 
-                    : 'bg-gray-50 text-gray-700 border border-gray-200/60 hover:bg-gray-100'
-                }`}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Card: Basic Info & Image */}
         <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-5">
-          <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
-            <Layers className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-800">Category Information</h2>
-          </div>
-
           {/* Category Image Upload */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
@@ -238,7 +196,7 @@ export default function AddCategoryPage() {
                 </div>
               ) : (
                 <label 
-                  htmlFor="cat-image-upload"
+                  htmlFor="cat-image-upload" 
                   className={`w-28 h-28 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all shrink-0
                     ${isUploading ? 'border-indigo-400 bg-indigo-50/50' : 'border-gray-300 hover:border-indigo-500 hover:bg-indigo-50/20 bg-gray-50/60'}`}
                 >
@@ -256,19 +214,16 @@ export default function AddCategoryPage() {
                 </label>
               )}
 
-              <div className="text-xs text-gray-500 space-y-1 text-center sm:text-left">
-                <p className="font-semibold text-gray-700">Display icon for your store menu</p>
-                <p>Square PNG, JPG or WebP recommended.</p>
-                <p>Max size 10MB. Stored securely on CDN.</p>
-                {imageUrl && (
+              {imageUrl && (
+                <div className="text-xs text-gray-500 text-center sm:text-left">
                   <label 
                     htmlFor="cat-image-upload" 
-                    className="inline-block text-xs font-bold text-indigo-600 hover:underline cursor-pointer pt-1"
+                    className="inline-block text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
                   >
                     Change photo
                   </label>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
