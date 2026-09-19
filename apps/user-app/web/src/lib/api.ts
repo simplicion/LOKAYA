@@ -679,6 +679,7 @@ export const api = createApi({
       followingCount?: number;
       postsCount?: number;
       reelsCount?: number;
+      productsCount?: number;
     }, string>({
       query: (storeId) => `/seller/${storeId}/summary`,
       providesTags: ['Store'],

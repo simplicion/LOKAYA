@@ -385,7 +385,7 @@ export class SellerService {
       followingCount = following;
     }
 
-    const [postsCount, reelsCount] = await Promise.all([
+    const [postsCount, reelsCount, productsCount] = await Promise.all([
       prisma.post.count({
         where: {
           OR: [
@@ -401,6 +401,9 @@ export class SellerService {
             { productLinks: { some: { product: { storeId } } } }
           ]
         }
+      }),
+      prisma.product.count({
+        where: { storeId }
       })
     ]);
 
@@ -422,7 +425,8 @@ export class SellerService {
       followersCount,
       followingCount,
       postsCount,
-      reelsCount
+      reelsCount,
+      productsCount
     };
   }
 

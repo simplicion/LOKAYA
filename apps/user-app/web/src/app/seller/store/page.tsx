@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, Image as ImageIcon, Edit2, Plus, Star, ChevronRight, MoreVertical, Trash2, Clock, Phone, Truck, ShoppingBag, CreditCard, Banknote, Tag, MapPin, CheckCircle2 } from 'lucide-react';
+import { Settings, Image as ImageIcon, Edit2, Plus, Star, ChevronRight, MoreVertical, Trash2, Clock, Phone, Headphones, Truck, ShoppingBag, CreditCard, Banknote, Tag, MapPin, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { SellerHeader } from '@/components/seller/SellerHeader';
 import { 
@@ -262,37 +262,17 @@ export default function StorePreviewPage() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <h2 className="text-2xl font-black text-gray-900 leading-tight truncate">{storeData?.name || ''}</h2>
-                    {storeData?.isVerified && (
-                      <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
-                    )}
-                  </div>
-
-                  {/* Operations Status */}
-                  <div className="shrink-0">
-                    {(storeData?.isActive ?? true) ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Store
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-600 border border-gray-200 shadow-2xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> Offline
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Category Badge */}
-                {storeData?.category && (
-                  <div className="flex items-center gap-1.5 mt-1.5">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-[#FF5A36] border border-orange-200/70">
-                      <Tag className="w-3 h-3 text-[#FF5A36]" />
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <h2 className="text-2xl font-black text-gray-900 leading-tight truncate">{storeData?.name || ''}</h2>
+                  {storeData?.isVerified && (
+                    <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
+                  )}
+                  {storeData?.category && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-[#FF5A36] border border-orange-200/70">
                       {storeData.category}
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {storeData?.description && (
                   <p className="text-gray-500 text-sm mt-1.5 mb-2.5 break-words line-clamp-3 leading-relaxed">{storeData.description}</p>
@@ -319,7 +299,7 @@ export default function StorePreviewPage() {
                   </div>
                 )}
 
-                {/* Delivery & Payment Operations Badges */}
+                {/* Delivery Operations Badges */}
                 <div className="flex items-center gap-1.5 flex-wrap text-[11px] mb-2.5">
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-blue-50 text-blue-700 border border-blue-200/70">
                     <Truck className="w-3 h-3 text-blue-600" />
@@ -330,41 +310,28 @@ export default function StorePreviewPage() {
                     <ShoppingBag className="w-3 h-3 text-purple-600" />
                     <span>In-Store Pickup</span>
                   </span>
-
-                  {(storeData?.acceptedPayments?.includes('ONLINE PAYMENT') ?? true) ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
-                      <CreditCard className="w-3 h-3 text-emerald-600" />
-                      <span>UPI & Online Pay</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-gray-50 text-gray-700 border border-gray-200">
-                      <Banknote className="w-3 h-3 text-gray-500" />
-                      <span>Cash on Delivery</span>
-                    </span>
-                  )}
                 </div>
 
-                {/* Customer Support Phone */}
-                {storeData?.contactPhone && (
-                  <div className="mb-2">
+                {/* Customer Support Phone & Address */}
+                <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap mt-1">
+                  {storeData?.contactPhone && (
                     <a 
                       href={`tel:${storeData.contactPhone}`} 
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-200/80 px-2.5 py-1 rounded-lg transition-colors group shadow-2xs"
-                      title="Customer support phone"
+                      className="inline-flex items-center gap-1.5 font-medium text-gray-700 hover:text-[#FF5A36] transition-colors group"
+                      title="Customer Support"
                     >
-                      <Phone className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
-                      <span>Customer Support: <span className="underline decoration-emerald-400 underline-offset-2 font-bold">{storeData.contactPhone}</span></span>
+                      <Headphones className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#FF5A36] shrink-0" />
+                      <span className="group-hover:text-[#FF5A36]">{storeData.contactPhone}</span>
                     </a>
-                  </div>
-                )}
+                  )}
 
-                {/* Physical Address */}
-                {storeData?.address && storeData.address !== 'Address not provided' && (
-                  <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    <span className="truncate max-w-[280px]">{storeData.address}</span>
-                  </div>
-                )}
+                  {storeData?.address && storeData.address !== 'Address not provided' && (
+                    <div className="flex items-center gap-1 text-gray-500">
+                      <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      <span className="truncate max-w-[280px]">{storeData.address}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

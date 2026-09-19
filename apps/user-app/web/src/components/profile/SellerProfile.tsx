@@ -14,10 +14,9 @@ import {
   Star,
   Clock,
   Phone,
+  Headphones,
   Truck,
   ShoppingBag,
-  CreditCard,
-  Banknote,
   Tag,
   Sparkles
 } from 'lucide-react';
@@ -27,6 +26,7 @@ import {
   useGetStoreReelsQuery,
   useGetStoryArchiveQuery,
   useGetStoreSummaryQuery,
+  useGetStoreProductsQuery,
   useUploadMediaMutation,
   useGetPresignedUrlMutation,
   useUpdateStoreProfileMutation,
@@ -61,6 +61,7 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
 
   // Live queries
   const { data: storeSummary } = useGetStoreSummaryQuery(myStore.id, { skip: !myStore?.id });
+  const { data: storeProducts } = useGetStoreProductsQuery(myStore.id, { skip: !myStore?.id });
   const { data: highlights } = useGetStoreHighlightsQuery(myStore.id, { skip: !myStore?.id });
   const { data: storePosts } = useGetStorePostsQuery(myStore.id, { skip: !myStore?.id });
   const { data: storeReels } = useGetStoreReelsQuery(myStore.id, { skip: !myStore?.id });
@@ -267,127 +268,92 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
             </div>
             <div className="flex flex-col items-center">
               <span className="font-bold text-lg text-[#171717]">
-                {formatCount(storeSummary?.followingCount ?? 0)}
+                {formatCount(storeProducts?.length ?? storeSummary?.productsCount ?? 0)}
               </span>
-              <span className="text-sm text-[#171717]">following</span>
+              <span className="text-sm text-[#171717]">products</span>
             </div>
           </div>
         </div>
         
         <div className="mb-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <h2 className="font-bold text-[#171717] text-base truncate">{myStore.name}</h2>
-              {isVerified && (
-                <CheckCircle2 className="w-4 h-4 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
-              )}
-            </div>
-            
-            {/* Store Live / Offline Operations Status */}
-            <div className="shrink-0">
-              {isStoreLive ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Store
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-600 border border-gray-200 shadow-2xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> Offline
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Category Badge */}
-          {storeCategory && (
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-[#FF5A36] border border-orange-200/70">
-                <Tag className="w-3 h-3 text-[#FF5A36]" />
+          {/* Store Name & Category Badge */}
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <h2 className="font-bold text-[#171717] text-base">{myStore.name}</h2>
+            {isVerified && (
+              <CheckCircle2 className="w-4 h-4 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
+            )}
+            {storeCategory && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-50 text-[#FF5A36] border border-orange-200/70">
                 {storeCategory}
-              </span>
-            </div>
-          )}
-
-          {/* Description */}
-          {myStore.description && (
-            <p className="text-sm text-gray-600 leading-relaxed mt-1.5 mb-2">
-              {myStore.description}
-            </p>
-          )}
-
-          {/* Timings & Operating Hours */}
-          {(hasHours || (openingTime && closingTime) || reviewCount > 0) && (
-            <div className="flex items-center gap-2 flex-wrap text-xs mb-2 mt-1">
-              {(hasHours || (openingTime && closingTime)) && (
-                <div className={cn(
-                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold border text-xs",
-                  isOpen ? "bg-emerald-50 text-emerald-700 border-emerald-200/80" : "bg-amber-50 text-amber-700 border-amber-200/80"
-                )}>
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                  <span>{timingLabel || (isOpen ? 'Open Now' : 'Closed')}</span>
-                  {openingTime && closingTime && (
-                    <span className="opacity-80 font-normal ml-0.5">({openingTime} - {closingTime})</span>
-                  )}
-                </div>
-              )}
-              {reviewCount > 0 && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50/80 border border-amber-200/60 text-amber-800">
-                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                  <span>{avgRating.toFixed(1)}</span>
-                  <span className="text-gray-400 font-normal ml-0.5">({reviewCount} {reviewCount === 1 ? 'rating' : 'ratings'})</span>
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Operations Badges: Delivery Systems & Payment Acceptance */}
-          <div className="flex items-center gap-1.5 flex-wrap text-[11px] mb-2.5">
-            {/* Delivery System */}
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-blue-50 text-blue-700 border border-blue-200/70">
-              <Truck className="w-3 h-3 text-blue-600" />
-              <span>Delivery Available</span>
-            </span>
-
-            {/* In-Store Pickup */}
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-purple-50 text-purple-700 border border-purple-200/70">
-              <ShoppingBag className="w-3 h-3 text-purple-600" />
-              <span>In-Store Pickup</span>
-            </span>
-
-            {/* Payment Acceptance configured by owner */}
-            {acceptsOnline ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
-                <CreditCard className="w-3 h-3 text-emerald-600" />
-                <span>UPI, Cards & COD</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-gray-50 text-gray-700 border border-gray-200">
-                <Banknote className="w-3 h-3 text-gray-500" />
-                <span>Cash on Delivery</span>
               </span>
             )}
           </div>
 
-          {/* Customer Support Phone configured by owner */}
-          {contactPhone && (
-            <div className="mb-2">
-              <a 
-                href={`tel:${contactPhone}`} 
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-200/80 px-2.5 py-1 rounded-lg transition-colors group shadow-2xs"
-                title="Tap to call support"
-              >
-                <Phone className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
-                <span>Customer Support: <span className="underline decoration-emerald-400 underline-offset-2 font-bold">{contactPhone}</span></span>
-              </a>
+          {/* Description */}
+          {myStore.description && (
+            <p className="text-sm text-gray-600 leading-relaxed mb-1.5">
+              {myStore.description}
+            </p>
+          )}
+
+          {/* Timings & Ratings */}
+          {(hasHours || (openingTime && closingTime) || reviewCount > 0) && (
+            <div className="flex items-center gap-2.5 flex-wrap text-xs mb-1.5">
+              {(hasHours || (openingTime && closingTime)) && (
+                <span className={cn(
+                  "inline-flex items-center gap-1 font-medium",
+                  isOpen ? "text-emerald-600" : "text-amber-600"
+                )}>
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span>{timingLabel || (isOpen ? 'Open Now' : 'Closed')}</span>
+                  {openingTime && closingTime && (
+                    <span className="text-gray-400 font-normal">({openingTime} - {closingTime})</span>
+                  )}
+                </span>
+              )}
+              {reviewCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  <span>{avgRating.toFixed(1)}</span>
+                  <span className="text-gray-400 font-normal">({reviewCount})</span>
+                </span>
+              )}
             </div>
           )}
 
-          {/* Physical Address */}
-          {displayAddress && (
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <MapPin className="w-3.5 h-3.5 shrink-0 text-gray-400" />
-              <span className="truncate">{displayAddress}</span>
-            </div>
-          )}
+          {/* Delivery & In-Store Operations */}
+          <div className="flex items-center gap-1.5 flex-wrap text-[11px] mb-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium bg-blue-50 text-blue-700 border border-blue-200/60">
+              <Truck className="w-3 h-3 text-blue-600" />
+              <span>Delivery Available</span>
+            </span>
+
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium bg-purple-50 text-purple-700 border border-purple-200/60">
+              <ShoppingBag className="w-3 h-3 text-purple-600" />
+              <span>In-Store Pickup</span>
+            </span>
+          </div>
+
+          {/* Contact Phone & Address */}
+          <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+            {contactPhone && (
+              <a 
+                href={`tel:${contactPhone}`} 
+                className="inline-flex items-center gap-1 text-gray-600 hover:text-[#FF5A36] transition-colors group"
+                title="Customer Support"
+              >
+                <Headphones className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#FF5A36] shrink-0" />
+                <span className="font-medium text-gray-700 group-hover:text-[#FF5A36]">{contactPhone}</span>
+              </a>
+            )}
+
+            {displayAddress && (
+              <div className="flex items-center gap-1 text-gray-500">
+                <MapPin className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+                <span className="truncate max-w-[220px]">{displayAddress}</span>
+              </div>
+            )}
+          </div>
 
           {/* Blue Tick Verification Strip (Request-based) */}
           {!isVerified && (
