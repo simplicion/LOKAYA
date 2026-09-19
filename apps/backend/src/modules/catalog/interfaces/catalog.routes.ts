@@ -103,7 +103,8 @@ router.get('/products', async (req: Request, res: Response, next: NextFunction) 
 // Get Products for a Store
 router.get('/store/:storeId/products', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const products = await CatalogService.getProductsByStore(req.params.storeId);
+    const isOwner = req.query.isOwner === 'true';
+    const products = await CatalogService.getProductsByStore(req.params.storeId, isOwner);
     res.status(200).json(products);
   } catch (error) {
     next(error);

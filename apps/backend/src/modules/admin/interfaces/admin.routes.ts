@@ -578,5 +578,107 @@ adminRouter.patch('/support/tickets/:ticketId', requireAuth, requireAdmin, async
   }
 });
 
+// ==========================================
+// Product Verification Center
+// ==========================================
+
+// GET /api/v1/admin/products/verification - Get all products for verification
+adminRouter.get('/products/verification', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const statusFilter = (req.query.status as string) || 'PENDING';
+    const where: any = {};
+    if (statusFilter !== 'ALL') {
+      where.verificationStatus = statusFilter;
+    }
+
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        media: {
+          orderBy: { displayOrder: 'asc' }
+        },
+        categoryModel: true,
+        variants: true,
+        store: {
+          include: {
+            users: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    avatarUrl: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { verificationRequestedAt: 'desc' },
+        { updatedAt: 'desc' }
+      ]
+    });
+
+    res.status(200).json(products);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/products/:productId/verify - Approve & List Product
+adminRouter.patch('/products/:productId/verify', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { productId } = req.params;
+    const product = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        isVerified: true,
+        verificationStatus: 'APPROVED',
+        rejectionReason: null,
+        status: 'PUBLISHED',
+        isActive: true
+      },
+      include: {
+        store: true,
+        media: true
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Product verified and listed successfully', product });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/products/:productId/reject - Reject Product with Reason
+adminRouter.patch('/products/:productId/reject', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { productId } = req.params;
+    const { reason } = req.body;
+
+    const product = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        isVerified: false,
+        verificationStatus: 'REJECTED',
+        rejectionReason: reason || 'Product details did not meet marketplace quality guidelines.'
+      },
+      include: {
+        store: true,
+        media: true
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Product rejected', product });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 
 

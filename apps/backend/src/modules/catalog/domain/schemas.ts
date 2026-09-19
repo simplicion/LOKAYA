@@ -54,12 +54,12 @@ export const updateProductSchema = z.object({
     brand: z.string().optional().nullable(),
     description: z.string().optional().nullable(),
     category: z.string().optional().nullable(),
-    categoryId: z.string().uuid('Invalid category ID').optional().nullable(),
+    categoryId: z.string().optional().nullable(),
     sku: z.string().optional().nullable(),
     mrp: z.coerce.number().min(0, 'MRP cannot be negative').optional().nullable(),
     sellingPrice: z.coerce.number().min(0, 'Selling price cannot be negative').optional().nullable(),
     stockCount: z.coerce.number().int().min(0, 'Stock cannot be negative').optional().nullable(),
-    imageUrl: z.union([z.string().url(), z.string().startsWith('/'), z.literal('')]).optional().nullable(),
+    imageUrl: z.string().optional().nullable(),
     isActive: z.boolean().optional(),
 
     // V2 Fields

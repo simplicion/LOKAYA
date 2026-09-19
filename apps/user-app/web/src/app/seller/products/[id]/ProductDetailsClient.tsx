@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Edit2, History, Package, AlertTriangle, TrendingUp, Calendar, Clock, ChevronDown, ChevronUp, RefreshCcw, Tag, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit2, History, Package, AlertTriangle, CheckCircle2, TrendingUp, Calendar, Clock, ChevronDown, ChevronUp, RefreshCcw, Tag, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGetProductByIdQuery, useUpdateProductMutation } from '@/lib/api';
 import { getMediaUrl } from '@/lib/utils';
@@ -94,7 +94,33 @@ export default function ProductDetailsClient({ params }: { params: { id: string 
       </div>
 
       <div className="p-4 space-y-4">
-        
+        {/* Verification Status Card */}
+        {productData?.verificationStatus === 'REJECTED' ? (
+          <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <h4 className="font-bold text-rose-900">Needs Revision</h4>
+              <p className="text-rose-700 mt-0.5">{productData?.rejectionReason || 'Please update the product details and re-submit for verification.'}</p>
+            </div>
+          </div>
+        ) : productData?.verificationStatus === 'APPROVED' ? (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-emerald-800 font-semibold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Verified & Listed Live in Store</span>
+            </div>
+            <span className="text-[10px] bg-emerald-200/60 text-emerald-900 font-bold px-2 py-0.5 rounded-md">Live</span>
+          </div>
+        ) : (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-amber-800 font-semibold">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
+              <span>Pending Admin Verification</span>
+            </div>
+            <span className="text-[10px] bg-amber-200/60 text-amber-900 font-bold px-2 py-0.5 rounded-md">Under Review</span>
+          </div>
+        )}
+
         {/* Product Identity Card */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex gap-4 items-start">
           <div className="w-24 h-24 bg-gray-100 rounded-xl overflow-hidden relative shrink-0 flex items-center justify-center">

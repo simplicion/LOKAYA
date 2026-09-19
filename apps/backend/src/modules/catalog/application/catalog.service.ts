@@ -124,7 +124,12 @@ export class CatalogService {
       hasVariants: Boolean(data.hasVariants),
       isAvailableForDelivery: data.isAvailableForDelivery ?? true,
       isAvailableForPickup: data.isAvailableForPickup ?? true,
-      processingTime: data.processingTime || null
+      processingTime: data.processingTime || null,
+      // Verification Center
+      isVerified: false,
+      verificationStatus: 'PENDING',
+      verificationRequestedAt: new Date(),
+      rejectionReason: null
     };
 
     const product = await prisma.product.create({
@@ -185,7 +190,51 @@ export class CatalogService {
       throw new AppError('Product not found', 404);
     }
 
-    const { variants, media, ...updateData } = data;
+    const { variants, media, ...rawUpdateData } = data;
+
+    // Resolve category and categoryId if provided
+    let categoryId = rawUpdateData.categoryId !== undefined ? rawUpdateData.categoryId : undefined;
+    let categoryName = rawUpdateData.category !== undefined ? rawUpdateData.category : undefined;
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (categoryName && uuidRegex.test(categoryName) && !categoryId) {
+      categoryId = categoryName;
+      const catRecord = await prisma.category.findUnique({ where: { id: categoryId } });
+      if (catRecord) {
+        categoryName = catRecord.name;
+      }
+    } else if (categoryId && !categoryName) {
+      const catRecord = await prisma.category.findUnique({ where: { id: categoryId } });
+      if (catRecord) {
+        categoryName = catRecord.name;
+      }
+    }
+
+    // Determine primary image
+    let imageUrl = rawUpdateData.imageUrl;
+    if (media && Array.isArray(media) && media.length > 0) {
+      const primaryMedia = media.find((m: any) => m.isPrimary) || media[0];
+      if (primaryMedia?.url) {
+        imageUrl = primaryMedia.url;
+      }
+    }
+
+    const updateData: any = {
+      ...rawUpdateData,
+      ...(categoryName !== undefined ? { category: categoryName } : {}),
+      ...(categoryId !== undefined ? { categoryId } : {}),
+      ...(imageUrl !== undefined ? { imageUrl } : {}),
+      ...(rawUpdateData.mrp !== undefined ? { mrp: Number(rawUpdateData.mrp) } : {}),
+      ...(rawUpdateData.sellingPrice !== undefined ? { sellingPrice: Number(rawUpdateData.sellingPrice) } : {}),
+      ...(rawUpdateData.stockCount !== undefined ? { stockCount: Number(rawUpdateData.stockCount) } : {}),
+      ...(rawUpdateData.isAvailableForDelivery !== undefined ? { isAvailableForDelivery: Boolean(rawUpdateData.isAvailableForDelivery) } : {}),
+      ...(rawUpdateData.isAvailableForPickup !== undefined ? { isAvailableForPickup: Boolean(rawUpdateData.isAvailableForPickup) } : {}),
+      // Any seller edit resets verification to PENDING
+      isVerified: false,
+      verificationStatus: 'PENDING',
+      verificationRequestedAt: new Date(),
+      rejectionReason: null
+    };
 
     // Update core product details
     await prisma.product.update({
@@ -194,16 +243,16 @@ export class CatalogService {
     });
 
     // Handle media update (delete all old, insert new)
-    if (media) {
+    if (media && Array.isArray(media)) {
       await prisma.productMedia.deleteMany({ where: { productId: id } });
       if (media.length > 0) {
         await prisma.productMedia.createMany({
-          data: media.map((m: any) => ({
+          data: media.map((m: any, idx: number) => ({
             productId: id,
             url: m.url,
-            type: m.type,
-            isPrimary: m.isPrimary,
-            displayOrder: m.displayOrder
+            type: m.type || 'IMAGE',
+            isPrimary: m.isPrimary !== undefined ? Boolean(m.isPrimary) : idx === 0,
+            displayOrder: m.displayOrder !== undefined ? Number(m.displayOrder) : idx
           }))
         });
       }
@@ -262,14 +311,22 @@ export class CatalogService {
 
     return await prisma.product.findUnique({
       where: { id },
-      include: { variants: true, media: true }
+      include: { variants: true, media: true, categoryModel: true }
     });
   }
 
-  static async getProductsByStore(storeId: string) {
+  static async getProductsByStore(storeId: string, isOwner: boolean = false) {
+    const where: any = { storeId, status: { not: 'ARCHIVED' } };
+    if (!isOwner) {
+      where.OR = [
+        { isVerified: true },
+        { verificationStatus: 'APPROVED' }
+      ];
+    }
+
     return await prisma.product.findMany({
-      where: { storeId },
-      include: { variants: true, media: true },
+      where,
+      include: { variants: true, media: true, categoryModel: true },
       orderBy: { createdAt: 'desc' }
     });
   }
@@ -349,7 +406,11 @@ export class CatalogService {
   static async getAllProducts(query?: { category?: string; search?: string; sort?: string; limit?: number }) {
     const where: any = {
       isActive: true,
-      status: { not: 'ARCHIVED' }
+      status: { not: 'ARCHIVED' },
+      OR: [
+        { isVerified: true },
+        { verificationStatus: 'APPROVED' }
+      ]
     };
 
     if (query?.category && query.category !== 'all') {

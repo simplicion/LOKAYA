@@ -18,9 +18,10 @@ export default function MyProductsPage() {
 
   // Fetch real data
   const { data: storeData } = useGetMyStoreQuery();
-  const { data: products = [], isLoading: isLoadingProducts } = useGetStoreProductsQuery(storeData?.id ?? '', {
-    skip: !storeData?.id,
-  });
+  const { data: products = [], isLoading: isLoadingProducts } = useGetStoreProductsQuery(
+    storeData?.id ? { storeId: storeData.id, isOwner: true } : '',
+    { skip: !storeData?.id }
+  );
   const { data: categories = [], isLoading: isLoadingCategories } = useGetStoreCategoriesQuery(storeData?.id ?? '', {
     skip: !storeData?.id,
   });
@@ -132,8 +133,8 @@ export default function MyProductsPage() {
                       ₹{product.sellingPrice || 0}
                     </div>
                     
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-4 text-xs font-medium">
+                    <div className="flex items-center justify-between mt-2 flex-wrap gap-1.5">
+                      <div className="flex items-center gap-2 text-xs font-medium">
                         <span className="text-[#6B6B6B]">Stock: {stock}</span>
                         {product.avgRating && product.avgRating > 0 ? (
                           <div className="flex items-center gap-1 text-[#6B6B6B]">
@@ -142,13 +143,30 @@ export default function MyProductsPage() {
                           </div>
                         ) : null}
                       </div>
-                      <span className={`text-xs font-bold ${
-                        product.isActive 
-                          ? stock > 10 ? 'text-green-500' : 'text-orange-500' 
-                          : 'text-gray-400'
-                      }`}>
-                        {!product.isActive ? 'Inactive' : stock > 10 ? 'Active' : stock > 0 ? 'Low Stock' : 'Out of Stock'}
-                      </span>
+                      
+                      <div className="flex items-center gap-1.5">
+                        {product.verificationStatus === 'APPROVED' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Verified
+                          </span>
+                        ) : product.verificationStatus === 'REJECTED' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            Needs Revision
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            Pending Review
+                          </span>
+                        )}
+
+                        <span className={`text-[11px] font-bold ${
+                          product.isActive 
+                            ? stock > 10 ? 'text-green-600' : 'text-orange-600' 
+                            : 'text-gray-400'
+                        }`}>
+                          {!product.isActive ? 'Inactive' : stock > 10 ? 'Active' : stock > 0 ? 'Low Stock' : 'Out of Stock'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

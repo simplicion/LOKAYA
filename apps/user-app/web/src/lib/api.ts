@@ -58,8 +58,13 @@ export const api = createApi({
         body,
       }),
     }),
-    getStoreProducts: builder.query<any[], string>({
-      query: (storeId) => `/catalog/store/${storeId}/products`,
+    getStoreProducts: builder.query<any[], string | { storeId: string; isOwner?: boolean }>({
+      query: (arg) => {
+        if (typeof arg === 'string') {
+          return `/catalog/store/${arg}/products`;
+        }
+        return `/catalog/store/${arg.storeId}/products${arg.isOwner ? '?isOwner=true' : ''}`;
+      },
       providesTags: ['Product'],
     }),
     getAllStores: builder.query<any[], { lat?: number; lng?: number } | void>({

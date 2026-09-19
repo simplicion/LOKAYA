@@ -39,7 +39,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Stores', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets'],
+  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
       query: () => '/seller/pending',
@@ -212,6 +212,28 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['SupportTickets'],
     }),
+    getProductsVerification: builder.query<any[], { status?: string } | void>({
+      query: (params) => ({
+        url: '/admin/products/verification',
+        params: params || {},
+      }),
+      providesTags: ['Products'],
+    }),
+    verifyProduct: builder.mutation<any, string>({
+      query: (productId) => ({
+        url: `/admin/products/${productId}/verify`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['Products'],
+    }),
+    rejectProduct: builder.mutation<any, { productId: string; reason?: string }>({
+      query: ({ productId, reason }) => ({
+        url: `/admin/products/${productId}/reject`,
+        method: 'PATCH',
+        body: { reason },
+      }),
+      invalidatesTags: ['Products'],
+    }),
   }),
 });
 
@@ -235,6 +257,9 @@ export const {
   useDeleteCouponMutation,
   useToggleCouponMutation,
   useGetProductsQuery,
+  useGetProductsVerificationQuery,
+  useVerifyProductMutation,
+  useRejectProductMutation,
   useGetReportedContentQuery,
   useUpdateReportStatusMutation,
   useDeleteReportedPostMutation,

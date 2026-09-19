@@ -215,6 +215,12 @@ model Product {
   isAvailableForPickup   Boolean @default(true)
   processingTime String?
 
+  // Verification Center Fields
+  isVerified              Boolean   @default(false)
+  verificationStatus      String    @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  verificationRequestedAt DateTime?
+  rejectionReason         String?
+
   store         Store    @relation(fields: [storeId], references: [id])
   variants      ProductVariant[]
   media         ProductMedia[]
