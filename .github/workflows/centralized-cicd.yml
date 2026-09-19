@@ -59,7 +59,7 @@ env:
   USER_APP_IMAGE_NAME: ${{ github.repository_owner }}/lokaya-user-app
   ADMIN_APP_IMAGE_NAME: ${{ github.repository_owner }}/lokaya-admin-web
   AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
-  EC2_INSTANCE_ID: ${{ secrets.AWS_EC2_INSTANCE_ID || 'i-0a1b4f249d8a965c6' }}
+  EC2_INSTANCE_ID: ${{ secrets.AWS_EC2_INSTANCE_ID }}
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
