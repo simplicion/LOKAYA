@@ -2,7 +2,7 @@
 
 import React, { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Loader2, Users } from 'lucide-react';
+import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Loader2, Users, Truck, CreditCard, Banknote, Tag } from 'lucide-react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
@@ -71,6 +71,13 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const timingLabel = storeSummary?.timingLabel || (hasHours ? (isOpen ? 'Open Now' : 'Closed') : '');
   const avgRating = storeSummary?.avgRating ?? 0;
   const reviewCount = storeSummary?.reviewCount ?? 0;
+
+  const isStoreLive = store?.isActive ?? true;
+  const contactPhone = store?.contactPhone;
+  const acceptedPayments = store?.acceptedPayments || ['ONLINE PAYMENT', 'CASH'];
+  const acceptsOnline = Array.isArray(acceptedPayments) ? acceptedPayments.includes('ONLINE PAYMENT') : true;
+  const openingTime = store?.openingTime;
+  const closingTime = store?.closingTime;
 
   // Filter products by selected category
   const filteredProducts = selectedCategoryId
@@ -172,33 +179,49 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
         <div className="relative pt-15 pb-6 px-5 bg-white border-b border-gray-100 shadow-sm">
           <div className="flex justify-between items-start gap-3">
             <div className="flex-1 min-w-0">
-              <h2 className="text-2xl font-black text-gray-900 flex items-center gap-1.5 leading-tight truncate">
-                {storeName}
-                {isVerified && (
-                  <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-50 flex-shrink-0" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-2xl font-black text-gray-900 flex items-center gap-1.5 leading-tight truncate">
+                  {storeName}
+                  {isVerified && (
+                    <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-50 flex-shrink-0" />
+                  )}
+                </h2>
+
+                {/* Live Store / Offline Badge */}
+                {isStoreLive ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Store
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-600 border border-gray-200 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> Offline
+                  </span>
                 )}
-              </h2>
+              </div>
+
+              {/* Category Badge */}
+              {storeCategory && (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-[#FF5A36] border border-orange-200/70">
+                    <Tag className="w-3 h-3 text-[#FF5A36]" />
+                    {storeCategory}
+                  </span>
+                </div>
+              )}
               
               {storeDescription && (
-                <p className="text-gray-600 text-sm mt-1 leading-snug break-words">
+                <p className="text-gray-600 text-sm mt-1.5 leading-relaxed break-words">
                   {storeDescription}
                 </p>
               )}
 
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 mt-2">
-                {storeAddress && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    <span className="truncate max-w-[200px]">{storeAddress}</span>
-                  </span>
-                )}
-                {storeCategory && (
-                  <>
-                    <span>•</span>
-                    <span className="font-semibold text-gray-700">{storeCategory}</span>
-                  </>
-                )}
-              </div>
+              {/* Physical Shop Address */}
+              {storeAddress && storeAddress !== 'Address not provided' && (
+                <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
+                  <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <span className="truncate max-w-[280px]">{storeAddress}</span>
+                </div>
+              )}
               
               {/* Ratings, Followers & Operating Hours Badges */}
               <div className="flex items-center gap-2 mt-3 flex-wrap">
@@ -221,16 +244,58 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
                   </div>
                 )}
 
-                {store?.openingTime && store?.closingTime && (
+                {(hasHours || (openingTime && closingTime)) && (
                   <div className={cn(
-                    "text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1",
-                    isOpen ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60" : "text-amber-700 bg-amber-50 border border-amber-200/60"
+                    "text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 border",
+                    isOpen ? "text-emerald-700 bg-emerald-50 border-emerald-200/60" : "text-amber-700 bg-amber-50 border border-amber-200/60"
                   )}>
-                    <Clock className="w-3 h-3" />
-                    <span>{timingLabel}</span>
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{timingLabel || (isOpen ? 'Open Now' : 'Closed')}</span>
+                    {openingTime && closingTime && (
+                      <span className="opacity-80 font-normal ml-0.5">({openingTime} - {closingTime})</span>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* Delivery & Payment Operations Badges */}
+              <div className="flex items-center gap-1.5 flex-wrap text-[11px] mt-2.5">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-blue-50 text-blue-700 border border-blue-200/70">
+                  <Truck className="w-3 h-3 text-blue-600" />
+                  <span>Delivery Available</span>
+                </span>
+
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-purple-50 text-purple-700 border border-purple-200/70">
+                  <ShoppingBag className="w-3 h-3 text-purple-600" />
+                  <span>In-Store Pickup</span>
+                </span>
+
+                {acceptsOnline ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                    <CreditCard className="w-3 h-3 text-emerald-600" />
+                    <span>UPI & Online Pay</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-gray-50 text-gray-700 border border-gray-200">
+                    <Banknote className="w-3 h-3 text-gray-500" />
+                    <span>Cash on Delivery</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Customer Support Phone */}
+              {contactPhone && (
+                <div className="mt-2.5">
+                  <a 
+                    href={`tel:${contactPhone}`} 
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-200/80 px-2.5 py-1 rounded-lg transition-colors group shadow-2xs"
+                    title="Tap to call support"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
+                    <span>Customer Support: <span className="underline decoration-emerald-400 underline-offset-2 font-bold">{contactPhone}</span></span>
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Follow / Following Action Button */}

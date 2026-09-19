@@ -4,7 +4,22 @@ import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useDispatch } from 'react-redux';
-import { Grid, PlaySquare, MapPin, Plus, CheckCircle2, Loader2, Star } from 'lucide-react';
+import { 
+  Grid, 
+  PlaySquare, 
+  MapPin, 
+  Plus, 
+  CheckCircle2, 
+  Loader2, 
+  Star,
+  Clock,
+  Phone,
+  Truck,
+  ShoppingBag,
+  CreditCard,
+  Banknote,
+  Tag
+} from 'lucide-react';
 import { 
   useGetStoreHighlightsQuery, 
   useGetStorePostsQuery, 
@@ -112,8 +127,20 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
   const avgRating = storeSummary?.avgRating ?? 0;
   const reviewCount = storeSummary?.reviewCount ?? 0;
   const isOpen = storeSummary?.isOpen ?? true;
-  const hasHours = Boolean(myStore?.openingTime || myStore?.closingTime || storeSummary?.timingLabel);
+  const openingTime = myStore?.openingTime || storeSummary?.store?.openingTime;
+  const closingTime = myStore?.closingTime || storeSummary?.store?.closingTime;
+  const hasHours = Boolean(openingTime || closingTime || storeSummary?.timingLabel);
   const timingLabel = storeSummary?.timingLabel || (hasHours ? (isOpen ? 'Open Now' : 'Closed') : '');
+
+  const isStoreLive = myStore?.isActive ?? storeSummary?.store?.isActive ?? true;
+  const storeCategory = myStore?.category || storeSummary?.store?.category;
+  const contactPhone = myStore?.contactPhone || storeSummary?.store?.contactPhone;
+  const acceptedPayments = myStore?.acceptedPayments || storeSummary?.store?.acceptedPayments || ['ONLINE PAYMENT', 'CASH'];
+  const acceptsOnline = Array.isArray(acceptedPayments) ? acceptedPayments.includes('ONLINE PAYMENT') : true;
+
+  const displayAddress = (myStore?.address && myStore.address !== 'Address not provided')
+    ? myStore.address
+    : [myStore?.city, myStore?.state].filter(Boolean).join(', ');
 
   const allPosts = storePosts || [];
   const allReels = storeReels || [];
@@ -242,46 +269,119 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
         </div>
         
         <div className="mb-4">
-          <div className="flex items-center gap-1.5">
-            <h2 className="font-bold text-[#171717] text-base">{myStore.name}</h2>
-            {myStore.status === 'VERIFIED' && (
-              <CheckCircle2 className="w-4 h-4 text-blue-500 fill-current" />
-            )}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h2 className="font-bold text-[#171717] text-base truncate">{myStore.name}</h2>
+              {myStore.status === 'VERIFIED' && (
+                <CheckCircle2 className="w-4 h-4 text-blue-500 fill-current shrink-0" />
+              )}
+            </div>
+            
+            {/* Store Live / Offline Operations Status */}
+            <div className="shrink-0">
+              {isStoreLive ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Store
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-600 border border-gray-200 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> Offline
+                </span>
+              )}
+            </div>
           </div>
-          {(myStore.description || myStore.category) && (
-            <p className="text-sm text-gray-500 mt-0.5 mb-1.5">
-              {[myStore.description, myStore.category].filter(Boolean).join(' • ')}
+
+          {/* Category Badge */}
+          {storeCategory && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-[#FF5A36] border border-orange-200/70">
+                <Tag className="w-3 h-3 text-[#FF5A36]" />
+                {storeCategory}
+              </span>
+            </div>
+          )}
+
+          {/* Description */}
+          {myStore.description && (
+            <p className="text-sm text-gray-600 leading-relaxed mt-1.5 mb-2">
+              {myStore.description}
             </p>
           )}
-          
-          {(reviewCount > 0 || (myStore.openingTime && myStore.closingTime)) && (
-            <div className="flex items-center gap-3 text-xs text-gray-500 mb-1">
+
+          {/* Timings & Operating Hours */}
+          {(hasHours || (openingTime && closingTime) || reviewCount > 0) && (
+            <div className="flex items-center gap-2 flex-wrap text-xs mb-2 mt-1">
+              {(hasHours || (openingTime && closingTime)) && (
+                <div className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold border text-xs",
+                  isOpen ? "bg-emerald-50 text-emerald-700 border-emerald-200/80" : "bg-amber-50 text-amber-700 border-amber-200/80"
+                )}>
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span>{timingLabel || (isOpen ? 'Open Now' : 'Closed')}</span>
+                  {openingTime && closingTime && (
+                    <span className="opacity-80 font-normal ml-0.5">({openingTime} - {closingTime})</span>
+                  )}
+                </div>
+              )}
               {reviewCount > 0 && (
-                <span className="flex items-center text-amber-500 font-semibold">
-                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 mr-1" />
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50/80 border border-amber-200/60 text-amber-800">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                   <span>{avgRating.toFixed(1)}</span>
                   <span className="text-gray-400 font-normal ml-0.5">({reviewCount} {reviewCount === 1 ? 'rating' : 'ratings'})</span>
                 </span>
               )}
-              {myStore.openingTime && myStore.closingTime && (
-                <span className={cn("font-medium", isOpen ? "text-emerald-600" : "text-amber-600")}>
-                  {timingLabel}
-                </span>
-              )}
             </div>
           )}
-          
-          {myStore.address && myStore.address !== 'Address not provided' ? (
-            <div className="flex items-center gap-1 text-xs text-gray-400">
-              <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{myStore.address}</span>
+
+          {/* Operations Badges: Delivery Systems & Payment Acceptance */}
+          <div className="flex items-center gap-1.5 flex-wrap text-[11px] mb-2.5">
+            {/* Delivery System */}
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-blue-50 text-blue-700 border border-blue-200/70">
+              <Truck className="w-3 h-3 text-blue-600" />
+              <span>Delivery Available</span>
+            </span>
+
+            {/* In-Store Pickup */}
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-purple-50 text-purple-700 border border-purple-200/70">
+              <ShoppingBag className="w-3 h-3 text-purple-600" />
+              <span>In-Store Pickup</span>
+            </span>
+
+            {/* Payment Acceptance configured by owner */}
+            {acceptsOnline ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                <CreditCard className="w-3 h-3 text-emerald-600" />
+                <span>UPI, Cards & COD</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-semibold bg-gray-50 text-gray-700 border border-gray-200">
+                <Banknote className="w-3 h-3 text-gray-500" />
+                <span>Cash on Delivery</span>
+              </span>
+            )}
+          </div>
+
+          {/* Customer Support Phone configured by owner */}
+          {contactPhone && (
+            <div className="mb-2">
+              <a 
+                href={`tel:${contactPhone}`} 
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-200/80 px-2.5 py-1 rounded-lg transition-colors group shadow-2xs"
+                title="Tap to call support"
+              >
+                <Phone className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
+                <span>Customer Support: <span className="underline decoration-emerald-400 underline-offset-2 font-bold">{contactPhone}</span></span>
+              </a>
             </div>
-          ) : (myStore.city || myStore.state) ? (
-            <div className="flex items-center gap-1 text-xs text-gray-400">
-              <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{[myStore.city, myStore.state].filter(Boolean).join(', ')}</span>
+          )}
+
+          {/* Physical Address */}
+          {displayAddress && (
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              <MapPin className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+              <span className="truncate">{displayAddress}</span>
             </div>
-          ) : null}
+          )}
         </div>
         
         {/* Quick Actions */}
