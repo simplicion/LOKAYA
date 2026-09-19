@@ -166,32 +166,72 @@ export class SocialService {
     const post = await prisma.post.findUnique({ where: { id: postId } });
     if (!post) throw new AppError('Post not found', 404);
 
-    return await prisma.comment.create({
+    const comment = await prisma.comment.create({
       data: {
         userId,
         postId,
-        content
+        content: content.trim()
       },
       include: {
-        user: { select: { id: true, name: true } }
+        user: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            stores: {
+              include: {
+                store: {
+                  select: { id: true, name: true, logoUrl: true, status: true }
+                }
+              }
+            }
+          } 
+        }
       }
     });
+
+    const commentsCount = await prisma.comment.count({ where: { postId } });
+
+    return {
+      ...comment,
+      commentsCount
+    };
   }
 
   static async addCommentToReel(userId: string, reelId: string, content: string) {
     const reel = await prisma.reel.findUnique({ where: { id: reelId } });
     if (!reel) throw new AppError('Reel not found', 404);
 
-    return await prisma.comment.create({
+    const comment = await prisma.comment.create({
       data: {
         userId,
         reelId,
-        content
+        content: content.trim()
       },
       include: {
-        user: { select: { id: true, name: true } }
+        user: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            stores: {
+              include: {
+                store: {
+                  select: { id: true, name: true, logoUrl: true, status: true }
+                }
+              }
+            }
+          } 
+        }
       }
     });
+
+    const commentsCount = await prisma.comment.count({ where: { reelId } });
+
+    return {
+      ...comment,
+      commentsCount
+    };
   }
 
   static async getPostComments(postId: string) {
@@ -199,7 +239,20 @@ export class SocialService {
       where: { postId },
       orderBy: { createdAt: 'desc' },
       include: {
-        user: { select: { id: true, name: true } }
+        user: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            stores: {
+              include: {
+                store: {
+                  select: { id: true, name: true, logoUrl: true, status: true }
+                }
+              }
+            }
+          } 
+        }
       }
     });
   }
@@ -209,7 +262,20 @@ export class SocialService {
       where: { reelId },
       orderBy: { createdAt: 'desc' },
       include: {
-        user: { select: { id: true, name: true } }
+        user: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            stores: {
+              include: {
+                store: {
+                  select: { id: true, name: true, logoUrl: true, status: true }
+                }
+              }
+            }
+          } 
+        }
       }
     });
   }
@@ -221,7 +287,20 @@ export class SocialService {
     return await prisma.like.findMany({
       where: { postId },
       include: {
-        user: { select: { id: true, name: true, avatarUrl: true } }
+        user: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            stores: {
+              include: {
+                store: {
+                  select: { id: true, name: true, logoUrl: true, status: true }
+                }
+              }
+            }
+          } 
+        }
       }
     });
   }
@@ -230,7 +309,20 @@ export class SocialService {
     return await prisma.like.findMany({
       where: { reelId },
       include: {
-        user: { select: { id: true, name: true, avatarUrl: true } }
+        user: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            stores: {
+              include: {
+                store: {
+                  select: { id: true, name: true, logoUrl: true, status: true }
+                }
+              }
+            }
+          } 
+        }
       }
     });
   }
@@ -249,4 +341,258 @@ export class SocialService {
     });
   }
 
+  // ==========================================
+  // Public User Profile
+  // ==========================================
+
+  static async getUserProfile(userId: string, currentUserId?: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        avatarUrl: true,
+        city: true,
+        state: true,
+        createdAt: true,
+        stores: {
+          include: {
+            store: {
+              select: { id: true, name: true, logoUrl: true, status: true, description: true }
+            }
+          }
+        },
+        _count: {
+          select: {
+            posts: true,
+            reels: true,
+            followers: true,
+            following: true
+          }
+        }
+      }
+    });
+
+    if (!user) throw new AppError('User not found', 404);
+
+    let isFollowing = false;
+    if (currentUserId && currentUserId !== userId) {
+      const follow = await prisma.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: currentUserId,
+            followingId: userId
+          }
+        }
+      });
+      isFollowing = !!follow;
+    }
+
+    const posts = await prisma.post.findMany({
+      where: { authorId: userId },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+      include: {
+        media: true,
+        _count: {
+          select: { likes: true, comments: true }
+        }
+      }
+    });
+
+    return {
+      ...user,
+      isFollowing,
+      posts
+    };
+  }
+
+  static async toggleFollowStore(followerId: string, storeId: string) {
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      include: {
+        users: {
+          select: { userId: true }
+        }
+      }
+    });
+
+    if (!store) {
+      throw new AppError('Store not found', 404);
+    }
+
+    const sellerUserId = store.users[0]?.userId;
+    if (!sellerUserId) {
+      throw new AppError('Store has no associated merchant owner', 400);
+    }
+
+    if (sellerUserId === followerId) {
+      throw new AppError('You cannot follow your own store', 400);
+    }
+
+    return await this.toggleFollow(followerId, sellerUserId);
+  }
+
+  static async getStoreFollowStatus(currentUserId: string | undefined, storeId: string) {
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      include: {
+        users: {
+          select: { userId: true }
+        }
+      }
+    });
+
+    if (!store) {
+      throw new AppError('Store not found', 404);
+    }
+
+    const sellerUserIds = store.users.map(u => u.userId);
+    let followersCount = 0;
+    let isFollowing = false;
+
+    if (sellerUserIds.length > 0) {
+      followersCount = await prisma.follow.count({
+        where: { followingId: { in: sellerUserIds } }
+      });
+
+      if (currentUserId) {
+        const follow = await prisma.follow.findFirst({
+          where: {
+            followerId: currentUserId,
+            followingId: { in: sellerUserIds }
+          }
+        });
+        isFollowing = !!follow;
+      }
+    }
+
+    return {
+      following: isFollowing,
+      followersCount
+    };
+  }
+
+  static async getFollowedStores(userId: string) {
+    const follows = await prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followingId: true }
+    });
+
+    const followingIds = follows.map(f => f.followingId);
+    if (followingIds.length === 0) {
+      return [];
+    }
+
+    const stores = await prisma.store.findMany({
+      where: {
+        users: {
+          some: {
+            userId: { in: followingIds }
+          }
+        },
+        isActive: true
+      },
+      include: {
+        users: {
+          select: {
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true
+              }
+            }
+          }
+        },
+        _count: {
+          select: {
+            products: {
+              where: { isActive: true }
+            },
+            reviews: true
+          }
+        },
+        reviews: {
+          select: { rating: true }
+        }
+      }
+    });
+
+    return stores.map(store => {
+      const avgRating = store.reviews?.length
+        ? store.reviews.reduce((sum, r) => sum + r.rating, 0) / store.reviews.length
+        : 0;
+
+      return {
+        id: store.id,
+        name: store.name,
+        handle: store.handle,
+        description: store.description,
+        address: store.address,
+        city: store.city,
+        state: store.state,
+        category: store.category,
+        logoUrl: store.logoUrl || store.users[0]?.user?.avatarUrl || null,
+        bannerUrl: store.bannerUrl || null,
+        status: store.status,
+        isVerified: store.status === 'VERIFIED',
+        productsCount: store._count.products,
+        reviewsCount: store._count.reviews,
+        rating: avgRating > 0 ? Number(avgRating.toFixed(1)) : null,
+        isFollowing: true
+      };
+    });
+  }
+
+  static async getShareRecipients(userId?: string) {
+    const users = await prisma.user.findMany({
+      where: userId ? { id: { not: userId } } : undefined,
+      select: {
+        id: true,
+        name: true,
+        avatarUrl: true,
+        stores: {
+          select: {
+            store: {
+              select: { id: true, name: true, logoUrl: true, status: true }
+            }
+          }
+        }
+      },
+      take: 12,
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return users.map(u => ({
+      id: u.id,
+      name: u.name || 'User',
+      username: (u.name || 'user').toLowerCase().replace(/\s+/g, '_'),
+      avatarUrl: u.avatarUrl || u.stores?.[0]?.store?.logoUrl || null,
+      isVerified: u.stores?.[0]?.store?.status === 'VERIFIED',
+      storeId: u.stores?.[0]?.store?.id || null
+    }));
+  }
+
+  static async sendDirectShare(senderId: string, recipientId: string, shareUrl: string, message?: string) {
+    const recipient = await prisma.user.findUnique({ where: { id: recipientId } });
+    if (!recipient) throw new AppError('Recipient not found', 404);
+
+    // Create notification for recipient
+    try {
+      await (prisma as any).notification.create({
+        data: {
+          userId: recipientId,
+          type: 'DIRECT_SHARE',
+          title: 'Shared a link with you',
+          message: message ? `${message} - ${shareUrl}` : shareUrl,
+          link: shareUrl
+        }
+      });
+    } catch {}
+
+    return { success: true, message: 'Shared successfully' };
+  }
 }
+

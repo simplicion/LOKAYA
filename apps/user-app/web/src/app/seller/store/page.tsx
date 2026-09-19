@@ -263,21 +263,29 @@ export default function StorePreviewPage() {
 
               <div>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-black text-gray-900 leading-tight">{storeData?.name || 'Your Store Name'}</h2>
+                  <h2 className="text-2xl font-black text-gray-900 leading-tight">{storeData?.name || ''}</h2>
                 </div>
-                <p className="text-gray-500 text-sm mt-1 mb-4 break-words line-clamp-3">{storeData?.description || 'Add a description in settings to tell customers about your store.'}</p>
+                {storeData?.description && (
+                  <p className="text-gray-500 text-sm mt-1 mb-4 break-words line-clamp-3">{storeData.description}</p>
+                )}
                 
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex items-center text-xs font-bold text-gray-700 bg-gray-100 px-2.5 py-1.5 rounded-lg">
-                    <Star className="w-3.5 h-3.5 text-amber-500 fill-current mr-1.5" />
-                    {storeSummary?.avgRating ? Number(storeSummary.avgRating).toFixed(1) : (storeSummary?.reviewCount ? '5.0' : 'New')} ({storeSummary?.reviewCount || 0} Reviews)
+                {(Boolean(storeSummary?.reviewCount && storeSummary.reviewCount > 0) || Boolean(storeData?.openingTime && storeData?.closingTime)) && (
+                  <div className="flex items-center gap-2 flex-wrap mt-2 mb-3">
+                    {Boolean(storeSummary?.reviewCount && storeSummary.reviewCount > 0) && (
+                      <div className="flex items-center text-xs font-bold text-gray-700 bg-gray-100 px-2.5 py-1.5 rounded-lg">
+                        <Star className="w-3.5 h-3.5 text-amber-500 fill-current mr-1.5" />
+                        {Number(storeSummary?.avgRating || 0).toFixed(1)} ({storeSummary?.reviewCount} {storeSummary?.reviewCount === 1 ? 'Review' : 'Reviews'})
+                      </div>
+                    )}
+                    {Boolean(storeData?.openingTime && storeData?.closingTime) && (
+                      <div className={`text-xs font-bold px-2.5 py-1.5 rounded-lg ${
+                        storeSummary?.isOpen ? 'text-green-700 bg-green-100' : 'text-amber-700 bg-amber-100'
+                      }`}>
+                        {storeSummary?.timingLabel || (storeSummary?.isOpen ? 'Open Now' : 'Currently Closed')}
+                      </div>
+                    )}
                   </div>
-                  <div className={`text-xs font-bold px-2.5 py-1.5 rounded-lg ${
-                    storeSummary?.isOpen ? 'text-green-700 bg-green-100' : 'text-amber-700 bg-amber-100'
-                  }`}>
-                    {storeSummary?.timingLabel || (storeSummary?.isOpen ? 'Open Now' : 'Currently Closed')}
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -354,12 +362,13 @@ export default function StorePreviewPage() {
                 product={{
                   id: product.id,
                   title: product.name,
-                  image: product.media?.[0]?.url || 'https://placehold.co/400x400/png?text=No+Image',
+                  image: product.media?.[0]?.url || product.imageUrl || '',
                   price: product.sellingPrice?.toString() || '0',
                   originalPrice: product.mrp ? product.mrp.toString() : undefined,
-                  store: { name: storeData?.name || 'Store', isVerified: true },
-                  rating: "4.5",
-                  reviews: "0"
+                  store: { name: storeData?.name || '', isVerified: storeData?.status === 'VERIFIED' },
+                  rating: product.avgRating ? String(product.avgRating) : undefined,
+                  reviews: product.reviewsCount ? String(product.reviewsCount) : undefined,
+                  stockCount: product.stockCount
                 }}
               />
             ))}

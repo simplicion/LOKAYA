@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { validateRequest } from '../../../shared/middleware/validate';
 import { requireAuth, AuthRequest } from '../../../shared/middleware/auth';
+import { AppError } from '../../../shared/errors/AppError';
 import { SellerService } from '../application/seller.service';
 import { DashboardService } from '../application/dashboard.service';
 import { FinanceService } from '../application/finance.service';
@@ -14,6 +15,9 @@ const sellerService = new SellerService();
 // Helper to resolve seller's storeId from authenticated request
 async function getSellerStoreId(userId: string): Promise<string> {
   const store = await sellerService.getMyStore(userId);
+  if (!store) {
+    throw new AppError('Store not found for this user', 404);
+  }
   return store.id;
 }
 
@@ -44,6 +48,18 @@ sellerRouter.get('/me', requireAuth, async (req: AuthRequest, res, next) => {
 sellerRouter.get('/pending', requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const stores = await sellerService.getPendingStores();
+    res.status(200).json(stores);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Public Explore Stores for Map and Nearby Bottom Sheet
+sellerRouter.get('/explore', async (req, res, next) => {
+  try {
+    const category = req.query.category as string;
+    const search = req.query.search as string;
+    const stores = await sellerService.getExploreStores({ category, search });
     res.status(200).json(stores);
   } catch (error) {
     next(error);

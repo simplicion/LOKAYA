@@ -2,15 +2,18 @@
 
 import React, { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Loader2 } from 'lucide-react';
+import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Loader2, Users } from 'lucide-react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
 import { 
   useGetStoreSummaryQuery, 
   useGetStoreProductsQuery, 
-  useGetStoreCategoriesQuery 
+  useGetStoreCategoriesQuery,
+  useGetStoreFollowStatusQuery,
+  useFollowStoreMutation
 } from '@/lib/api';
+import { toast } from 'sonner';
 
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 
@@ -21,17 +24,39 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
+  const [followersDelta, setFollowersDelta] = useState(0);
 
   // Live Backend Data Fetching
   const { data: storeSummary, isLoading: isStoreLoading, error: storeError } = useGetStoreSummaryQuery(storeId, {
     skip: !storeId
   });
+  const { data: followData } = useGetStoreFollowStatusQuery(storeId, {
+    skip: !storeId
+  });
+  const [toggleFollowStore, { isLoading: isTogglingFollow }] = useFollowStoreMutation();
   const { data: products = [], isLoading: isProductsLoading } = useGetStoreProductsQuery(storeId, {
     skip: !storeId
   });
   const { data: categories = [], isLoading: isCategoriesLoading } = useGetStoreCategoriesQuery(storeId, {
     skip: !storeId
   });
+
+  const activeFollowing = isFollowing !== null ? isFollowing : (followData?.following ?? false);
+  const currentFollowersCount = Math.max(0, (followData?.followersCount ?? storeSummary?.followersCount ?? 0) + followersDelta);
+
+  const handleToggleFollow = async () => {
+    const nextState = !activeFollowing;
+    setIsFollowing(nextState);
+    setFollowersDelta(prev => prev + (nextState ? 1 : -1));
+    try {
+      await toggleFollowStore(storeId).unwrap();
+    } catch (err: any) {
+      setIsFollowing(!nextState);
+      setFollowersDelta(prev => prev + (nextState ? -1 : 1));
+      toast.error(err?.data?.message || 'Failed to update follow status');
+    }
+  };
 
   const store = storeSummary?.store;
   const storeName = store?.name || 'Store';
@@ -42,7 +67,8 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const logoUrl = store?.logoUrl || store?.users?.[0]?.user?.avatarUrl;
   const isVerified = store?.status === 'VERIFIED';
   const isOpen = storeSummary?.isOpen ?? true;
-  const timingLabel = storeSummary?.timingLabel || (isOpen ? 'Open Now' : 'Closed');
+  const hasHours = Boolean(store?.openingTime || store?.closingTime || storeSummary?.timingLabel);
+  const timingLabel = storeSummary?.timingLabel || (hasHours ? (isOpen ? 'Open Now' : 'Closed') : '');
   const avgRating = storeSummary?.avgRating ?? 0;
   const reviewCount = storeSummary?.reviewCount ?? 0;
 
@@ -174,25 +200,53 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
                 )}
               </div>
               
-              {/* Ratings & Operating Hours Badges */}
-              <div className="flex items-center gap-2.5 mt-3 flex-wrap">
-                <div className="flex items-center text-xs font-bold text-gray-800 bg-gray-100 px-2.5 py-1 rounded-lg">
-                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 mr-1" />
-                  <span>{avgRating > 0 ? avgRating.toFixed(1) : 'New'}</span>
-                  {reviewCount > 0 && (
-                    <span className="text-gray-400 font-normal ml-1">({reviewCount})</span>
-                  )}
+              {/* Ratings, Followers & Operating Hours Badges */}
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <div className="flex items-center text-xs font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-lg">
+                  <Users className="w-3.5 h-3.5 text-gray-500 mr-1" />
+                  <span>{currentFollowersCount}</span>
+                  <span className="text-gray-400 font-normal ml-1">{currentFollowersCount === 1 ? 'follower' : 'followers'}</span>
                 </div>
 
-                <div className={cn(
-                  "text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1",
-                  isOpen ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60" : "text-amber-700 bg-amber-50 border border-amber-200/60"
-                )}>
-                  <Clock className="w-3 h-3" />
-                  <span>{timingLabel}</span>
-                </div>
+                {reviewCount > 0 ? (
+                  <div className="flex items-center text-xs font-bold text-gray-800 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded-lg">
+                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 mr-1" />
+                    <span>{avgRating.toFixed(1)}</span>
+                    <span className="text-amber-800/60 font-normal ml-1">({reviewCount} {reviewCount === 1 ? 'rating' : 'ratings'})</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-lg">
+                    <Star className="w-3.5 h-3.5 text-gray-400 mr-1" />
+                    <span>New Merchant</span>
+                  </div>
+                )}
+
+                {store?.openingTime && store?.closingTime && (
+                  <div className={cn(
+                    "text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1",
+                    isOpen ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60" : "text-amber-700 bg-amber-50 border border-amber-200/60"
+                  )}>
+                    <Clock className="w-3 h-3" />
+                    <span>{timingLabel}</span>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Follow / Following Action Button */}
+            <button
+              onClick={handleToggleFollow}
+              disabled={isTogglingFollow}
+              className={cn(
+                "px-4 py-2 rounded-full text-xs font-bold transition-all active:scale-95 shrink-0 flex items-center gap-1.5 shadow-xs cursor-pointer",
+                activeFollowing
+                  ? "bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200"
+                  : "bg-[#FF5A36] text-white hover:bg-[#e04d2d] shadow-orange-500/20"
+              )}
+            >
+              {isTogglingFollow && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {activeFollowing ? 'Following' : 'Follow'}
+            </button>
           </div>
         </div>
 
@@ -287,7 +341,7 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
           {filteredProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
               {filteredProducts.map((product: any) => {
-                const primaryImage = product.media?.[0]?.url || product.imageUrl || product.images?.[0] || 'https://placehold.co/400x400/png?text=No+Image';
+                const primaryImage = product.media?.[0]?.url || product.imageUrl || product.images?.[0] || '';
                 const sellingPrice = product.sellingPrice != null ? product.sellingPrice : (product.price || 0);
                 const mrp = product.mrp;
                 const discountText = mrp && sellingPrice && mrp > sellingPrice
@@ -306,7 +360,8 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
                       discount: discountText,
                       store: { id: store.id, name: storeName, isVerified },
                       rating: product.avgRating ? Number(product.avgRating).toFixed(1) : (avgRating > 0 ? avgRating.toFixed(1) : '5.0'),
-                      reviews: `(${product.reviewCount || 0})`
+                      reviews: `(${product.reviewCount || 0})`,
+                      stockCount: product.stockCount,
                     }}
                   />
                 );

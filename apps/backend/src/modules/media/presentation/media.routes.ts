@@ -1,16 +1,44 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
+import os from 'os';
+import path from 'path';
 import { MediaController } from './media.controller';
 
 export const mediaRouter: Router = Router();
 const mediaController = new MediaController();
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 20 * 1024 * 1024, // 20MB
+// Use disk storage to stream directly to temporary files instead of bloating Node.js V8 memory
+const diskStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, os.tmpdir());
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, 'lokaya-upload-' + uniqueSuffix + path.extname(file.originalname));
   },
 });
+
+const upload = multer({
+  storage: diskStorage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB production grade limit
+  },
+});
+
+// Middleware to gracefully handle multer errors (e.g. file size limit exceeded)
+const handleUpload = (req: Request, res: Response, next: NextFunction) => {
+  upload.single('file')(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'File too large. Maximum allowed size is 100MB.' });
+      }
+      return res.status(400).json({ error: `Upload error: ${err.message}` });
+    } else if (err) {
+      return res.status(500).json({ error: `Server error during upload: ${err.message}` });
+    }
+    next();
+  });
+};
 
 // CORS Preflight OPTIONS for streaming view endpoints
 const handleMediaCors = (req: any, res: any) => {
@@ -25,7 +53,7 @@ mediaRouter.options('/view/*', handleMediaCors);
 mediaRouter.options('/stream/*', handleMediaCors);
 
 // Direct upload endpoint (Bypasses any browser CORS restrictions)
-mediaRouter.post('/upload', upload.single('file'), mediaController.uploadFile.bind(mediaController));
+mediaRouter.post('/upload', handleUpload, mediaController.uploadFile.bind(mediaController));
 
 // Streaming view endpoint with query param support (?key=...)
 mediaRouter.get('/view', mediaController.viewFile.bind(mediaController));

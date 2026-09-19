@@ -91,7 +91,7 @@ export default function MyProductsPage() {
           <>
             {filteredProducts.map((product: any, idx: number) => {
               const primaryMedia = product.media?.find((m: any) => m.isPrimary) || product.media?.[0];
-              const imageUrl = primaryMedia?.url || 'https://placehold.co/400x400/png?text=No+Image';
+              const imageUrl = primaryMedia?.url || product.imageUrl || '';
               const stock = product.stockCount ?? 0;
               
               return (
@@ -101,13 +101,17 @@ export default function MyProductsPage() {
                   onClick={() => router.push(`/seller/products/${product.id}`)}
                 >
                   {/* Image */}
-                  <div className="w-24 h-24 bg-[#F2EFE9] rounded-2xl overflow-hidden relative shrink-0">
-                    <Image 
-                      src={imageUrl} 
-                      alt={product.name}
-                      fill
-                      className="object-cover"
-                    />
+                  <div className="w-24 h-24 bg-[#F2EFE9] rounded-2xl overflow-hidden relative shrink-0 flex items-center justify-center">
+                    {imageUrl ? (
+                      <Image 
+                        src={imageUrl} 
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <Package className="w-8 h-8 text-gray-400 stroke-[1.5]" />
+                    )}
                   </div>
                   
                   {/* Details */}
@@ -131,10 +135,12 @@ export default function MyProductsPage() {
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center gap-4 text-xs font-medium">
                         <span className="text-[#6B6B6B]">Stock: {stock}</span>
-                        <div className="flex items-center gap-1 text-[#6B6B6B]">
-                          <Star className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>4.5</span>
-                        </div>
+                        {product.avgRating && product.avgRating > 0 ? (
+                          <div className="flex items-center gap-1 text-[#6B6B6B]">
+                            <Star className="w-3.5 h-3.5 stroke-[2.5] fill-amber-400 text-amber-400" />
+                            <span>{Number(product.avgRating).toFixed(1)}</span>
+                          </div>
+                        ) : null}
                       </div>
                       <span className={`text-xs font-bold ${
                         product.isActive 

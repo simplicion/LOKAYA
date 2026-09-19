@@ -1,26 +1,27 @@
 'use client';
 
 import { use, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, Star, Camera, X, Loader2, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { useGetOrderQuery } from '@/lib/api';
+import { useGetOrderQuery, useCreateProductReviewMutation } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const orderId = resolvedParams.id;
 
   const { data: order, isLoading } = useGetOrderQuery(orderId, { skip: !orderId });
+  const [createReview, { isLoading: isSubmitting }] = useCreateProductReviewMutation();
   
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [review, setReview] = useState('');
   const [images, setImages] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (isLoading) {
     return (
@@ -46,9 +47,11 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     );
   }
 
-  // Use the first item in the order
-  const item = order.items?.[0];
-  const itemImage = item?.product?.media?.[0]?.url || item?.product?.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400';
+  const selectedProductId = searchParams.get('productId');
+  const item = selectedProductId 
+    ? (order.items?.find((i: any) => i.productId === selectedProductId) || order.items?.[0])
+    : order.items?.[0];
+  const itemImage = item?.product?.media?.[0]?.url || item?.product?.imageUrl || '';
   const itemName = item?.productName || item?.product?.name || 'Order Item';
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,16 +86,26 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
       return;
     }
 
-    setIsSubmitting(true);
+    const targetProductId = item?.productId || item?.product?.id || selectedProductId;
+    if (!targetProductId) {
+      toast.error('No product selected to review');
+      return;
+    }
+
     try {
-      // In production, calls review API
+      await createReview({
+        productId: targetProductId,
+        orderId: order.id,
+        rating,
+        comment: review.trim() || undefined,
+      }).unwrap();
+
       toast.success('Thank you for your valuable feedback!');
       setTimeout(() => {
-        router.push(`/orders/${order.id}`);
-      }, 800);
-    } catch (err) {
-      toast.error('Failed to submit review');
-      setIsSubmitting(false);
+        router.push('/profile/reviews');
+      }, 600);
+    } catch (err: any) {
+      toast.error(err?.data?.message || 'Failed to submit review');
     }
   };
 
@@ -113,8 +126,12 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
       <div className="flex-1 p-4 space-y-5 overflow-y-auto mb-20">
         {/* Product Info */}
         <div className="flex gap-3.5 p-3.5 border border-gray-100 rounded-2xl bg-gray-50/70 items-center">
-          <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 shrink-0 bg-white">
-            <Image src={itemImage} alt={itemName} fill className="object-cover" sizes="56px" />
+          <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 shrink-0 bg-white flex items-center justify-center">
+            {itemImage ? (
+              <Image src={itemImage} alt={itemName} fill className="object-cover" sizes="56px" />
+            ) : (
+              <Package className="w-6 h-6 text-gray-300" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-gray-900 text-xs truncate leading-snug">{itemName}</h3>

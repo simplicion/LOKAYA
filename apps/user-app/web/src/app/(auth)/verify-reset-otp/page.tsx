@@ -105,7 +105,7 @@ function VerifyOtpContent() {
           <button onClick={() => router.back()} className="mb-6 h-10 w-10 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Verify OTP 🔑</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Verify OTP</h1>
           <p className="text-gray-500 font-medium">Enter the 6-digit code sent to {identifier}</p>
         </div>
 

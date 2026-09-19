@@ -2,10 +2,17 @@ import { prisma } from '@workspace/db';
 import { AppError } from '../../../shared/errors/AppError';
 import { S3Service } from '../infrastructure/s3.service';
 import { processMediaJob } from '../../media/application/media-worker.service';
+import { redisClient } from '../../../shared/services/redis.service';
 
 export class ContentService {
   
-  static async getPresignedUrl(filename: string, contentType: string) {
+  static async getPresignedUrl(filename: string, contentType: string, userId?: string) {
+    if (userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+      if (!user) {
+        throw new AppError('User not found', 404);
+      }
+    }
     return await S3Service.generatePresignedUrl(filename, contentType);
   }
 
@@ -40,12 +47,27 @@ export class ContentService {
     return url.replace(/^\/+/, '');
   }
 
+  static async invalidateFeedCaches(prefix: string) {
+    try {
+      const keys = await redisClient.keys(prefix);
+      if (keys.length > 0) {
+        await redisClient.del(...keys);
+      }
+    } catch {}
+  }
+
   static async createPost(authorId: string, data: any) {
     // 1. Verify author exists
     const user = await prisma.user.findUnique({ where: { id: authorId }, select: { id: true } });
     if (!user) throw new AppError('Author user not found', 404);
 
-    // 2. Create post
+    // 2. Check if author is associated with a store (for optional product tagging)
+    const storeUser = await prisma.storeUser.findFirst({
+      where: { userId: authorId },
+      include: { store: true }
+    });
+
+    // 3. Create post
     const post = await prisma.post.create({
       data: {
         authorId,
@@ -107,7 +129,7 @@ export class ContentService {
       }
     }
 
-    return await prisma.post.findUnique({
+    const createdPost = await prisma.post.findUnique({
       where: { id: post.id },
       include: {
         media: true,
@@ -119,6 +141,11 @@ export class ContentService {
         }
       }
     });
+
+    // Invalidate cached post feeds
+    await ContentService.invalidateFeedCaches('cache:posts:*');
+
+    return createdPost;
   }
 
   static async createReel(authorId: string, data: any) {
@@ -126,7 +153,13 @@ export class ContentService {
     const user = await prisma.user.findUnique({ where: { id: authorId }, select: { id: true } });
     if (!user) throw new AppError('Author user not found', 404);
 
-    // 2. Create reel
+    // 2. Check if author is associated with a store (for optional product tagging)
+    const storeUser = await prisma.storeUser.findFirst({
+      where: { userId: authorId },
+      include: { store: true }
+    });
+
+    // 3. Create reel
     const reel = await prisma.reel.create({
       data: {
         authorId,
@@ -186,7 +219,7 @@ export class ContentService {
       }
     }
 
-    return await prisma.reel.findUnique({
+    const createdReel = await prisma.reel.findUnique({
       where: { id: reel.id },
       include: {
         media: true,
@@ -198,9 +231,23 @@ export class ContentService {
         }
       }
     });
+
+    // Invalidate cached reel feeds
+    await ContentService.invalidateFeedCaches('cache:reels:*');
+
+    return createdReel;
   }
 
   static async getPosts(page = 1, limit = 10, viewerId?: string) {
+    // Check Redis cache for public requests (sub-millisecond retrieval under high concurrency)
+    const cacheKey = !viewerId ? `cache:posts:page:${page}:limit:${limit}` : null;
+    if (cacheKey) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+
     const skip = (page - 1) * limit;
     
     const posts = await prisma.post.findMany({
@@ -245,7 +292,7 @@ export class ContentService {
       }
     });
 
-    return posts.map(post => {
+    const formattedPosts = posts.map(post => {
       const store = post.author.stores?.[0]?.store;
       const primaryProduct = post.productLinks?.[0]?.product;
       const mrp = primaryProduct?.mrp;
@@ -258,7 +305,7 @@ export class ContentService {
         createdAt: post.createdAt,
         storeId: store?.id || '',
         storeName: store?.name || post.author.name,
-        storeAvatar: store?.logoUrl || post.author.avatarUrl || 'https://i.pravatar.cc/150?img=1',
+        storeAvatar: store?.logoUrl || post.author.avatarUrl || '',
         isVerified: store?.status === 'VERIFIED',
         media: post.media.map(m => ({
           id: m.id,
@@ -286,9 +333,183 @@ export class ContentService {
         } : undefined,
       };
     });
+
+    // Store in Redis with 30s TTL
+    if (cacheKey && formattedPosts.length > 0) {
+      const k: string = cacheKey;
+      try {
+        await redisClient.setex(k, 30, JSON.stringify(formattedPosts));
+      } catch {}
+    }
+
+    return formattedPosts;
+  }
+
+  static async getPostById(postId: string, viewerId?: string) {
+    // 1. Try finding in Post table
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      include: {
+        media: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            stores: {
+              include: {
+                store: {
+                  select: { id: true, name: true, logoUrl: true, status: true }
+                }
+              }
+            }
+          }
+        },
+        productLinks: {
+          include: {
+            product: {
+              select: { id: true, name: true, imageUrl: true, sellingPrice: true, mrp: true }
+            }
+          }
+        },
+        likes: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+        savedPosts: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+        _count: {
+          select: { likes: true, comments: true }
+        }
+      }
+    });
+
+    if (post) {
+      const store = post.author.stores?.[0]?.store;
+      const primaryProduct = post.productLinks?.[0]?.product;
+      const mrp = primaryProduct?.mrp;
+      const price = primaryProduct?.sellingPrice;
+
+      return {
+        id: post.id,
+        authorId: post.author.id,
+        caption: post.caption,
+        createdAt: post.createdAt,
+        storeId: store?.id || '',
+        storeName: store?.name || post.author.name,
+        storeAvatar: store?.logoUrl || post.author.avatarUrl || '',
+        isVerified: store?.status === 'VERIFIED',
+        media: post.media.map(m => ({
+          id: m.id,
+          type: (m.type?.toLowerCase() || 'image') as 'image' | 'video',
+          url: m.url,
+          posterUrl: m.posterUrl || undefined,
+          status: m.status,
+          duration: m.duration ? `${Math.floor(m.duration / 60)}:${(m.duration % 60).toString().padStart(2, '0')}` : undefined,
+        })),
+        likes: post._count.likes.toLocaleString(),
+        likesCount: post._count.likes,
+        comments: post._count.comments.toString(),
+        commentsCount: post._count.comments,
+        shares: '0',
+        isLikedByMe: viewerId ? (post.likes?.length || 0) > 0 : false,
+        isSavedByMe: viewerId ? (post.savedPosts?.length || 0) > 0 : false,
+        hashtags: [],
+        product: primaryProduct ? {
+          id: primaryProduct.id,
+          name: primaryProduct.name,
+          image: primaryProduct.imageUrl || '',
+          price: `₹${price}`,
+          originalPrice: mrp && mrp > price! ? `₹${mrp}` : undefined,
+          discount: mrp && mrp > price! ? `${Math.round(((mrp - price!) / mrp) * 100)}% OFF` : undefined,
+        } : undefined,
+      };
+    }
+
+    // 2. Fallback: if not in Post table, check Reel table
+    const reel = await prisma.reel.findUnique({
+      where: { id: postId },
+      include: {
+        media: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            stores: {
+              include: {
+                store: {
+                  select: { id: true, name: true, logoUrl: true, status: true }
+                }
+              }
+            }
+          }
+        },
+        productLinks: {
+          include: {
+            product: {
+              select: { id: true, name: true, imageUrl: true, sellingPrice: true, mrp: true }
+            }
+          }
+        },
+        likes: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+        savedPosts: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+        _count: {
+          select: { likes: true, comments: true }
+        }
+      }
+    });
+
+    if (reel) {
+      const store = reel.author.stores?.[0]?.store;
+      const primaryProduct = reel.productLinks?.[0]?.product;
+      const mrp = primaryProduct?.mrp;
+      const price = primaryProduct?.sellingPrice;
+
+      return {
+        id: reel.id,
+        authorId: reel.author.id,
+        caption: reel.caption,
+        createdAt: reel.createdAt,
+        storeId: store?.id || '',
+        storeName: store?.name || reel.author.name,
+        storeAvatar: store?.logoUrl || reel.author.avatarUrl || '',
+        isVerified: store?.status === 'VERIFIED',
+        media: reel.media.map(m => ({
+          id: m.id,
+          type: 'video' as const,
+          url: m.url,
+          posterUrl: m.posterUrl || undefined,
+          status: m.status,
+          duration: m.duration ? `${Math.floor(m.duration / 60)}:${(m.duration % 60).toString().padStart(2, '0')}` : undefined,
+        })),
+        likes: reel._count.likes.toLocaleString(),
+        likesCount: reel._count.likes,
+        comments: reel._count.comments.toString(),
+        commentsCount: reel._count.comments,
+        shares: '0',
+        isLikedByMe: viewerId ? (reel.likes?.length || 0) > 0 : false,
+        isSavedByMe: viewerId ? (reel.savedPosts?.length || 0) > 0 : false,
+        hashtags: [],
+        product: primaryProduct ? {
+          id: primaryProduct.id,
+          name: primaryProduct.name,
+          image: primaryProduct.imageUrl || '',
+          price: `₹${price}`,
+          originalPrice: mrp && mrp > price! ? `₹${mrp}` : undefined,
+          discount: mrp && mrp > price! ? `${Math.round(((mrp - price!) / mrp) * 100)}% OFF` : undefined,
+        } : undefined,
+      };
+    }
+
+    throw new AppError('Post not found', 404);
   }
 
   static async getReels(page = 1, limit = 10, viewerId?: string) {
+    const cacheKey = !viewerId ? `cache:reels:page:${page}:limit:${limit}` : null;
+    if (cacheKey) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+
     const skip = (page - 1) * limit;
     
     const reels = await prisma.reel.findMany({
@@ -386,7 +607,7 @@ export class ContentService {
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     ).slice(skip, skip + limit);
 
-    return merged.map(item => {
+    const formattedReels = merged.map(item => {
       const store = item.author.stores?.[0]?.store;
       const primaryProduct = item.productLinks?.[0]?.product;
       const mrp = primaryProduct?.mrp;
@@ -402,7 +623,7 @@ export class ContentService {
         createdAt: item.createdAt,
         storeId: store?.id || '',
         storeName: store?.name || item.author.name,
-        storeAvatar: store?.logoUrl || item.author.avatarUrl || 'https://i.pravatar.cc/150?img=21',
+        storeAvatar: store?.logoUrl || item.author.avatarUrl || '',
         isVerified: store?.status === 'VERIFIED',
         videoUrl: videoMedia?.url || '',
         posterUrl: videoMedia?.posterUrl || '',
@@ -430,6 +651,176 @@ export class ContentService {
         progressPercent: 0
       };
     });
+
+    // Store in Redis with 30s TTL
+    if (cacheKey && formattedReels.length > 0) {
+      const k: string = cacheKey;
+      try {
+        await redisClient.setex(k, 30, JSON.stringify(formattedReels));
+      } catch {}
+    }
+
+    return formattedReels;
+  }
+
+  static async getReelById(reelId: string, viewerId?: string) {
+    // 1. Check Reel table
+    const reel = await prisma.reel.findUnique({
+      where: { id: reelId },
+      include: {
+        media: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            stores: {
+              include: {
+                store: {
+                  select: { id: true, name: true, logoUrl: true, status: true }
+                }
+              }
+            }
+          }
+        },
+        productLinks: {
+          include: {
+            product: {
+              select: { id: true, name: true, imageUrl: true, sellingPrice: true, mrp: true }
+            }
+          }
+        },
+        likes: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+        savedPosts: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+        _count: {
+          select: { likes: true, comments: true }
+        }
+      }
+    });
+
+    if (reel) {
+      const store = reel.author.stores?.[0]?.store;
+      const primaryProduct = reel.productLinks?.[0]?.product;
+      const mrp = primaryProduct?.mrp;
+      const price = primaryProduct?.sellingPrice;
+      const videoMedia = reel.media.find(m => m.type === 'VIDEO') || reel.media[0];
+      const videoStatus = videoMedia?.status || 'READY';
+
+      return {
+        id: reel.id,
+        authorId: reel.author.id,
+        caption: reel.caption,
+        createdAt: reel.createdAt,
+        storeId: store?.id || '',
+        storeName: store?.name || reel.author.name,
+        storeAvatar: store?.logoUrl || reel.author.avatarUrl || '',
+        isVerified: store?.status === 'VERIFIED',
+        videoUrl: videoMedia?.url || '',
+        posterUrl: videoMedia?.posterUrl || '',
+        status: videoStatus,
+        isOptimizing: videoStatus !== 'READY',
+        media: reel.media,
+        likes: reel._count.likes.toLocaleString(),
+        likesCount: reel._count.likes,
+        comments: reel._count.comments.toString(),
+        commentsCount: reel._count.comments,
+        shares: '0',
+        isLikedByMe: viewerId ? (reel.likes?.length || 0) > 0 : false,
+        isSavedByMe: viewerId ? (reel.savedPosts?.length || 0) > 0 : false,
+        hashtags: [],
+        product: primaryProduct ? {
+          id: primaryProduct.id,
+          name: primaryProduct.name,
+          image: primaryProduct.imageUrl || '',
+          price: `₹${price}`,
+          originalPrice: mrp && mrp > price! ? `₹${mrp}` : undefined,
+          discount: mrp && mrp > price! ? `${Math.round(((mrp - price!) / mrp) * 100)}% OFF` : undefined,
+        } : undefined,
+        duration: videoMedia?.duration ? `${Math.floor(videoMedia.duration / 60)}:${(videoMedia.duration % 60).toString().padStart(2, '0')}` : '0:15',
+        currentTime: '0:00',
+        progressPercent: 0
+      };
+    }
+
+    // 2. Fallback: check Post table for video posts
+    const post = await prisma.post.findUnique({
+      where: { id: reelId },
+      include: {
+        media: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            stores: {
+              include: {
+                store: {
+                  select: { id: true, name: true, logoUrl: true, status: true }
+                }
+              }
+            }
+          }
+        },
+        productLinks: {
+          include: {
+            product: {
+              select: { id: true, name: true, imageUrl: true, sellingPrice: true, mrp: true }
+            }
+          }
+        },
+        likes: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+        savedPosts: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+        _count: {
+          select: { likes: true, comments: true }
+        }
+      }
+    });
+
+    if (post) {
+      const store = post.author.stores?.[0]?.store;
+      const primaryProduct = post.productLinks?.[0]?.product;
+      const mrp = primaryProduct?.mrp;
+      const price = primaryProduct?.sellingPrice;
+      const videoMedia = post.media.find(m => m.type === 'VIDEO') || post.media[0];
+      const videoStatus = videoMedia?.status || 'READY';
+
+      return {
+        id: post.id,
+        authorId: post.author.id,
+        caption: post.caption,
+        createdAt: post.createdAt,
+        storeId: store?.id || '',
+        storeName: store?.name || post.author.name,
+        storeAvatar: store?.logoUrl || post.author.avatarUrl || '',
+        isVerified: store?.status === 'VERIFIED',
+        videoUrl: videoMedia?.url || '',
+        posterUrl: videoMedia?.posterUrl || '',
+        status: videoStatus,
+        isOptimizing: videoStatus !== 'READY',
+        media: post.media,
+        likes: post._count.likes.toLocaleString(),
+        likesCount: post._count.likes,
+        comments: post._count.comments.toString(),
+        commentsCount: post._count.comments,
+        shares: '0',
+        isLikedByMe: viewerId ? (post.likes?.length || 0) > 0 : false,
+        isSavedByMe: viewerId ? (post.savedPosts?.length || 0) > 0 : false,
+        hashtags: [],
+        product: primaryProduct ? {
+          id: primaryProduct.id,
+          name: primaryProduct.name,
+          image: primaryProduct.imageUrl || '',
+          price: `₹${price}`,
+          originalPrice: mrp && mrp > price! ? `₹${mrp}` : undefined,
+          discount: mrp && mrp > price! ? `${Math.round(((mrp - price!) / mrp) * 100)}% OFF` : undefined,
+        } : undefined,
+        duration: videoMedia?.duration ? `${Math.floor(videoMedia.duration / 60)}:${(videoMedia.duration % 60).toString().padStart(2, '0')}` : '0:15',
+        currentTime: '0:00',
+        progressPercent: 0
+      };
+    }
+
+    throw new AppError('Reel not found', 404);
   }
 
   static async getStorePosts(storeId: string) {
@@ -603,6 +994,8 @@ export class ContentService {
       prisma.post.delete({ where: { id: postId } })
     ]);
 
+    await ContentService.invalidateFeedCaches('cache:posts:*');
+
     return { success: true, message: 'Post deleted successfully' };
   }
 
@@ -636,6 +1029,8 @@ export class ContentService {
       prisma.mediaAsset.deleteMany({ where: { reelId } }),
       prisma.reel.delete({ where: { id: reelId } })
     ]);
+
+    await ContentService.invalidateFeedCaches('cache:reels:*');
 
     return { success: true, message: 'Reel deleted successfully' };
   }

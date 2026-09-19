@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Package } from 'lucide-react';
 import Image from 'next/image';
 import { SellerHeader } from '@/components/seller/SellerHeader';
 import { DateRangeModal } from '@/components/seller/DateRangeModal';
@@ -133,8 +133,8 @@ export default function ProductAnalyticsPage() {
                 {categorySales.map((category) => (
                   <div key={category.id} className="grid grid-cols-12 gap-2 py-3 px-2 items-center hover:bg-[#F9F9F9] rounded-xl transition-colors">
                     <div className="col-span-6 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#F9F9F9] flex items-center justify-center text-sm border border-[#E5E2DC]">
-                        {category.icon}
+                      <div className="w-8 h-8 rounded-lg bg-[#F9F9F9] flex items-center justify-center border border-[#E5E2DC] text-[#FF5A36]">
+                        <Package className="w-4 h-4" />
                       </div>
                       <span className="font-semibold text-[#171717] text-sm truncate">{category.name}</span>
                     </div>

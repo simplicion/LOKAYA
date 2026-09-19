@@ -96,9 +96,10 @@ export function SocialReel({
   const [showPlayIcon, setShowPlayIcon] = useState(false);
   const [showHeartPop, setShowHeartPop] = useState(false);
 
-  // Optimistic like state
+  // Optimistic like state & comments
   const [isLiked, setIsLiked] = useState(isLikedByMe);
-  const [likeTotal, setLikeTotal] = useState(likesCount || parseInt(likes.replace(/,/g, '')) || 0);
+  const [likeTotal, setLikeTotal] = useState(likesCount || parseInt(String(likes).replace(/,/g, '')) || 0);
+  const [commentTotal, setCommentTotal] = useState(() => parseInt(String(comments).replace(/,/g, '')) || 0);
 
   // Follow state
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
@@ -135,8 +136,12 @@ export function SocialReel({
   }, [isLikedByMe]);
 
   useEffect(() => {
-    setLikeTotal(likesCount || parseInt(likes.replace(/,/g, '')) || 0);
+    setLikeTotal(likesCount || parseInt(String(likes).replace(/,/g, '')) || 0);
   }, [likesCount, likes]);
+
+  useEffect(() => {
+    setCommentTotal(parseInt(String(comments).replace(/,/g, '')) || 0);
+  }, [comments]);
 
   const togglePlayPause = () => {
     if (!videoRef.current) return;
@@ -357,10 +362,13 @@ export function SocialReel({
           <button 
             onClick={() => setIsCommentsOpen(true)}
             className="text-white drop-shadow-md transition-transform active:scale-95"
+            aria-label="Comments"
           >
             <MessageCircle className="w-[28px] h-[28px]" />
           </button>
-          <span className="text-white text-[11px] font-bold drop-shadow-md">{comments}</span>
+          <span className="text-white text-[11px] font-bold drop-shadow-md tabular-nums">
+            {commentTotal.toLocaleString()}
+          </span>
         </div>
 
         {/* Share Button */}
@@ -368,6 +376,7 @@ export function SocialReel({
           <button 
             onClick={() => setIsShareOpen(true)}
             className="text-white drop-shadow-md transition-transform active:scale-95"
+            aria-label="Share"
           >
             <Send className="w-[28px] h-[28px]" />
           </button>
@@ -379,6 +388,7 @@ export function SocialReel({
           <button 
             onClick={() => setIsOptionsOpen(true)}
             className="text-white drop-shadow-md transition-transform active:scale-95"
+            aria-label="More options"
           >
             <MoreHorizontal className="w-7 h-7" />
           </button>
@@ -392,7 +402,7 @@ export function SocialReel({
           {/* Creator Profile, Name, Follow */}
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <Link 
-              href={storeId ? `/store/${storeId}` : '#'}
+              href={storeId ? `/store/${storeId}` : (authorId ? `/user/${authorId}` : '#')}
               className="w-8 h-8 rounded-full overflow-hidden border border-white/60 shadow-sm shrink-0 flex items-center justify-center bg-gray-700 active:scale-95 transition-transform"
             >
               {storeAvatar ? (
@@ -405,7 +415,7 @@ export function SocialReel({
             </Link>
             
             <Link 
-              href={storeId ? `/store/${storeId}` : '#'}
+              href={storeId ? `/store/${storeId}` : (authorId ? `/user/${authorId}` : '#')}
               className="flex items-center gap-1 max-w-[150px]"
             >
               <span className="text-white font-bold text-[14px] leading-tight shadow-sm hover:underline truncate">{storeName}</span>
@@ -476,6 +486,7 @@ export function SocialReel({
         onClose={() => setIsCommentsOpen(false)} 
         targetId={id} 
         type="reel" 
+        onCommentAdded={() => setCommentTotal(prev => prev + 1)}
       />
       <ShareBottomSheet 
         isOpen={isShareOpen} 

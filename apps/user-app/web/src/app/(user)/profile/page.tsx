@@ -10,7 +10,7 @@ import { SellerProfile } from '@/components/profile/SellerProfile';
 
 export default function ProfilePage() {
   const user = useSelector((state: RootState) => state.auth.user);
-  const { data: myStore, isLoading: isStoreLoading } = useGetMyStoreQuery();
+  const { data: myStore, isLoading: isStoreLoading } = useGetMyStoreQuery(undefined, { skip: !user });
 
   if (isStoreLoading) {
     return (

@@ -25,7 +25,7 @@ export class OrderService {
       for (const item of items) {
         const product = await tx.product.findUnique({ where: { id: item.productId } });
         if (!product || !product.isActive) {
-          throw new AppError(`Product ${item.productId} is unavailable`, 400);
+          throw new AppError(`Product "${product?.name || item.productId}" is currently unavailable`, 400);
         }
 
         const itemStoreId = product.storeId;
@@ -35,7 +35,7 @@ export class OrderService {
         if (item.variantId) {
           const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } });
           if (!variant || variant.productId !== item.productId) {
-            throw new AppError(`Variant ${item.variantId} is invalid`, 400);
+            throw new AppError(`Variant ${item.variantId} is invalid for product "${product.name}"`, 400);
           }
           priceToCharge = variant.price;
           skuToUse = variant.sku;
@@ -45,7 +45,7 @@ export class OrderService {
             data: { stockCount: { decrement: item.quantity } }
           });
           if (updatedVariant.stockCount < 0) {
-             throw new AppError(`Insufficient stock for variant ${variant.id}`, 400);
+             throw new AppError(`Insufficient stock for "${product.name} - ${variant.name}" (${item.quantity} requested, ${variant.stockCount} available)`, 400);
           }
         } else {
           const updatedProduct = await tx.product.update({
@@ -53,7 +53,7 @@ export class OrderService {
             data: { stockCount: { decrement: item.quantity } }
           });
           if (updatedProduct.stockCount < 0) {
-             throw new AppError(`Insufficient stock for product ${product.id}`, 400);
+             throw new AppError(`Insufficient stock for "${product.name}" (${item.quantity} requested, ${product.stockCount} available)`, 400);
           }
         }
 
@@ -87,12 +87,40 @@ export class OrderService {
       // Primary storeId for the parent order record
       const firstStoreEntry = Array.from(storeItemsMap.keys())[0];
       const primaryStoreId: string = storeId || firstStoreEntry || '';
-      if (!primaryStoreId) {
-        throw new AppError('At least one store item is required to place an order', 400);
+      // Check if user has an active cart with an applied coupon
+      let couponDiscount = 0;
+      const userCart = await tx.cart.findFirst({
+        where: { userId: buyerId },
+        include: { coupon: true }
+      });
+
+      if (userCart?.coupon && userCart.coupon.isActive) {
+        const coupon = userCart.coupon;
+        const isNotExpired = !coupon.validUntil || coupon.validUntil >= new Date();
+        const withinUsageLimit = !coupon.usageLimit || coupon.usedCount < coupon.usageLimit;
+        const meetsMinCart = !coupon.minCartValue || totalAmount >= coupon.minCartValue;
+
+        if (isNotExpired && withinUsageLimit && meetsMinCart) {
+          if (coupon.discountType === 'PERCENTAGE') {
+            couponDiscount = (totalAmount * coupon.discountValue) / 100;
+            if (coupon.maxDiscount && couponDiscount > coupon.maxDiscount) {
+              couponDiscount = coupon.maxDiscount;
+            }
+          } else {
+            couponDiscount = Math.min(coupon.discountValue, totalAmount);
+          }
+          couponDiscount = Math.round(couponDiscount * 100) / 100;
+
+          // Atomically increment coupon usage
+          await tx.coupon.update({
+            where: { id: coupon.id },
+            data: { usedCount: { increment: 1 } }
+          });
+        }
       }
 
       // 2. Create the parent order
-      const finalAmount = totalAmount + (extra?.shippingFee || 0);
+      const finalAmount = Math.max(0, Math.round((totalAmount - couponDiscount + (extra?.shippingFee || 0)) * 100) / 100);
       const newOrder = await tx.order.create({
         data: {
           buyerId,
@@ -141,10 +169,13 @@ export class OrderService {
         }
       }
 
-      // Clear the user's cart after successful order creation
-      const cart = await tx.cart.findFirst({ where: { userId: buyerId } });
-      if (cart) {
-        await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+      // Clear the user's cart and reset applied coupon after successful order creation
+      if (userCart) {
+        await tx.cartItem.deleteMany({ where: { cartId: userCart.id } });
+        await tx.cart.update({
+          where: { id: userCart.id },
+          data: { couponId: null }
+        });
       }
 
       return newOrder;
@@ -242,7 +273,7 @@ export class OrderService {
           title: item.productName,
           price: item.priceAt,
           quantity: item.quantity,
-          image: item.product?.media?.[0]?.url || item.product?.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
+          image: item.product?.media?.[0]?.url || item.product?.imageUrl || '',
           variantName: item.variant?.name || null
         }))
       };

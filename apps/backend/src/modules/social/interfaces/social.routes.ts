@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { SocialService } from '../application/social.service';
 import { validateRequest } from '../../../shared/middleware/validate';
-import { requireAuth } from '../../../shared/middleware/auth';
+import { requireAuth, optionalAuth, AuthRequest } from '../../../shared/middleware/auth';
 import { createCommentSchema } from '../domain/schemas';
 
 const router: Router = Router();
@@ -13,6 +13,62 @@ const router: Router = Router();
 router.post('/follow/:userId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await SocialService.toggleFollow((req as any).user.id, req.params.userId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/store/:storeId/follow', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await SocialService.toggleFollowStore((req as any).user.id, req.params.storeId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/store/:storeId/follow-status', optionalAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user?.id;
+    const result = await SocialService.getStoreFollowStatus(userId, req.params.storeId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/followed-stores', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await SocialService.getFollowedStores((req as any).user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// Sharing & Quick Send
+// ==========================================
+
+router.get('/share/recipients', optionalAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user?.id;
+    const recipients = await SocialService.getShareRecipients(userId);
+    res.status(200).json(recipients);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/share/send', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const senderId = (req as any).user.id;
+    const { recipientId, shareUrl, message } = req.body;
+    if (!recipientId || !shareUrl) {
+      return res.status(400).json({ error: 'recipientId and shareUrl are required' });
+    }
+    const result = await SocialService.sendDirectShare(senderId, recipientId, shareUrl, message);
     res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -132,6 +188,20 @@ router.post('/report', requireAuth, validateRequest(require('../domain/schemas')
     const { targetId, targetType, reason } = req.body;
     const result = await SocialService.reportContent((req as any).user.id, targetId, targetType, reason);
     res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// User Profile (Public)
+// ==========================================
+
+router.get('/user/:userId', optionalAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const currentUserId = req.user?.id;
+    const profile = await SocialService.getUserProfile(req.params.userId, currentUserId);
+    res.status(200).json(profile);
   } catch (error) {
     next(error);
   }

@@ -10,7 +10,7 @@ export class CartService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, imageUrl: true, sellingPrice: true, storeId: true }
+              select: { id: true, name: true, imageUrl: true, sellingPrice: true, storeId: true, stockCount: true, isActive: true }
             },
             variant: true
           }
@@ -25,13 +25,25 @@ export class CartService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, imageUrl: true, sellingPrice: true, storeId: true }
+                select: { id: true, name: true, imageUrl: true, sellingPrice: true, storeId: true, stockCount: true, isActive: true }
               },
               variant: true
             }
           }
         }
       });
+    } else if (cart.items.length > 0) {
+      // Automatically purge any orphaned cart items where the product was deleted from DB or is inactive
+      const orphanItemIds = cart.items
+        .filter((item: any) => !item.product || !item.product.isActive)
+        .map((item: any) => item.id);
+
+      if (orphanItemIds.length > 0) {
+        await prisma.cartItem.deleteMany({
+          where: { id: { in: orphanItemIds } }
+        });
+        cart.items = cart.items.filter((item: any) => !orphanItemIds.includes(item.id));
+      }
     }
 
     return cart;
@@ -41,9 +53,26 @@ export class CartService {
     const cart = await this.getCart(userId);
     
     // Verify product exists and is active
-    const product = await prisma.product.findUnique({ where: { id: productId } });
+    const product = await prisma.product.findUnique({ 
+      where: { id: productId },
+      include: { variants: true }
+    });
     if (!product || !product.isActive) {
       throw new AppError('Product is not available', 400);
+    }
+
+    // Check variant or product stock
+    let availableStock = product.stockCount ?? 0;
+    if (variantId) {
+      const variant = product.variants.find((v: any) => v.id === variantId);
+      if (!variant) {
+        throw new AppError('Selected product variant not found', 404);
+      }
+      availableStock = variant.stockCount ?? 0;
+    }
+
+    if (availableStock <= 0) {
+      throw new AppError(`"${product.name}" is currently out of stock`, 400);
     }
 
     // Check if item already exists in cart
@@ -52,14 +81,26 @@ export class CartService {
     );
 
     if (existingItem) {
+      const requestedTotal = existingItem.quantity + quantity;
+      if (requestedTotal > availableStock) {
+        throw new AppError(
+          `Cannot add more. Only ${availableStock} units available in stock (${existingItem.quantity} already in bag)`,
+          400
+        );
+      }
+
       return await prisma.cartItem.update({
         where: { id: existingItem.id },
-        data: { quantity: existingItem.quantity + quantity },
+        data: { quantity: requestedTotal },
         include: {
-          product: { select: { id: true, name: true, imageUrl: true, sellingPrice: true } },
+          product: { select: { id: true, name: true, imageUrl: true, sellingPrice: true, stockCount: true } },
           variant: true
         }
       });
+    }
+
+    if (quantity > availableStock) {
+      throw new AppError(`Cannot add ${quantity} units. Only ${availableStock} units available in stock`, 400);
     }
 
     return await prisma.cartItem.create({
@@ -70,7 +111,7 @@ export class CartService {
         quantity
       },
       include: {
-        product: { select: { id: true, name: true, imageUrl: true, sellingPrice: true } },
+        product: { select: { id: true, name: true, imageUrl: true, sellingPrice: true, stockCount: true } },
         variant: true
       }
     });
@@ -80,16 +121,29 @@ export class CartService {
     const cart = await prisma.cart.findFirst({ where: { userId } });
     if (!cart) throw new AppError('Cart not found', 404);
 
-    const item = await prisma.cartItem.findUnique({ where: { id: itemId } });
+    const item = await prisma.cartItem.findUnique({ 
+      where: { id: itemId },
+      include: { product: true, variant: true }
+    });
     if (!item || item.cartId !== cart.id) {
       throw new AppError('Cart item not found', 404);
+    }
+
+    if (quantity <= 0) {
+      await prisma.cartItem.delete({ where: { id: itemId } });
+      return { success: true, removed: true };
+    }
+
+    const availableStock = item.variant ? (item.variant.stockCount ?? 0) : (item.product.stockCount ?? 0);
+    if (quantity > availableStock) {
+      throw new AppError(`Cannot update quantity. Only ${availableStock} units available in stock`, 400);
     }
 
     return await prisma.cartItem.update({
       where: { id: itemId },
       data: { quantity },
       include: {
-        product: { select: { id: true, name: true, imageUrl: true, sellingPrice: true } },
+        product: { select: { id: true, name: true, imageUrl: true, sellingPrice: true, stockCount: true } },
         variant: true
       }
     });

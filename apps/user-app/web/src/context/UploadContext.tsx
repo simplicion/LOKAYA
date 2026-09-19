@@ -60,6 +60,72 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     setActiveUploads(prev => prev.filter(u => u.id !== id));
   }, []);
 
+  const uploadFileToCloud = async (
+    file: File,
+    type: 'VIDEO' | 'IMAGE',
+    onProgress: (percent: number) => void
+  ): Promise<{ mediaId?: string; url: string; posterUrl?: string; fileKey: string }> => {
+    // Strategy 1 (Primary - YouTube/Instagram standard): Direct Presigned S3/R2 PUT with live byte tracking
+    try {
+      const ext = file.name ? file.name.split('.').pop() : (type === 'VIDEO' ? 'mp4' : 'jpg');
+      const { signedUrl, fileKey, publicUrl, viewUrl } = await getPresignedUrl({
+        filename: `upload_${Date.now()}.${ext}`,
+        contentType: file.type || (type === 'VIDEO' ? 'video/mp4' : 'image/jpeg')
+      }).unwrap();
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', signedUrl, true);
+        xhr.setRequestHeader('Content-Type', file.type || (type === 'VIDEO' ? 'video/mp4' : 'image/jpeg'));
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const pct = Math.round((event.loaded / event.total) * 100);
+            onProgress(pct);
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Direct storage upload responded with HTTP ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Direct storage network connection error'));
+        xhr.send(file);
+      });
+
+      // Register MediaAsset and queue background HLS adaptive processing
+      const processRes = await processMedia({ fileKey, type }).unwrap();
+      const mediaAsset = processRes?.mediaAsset || processRes;
+
+      return {
+        mediaId: mediaAsset?.id,
+        fileKey,
+        url: mediaAsset?.url || publicUrl || viewUrl
+      };
+    } catch (directErr) {
+      console.warn('[UploadContext] Direct storage upload notice, falling back to streaming endpoint:', directErr);
+    }
+
+    // Strategy 2 (Fallback): Disk-buffered streaming upload to /media/upload
+    const formData = new FormData();
+    formData.append('file', file);
+    const uploadRes = await uploadMedia(formData).unwrap();
+    const fileKey = uploadRes.fileKey || `uploads/fallback/${Date.now()}`;
+    const url = uploadRes.publicUrl || uploadRes.url;
+
+    try {
+      const processRes = await processMedia({ fileKey, type }).unwrap();
+      return {
+        mediaId: processRes?.mediaAsset?.id,
+        fileKey,
+        url: processRes?.mediaAsset?.url || url
+      };
+    } catch {
+      return { fileKey, url };
+    }
+  };
+
   const performPostUpload = async (uploadId: string, params: {
     isReel: boolean;
     mediaFiles: File[];
@@ -67,23 +133,19 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     selectedProductIds: string[];
   }) => {
     try {
-      updateUpload(uploadId, { progress: 20, status: 'uploading' });
+      updateUpload(uploadId, { progress: 10, status: 'uploading' });
 
       const mediaIds: string[] = [];
-      const legacyMedia: { url: string; type: string }[] = [];
+      const legacyMedia: { url: string; posterUrl?: string; type: string; status: string }[] = [];
       const totalFiles = params.mediaFiles.length;
 
       for (let i = 0; i < totalFiles; i++) {
         const file = params.mediaFiles[i];
         const type = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
 
-        // Update progress per file
-        const baseProgress = 20 + Math.round(((i + 0.3) / totalFiles) * 50);
-        updateUpload(uploadId, { progress: baseProgress });
-
         let posterUrl: string | undefined = undefined;
 
-        // If it's a video, generate and upload thumbnail
+        // If it's a video, generate and upload a crisp first-frame thumbnail
         if (type === 'VIDEO') {
           try {
             const { generateVideoThumbnail } = await import('@/lib/utils');
@@ -92,67 +154,42 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               updateUpload(uploadId, { thumbnailUrl: thumbnailDataUrl });
             }
             if (thumbnailBlob && thumbnailBlob.size > 0) {
-              const thumbFormData = new FormData();
-              thumbFormData.append('file', new File([thumbnailBlob], `thumb_${Date.now()}.jpg`, { type: 'image/jpeg' }));
-              const thumbRes = await uploadMedia(thumbFormData).unwrap();
-              posterUrl = thumbRes.publicUrl || thumbRes.url || undefined;
+              const thumbRes = await uploadFileToCloud(
+                new File([thumbnailBlob], `thumb_${Date.now()}.jpg`, { type: 'image/jpeg' }),
+                'IMAGE',
+                () => {}
+              );
+              posterUrl = thumbRes.url;
             }
           } catch (thumbErr) {
             console.warn('[UploadContext] Video thumbnail generation notice:', thumbErr);
           }
         }
 
-        let uploadedUrl: string | null = null;
+        // Upload media file directly to storage with live byte progress
+        const uploadResult = await uploadFileToCloud(file, type, (filePct) => {
+          const fileSlice = 70 / totalFiles;
+          const currentTotal = 15 + Math.round((i * fileSlice) + (filePct * fileSlice / 100));
+          updateUpload(uploadId, { progress: Math.min(85, Math.max(15, currentTotal)) });
+        });
 
-        // 1. Direct upload strategy
-        try {
-          const formData = new FormData();
-          formData.append('file', file);
-          const uploadRes = await uploadMedia(formData).unwrap();
-          uploadedUrl = uploadRes.publicUrl || uploadRes.url || null;
-        } catch (err) {
-          console.warn('Direct upload fallback:', err);
-        }
-
-        // 2. Presigned URL strategy fallback
-        if (!uploadedUrl) {
-          try {
-            const { signedUrl, fileKey } = await getPresignedUrl({
-              filename: file.name || 'upload',
-              contentType: file.type || (type === 'VIDEO' ? 'video/mp4' : 'image/jpeg')
-            }).unwrap();
-
-            const s3Res = await fetch(signedUrl, {
-              method: 'PUT',
-              body: file,
-              headers: { 'Content-Type': file.type || (type === 'VIDEO' ? 'video/mp4' : 'image/jpeg') }
-            });
-
-            if (!s3Res.ok) throw new Error('Presigned upload failed');
-
-            const { mediaAsset } = await processMedia({ fileKey, type }).unwrap();
-            mediaIds.push(mediaAsset.id);
-          } catch (err) {
-            console.error('Presigned upload error:', err);
-          }
-        } else {
+        if (uploadResult.mediaId) {
+          mediaIds.push(uploadResult.mediaId);
+        } else if (uploadResult.url) {
           legacyMedia.push({
-            url: uploadedUrl,
+            url: uploadResult.url,
             posterUrl,
             type,
             status: type === 'VIDEO' ? 'PROCESSING' : 'READY'
-          } as any);
+          });
         }
-
-        const completedFileProgress = 20 + Math.round(((i + 1) / totalFiles) * 55);
-        updateUpload(uploadId, { progress: completedFileProgress });
       }
 
       if (mediaIds.length === 0 && legacyMedia.length === 0) {
         throw new Error('Could not upload media files. Please check network connection.');
       }
 
-      updateUpload(uploadId, { progress: 85, status: 'finishing' });
+      updateUpload(uploadId, { progress: 88, status: 'finishing' });
 
       const payload: any = {
         caption: params.caption || '',
@@ -161,15 +198,19 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       if (mediaIds.length > 0) payload.mediaIds = mediaIds;
       if (legacyMedia.length > 0) payload.media = legacyMedia;
 
-      // Create post (ContentService creates Post with VIDEO/IMAGE MediaAsset)
-      await createPost(payload).unwrap();
+      // Golden standard: Call createReel when isReel is true, otherwise createPost
+      if (params.isReel) {
+        await createReel(payload).unwrap();
+      } else {
+        await createPost(payload).unwrap();
+      }
 
       // Success -> 100%
       updateUpload(uploadId, { progress: 100, status: 'completed' });
       
       // Invalidate RTK queries to refresh feed and reels
       dispatch(api.util.invalidateTags(['Post', 'Reel', 'User']));
-      toast.success(params.isReel ? 'Video post published!' : 'Post published!');
+      toast.success(params.isReel ? 'Video reel published!' : 'Post published!');
 
       // Auto dismiss after 2.5s
       setTimeout(() => {
@@ -194,19 +235,21 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     productId?: string;
   }) => {
     try {
-      updateUpload(uploadId, { progress: 25, status: 'uploading' });
+      updateUpload(uploadId, { progress: 15, status: 'uploading' });
 
-      const formData = new FormData();
-      formData.append('file', params.file);
-      const uploadRes = await uploadMedia(formData).unwrap();
-      const mediaUrl = uploadRes.publicUrl || uploadRes.url;
-      const fileKey = uploadRes.fileKey;
+      const uploadResult = await uploadFileToCloud(params.file, params.mediaType, (pct) => {
+        const mappedProgress = 15 + Math.round((pct / 100) * 65);
+        updateUpload(uploadId, { progress: Math.min(80, Math.max(15, mappedProgress)) });
+      });
+
+      const mediaUrl = uploadResult.url;
+      const fileKey = uploadResult.fileKey;
 
       if (!mediaUrl) {
         throw new Error('Failed to upload story media file.');
       }
 
-      updateUpload(uploadId, { progress: 80, status: 'finishing' });
+      updateUpload(uploadId, { progress: 85, status: 'finishing' });
 
       await createStory({
         storeId: params.storeId,

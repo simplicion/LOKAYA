@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin, AuthRequest } from '../../../shared/middleware/auth';
 import { prisma } from '@workspace/db';
+import { SupportService } from '../../support/application/support.service';
 
 export const adminRouter: Router = Router();
 
@@ -161,4 +162,421 @@ adminRouter.patch('/banners/:id/toggle', requireAuth, requireAdmin, async (req: 
     next(error);
   }
 });
+
+// ==========================================
+// Coupon & Promo Code Management
+// ==========================================
+
+// GET /api/v1/admin/coupons/stats - Coupon usage summary
+adminRouter.get('/coupons/stats', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const now = new Date();
+    const [totalCoupons, activeCoupons, expiredCoupons, totalRedemptions] = await Promise.all([
+      prisma.coupon.count(),
+      prisma.coupon.count({ where: { isActive: true, OR: [{ validUntil: null }, { validUntil: { gte: now } }] } }),
+      prisma.coupon.count({ where: { validUntil: { lt: now } } }),
+      prisma.coupon.aggregate({ _sum: { usedCount: true } })
+    ]);
+
+    res.status(200).json({
+      totalCoupons,
+      activeCoupons,
+      expiredCoupons,
+      totalRedemptions: totalRedemptions._sum.usedCount || 0,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/v1/admin/coupons - Get all coupons
+adminRouter.get('/coupons', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const coupons = await prisma.coupon.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: {
+          select: { carts: true }
+        }
+      }
+    });
+    res.status(200).json(coupons);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/v1/admin/coupons - Create new coupon
+adminRouter.post('/coupons', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { 
+      code, 
+      discountType = 'PERCENTAGE', 
+      discountValue, 
+      minCartValue, 
+      maxDiscount, 
+      validFrom, 
+      validUntil, 
+      usageLimit, 
+      isActive = true 
+    } = req.body;
+
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      return res.status(400).json({ message: 'Coupon code is required' });
+    }
+
+    const cleanCode = code.trim().toUpperCase();
+    const numericDiscount = Number(discountValue);
+
+    if (isNaN(numericDiscount) || numericDiscount <= 0) {
+      return res.status(400).json({ message: 'Discount value must be a positive number' });
+    }
+
+    if (discountType === 'PERCENTAGE' && numericDiscount > 100) {
+      return res.status(400).json({ message: 'Percentage discount cannot exceed 100%' });
+    }
+
+    const existing = await prisma.coupon.findUnique({
+      where: { code: cleanCode }
+    });
+
+    if (existing) {
+      return res.status(409).json({ message: `Coupon with code "${cleanCode}" already exists` });
+    }
+
+    const coupon = await prisma.coupon.create({
+      data: {
+        code: cleanCode,
+        discountType: discountType === 'FIXED' ? 'FIXED' : 'PERCENTAGE',
+        discountValue: numericDiscount,
+        minCartValue: minCartValue !== undefined && minCartValue !== null && minCartValue !== '' ? Number(minCartValue) : null,
+        maxDiscount: maxDiscount !== undefined && maxDiscount !== null && maxDiscount !== '' ? Number(maxDiscount) : null,
+        validFrom: validFrom ? new Date(validFrom) : new Date(),
+        validUntil: validUntil ? new Date(validUntil) : null,
+        usageLimit: usageLimit !== undefined && usageLimit !== null && usageLimit !== '' ? Number(usageLimit) : null,
+        isActive: Boolean(isActive),
+      }
+    });
+
+    res.status(201).json(coupon);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/v1/admin/coupons/:id - Update coupon
+adminRouter.put('/coupons/:id', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    const { 
+      code, 
+      discountType, 
+      discountValue, 
+      minCartValue, 
+      maxDiscount, 
+      validFrom, 
+      validUntil, 
+      usageLimit, 
+      isActive 
+    } = req.body;
+
+    const existing = await prisma.coupon.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Coupon not found' });
+    }
+
+    let cleanCode = existing.code;
+    if (code && typeof code === 'string') {
+      cleanCode = code.trim().toUpperCase();
+      if (cleanCode !== existing.code) {
+        const duplicate = await prisma.coupon.findUnique({ where: { code: cleanCode } });
+        if (duplicate) {
+          return res.status(409).json({ message: `Coupon with code "${cleanCode}" already exists` });
+        }
+      }
+    }
+
+    const updated = await prisma.coupon.update({
+      where: { id },
+      data: {
+        code: cleanCode,
+        ...(discountType !== undefined && { discountType: discountType === 'FIXED' ? 'FIXED' : 'PERCENTAGE' }),
+        ...(discountValue !== undefined && { discountValue: Number(discountValue) }),
+        ...(minCartValue !== undefined && { minCartValue: minCartValue !== null && minCartValue !== '' ? Number(minCartValue) : null }),
+        ...(maxDiscount !== undefined && { maxDiscount: maxDiscount !== null && maxDiscount !== '' ? Number(maxDiscount) : null }),
+        ...(validFrom !== undefined && { validFrom: validFrom ? new Date(validFrom) : existing.validFrom }),
+        ...(validUntil !== undefined && { validUntil: validUntil ? new Date(validUntil) : null }),
+        ...(usageLimit !== undefined && { usageLimit: usageLimit !== null && usageLimit !== '' ? Number(usageLimit) : null }),
+        ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+      }
+    });
+
+    res.status(200).json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/v1/admin/coupons/:id - Delete coupon
+adminRouter.delete('/coupons/:id', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    // Unlink any carts using this coupon before deleting
+    await prisma.cart.updateMany({
+      where: { couponId: id },
+      data: { couponId: null }
+    });
+
+    await prisma.coupon.delete({ where: { id } });
+    res.status(200).json({ success: true, message: 'Coupon deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/coupons/:id/toggle - Toggle active status
+adminRouter.patch('/coupons/:id/toggle', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.coupon.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Coupon not found' });
+    }
+
+    const updated = await prisma.coupon.update({
+      where: { id },
+      data: { isActive: !existing.isActive }
+    });
+
+    res.status(200).json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// Content Moderation Endpoints
+// ==========================================
+
+// GET /api/v1/admin/content/reports - Get all reports with details
+adminRouter.get('/content/reports', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const reports = await prisma.report.findMany({
+      include: {
+        user: {
+          select: { id: true, name: true, email: true }
+        },
+        post: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                stores: {
+                  include: {
+                    store: {
+                      select: { id: true, name: true }
+                    }
+                  }
+                }
+              }
+            },
+            media: true
+          }
+        },
+        reel: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                stores: {
+                  include: {
+                    store: {
+                      select: { id: true, name: true }
+                    }
+                  }
+                }
+              }
+            },
+            media: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    });
+
+    const formattedReports = reports.map((r) => {
+      const isPost = !!r.postId;
+      const target = isPost ? r.post : r.reel;
+      const storeName = target?.author?.stores?.[0]?.store?.name || target?.author?.name || 'Local Seller';
+      const caption = target?.caption || '';
+      const mediaUrl = target?.media?.[0]?.url || '';
+
+      return {
+        id: r.id,
+        targetId: r.postId || r.reelId,
+        type: isPost ? 'Post' : 'Reel',
+        storeName,
+        caption,
+        reason: r.reason,
+        status: r.status || 'PENDING',
+        mediaUrl,
+        reporter: r.user?.name || r.user?.email || 'Anonymous',
+        createdAt: r.createdAt
+      };
+    });
+
+    res.status(200).json(formattedReports);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/content/reports/:id - Update report status (e.g. RESOLVED, DISMISSED)
+adminRouter.patch('/content/reports/:id', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status = 'RESOLVED' } = req.body;
+
+    const updated = await prisma.report.update({
+      where: { id },
+      data: { status }
+    });
+
+    res.status(200).json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/v1/admin/content/posts/:id - Takedown post
+adminRouter.delete('/content/posts/:id', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    await prisma.$transaction([
+      prisma.productLink.deleteMany({ where: { postId: id } }),
+      prisma.like.deleteMany({ where: { postId: id } }),
+      prisma.comment.deleteMany({ where: { postId: id } }),
+      prisma.savedPost.deleteMany({ where: { postId: id } }),
+      prisma.report.deleteMany({ where: { postId: id } }),
+      prisma.post.delete({ where: { id } }),
+    ]);
+
+    res.status(200).json({ success: true, message: 'Post removed successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/v1/admin/content/reels/:id - Takedown reel
+adminRouter.delete('/content/reels/:id', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    await prisma.$transaction([
+      prisma.productLink.deleteMany({ where: { reelId: id } }),
+      prisma.like.deleteMany({ where: { reelId: id } }),
+      prisma.comment.deleteMany({ where: { reelId: id } }),
+      prisma.savedPost.deleteMany({ where: { reelId: id } }),
+      prisma.report.deleteMany({ where: { reelId: id } }),
+      prisma.reel.delete({ where: { id } }),
+    ]);
+
+    res.status(200).json({ success: true, message: 'Reel removed successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// Review Moderation Endpoints
+// ==========================================
+
+// GET /api/v1/admin/reviews - Get all reviews
+adminRouter.get('/reviews', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const reviews = await prisma.review.findMany({
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, phone: true }
+        },
+        product: {
+          select: { id: true, name: true, imageUrl: true }
+        },
+        store: {
+          select: { id: true, name: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    });
+
+    const formattedReviews = reviews.map((r) => ({
+      id: r.id,
+      storeName: r.store?.name || 'Local Store',
+      product: r.product?.name || 'Store Review',
+      productId: r.productId,
+      storeId: r.storeId,
+      user: r.user?.name || r.user?.email || 'Customer',
+      rating: r.rating,
+      comment: r.comment || '',
+      status: 'APPROVED',
+      createdAt: r.createdAt
+    }));
+
+    res.status(200).json(formattedReviews);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/v1/admin/reviews/:id - Delete review
+adminRouter.delete('/reviews/:id', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    await prisma.review.delete({ where: { id } });
+    res.status(200).json({ success: true, message: 'Review deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// Support Tickets Management
+// ==========================================
+
+// GET /api/v1/admin/support/tickets - Get all support tickets
+adminRouter.get('/support/tickets', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { status, priority, category, search } = req.query;
+    const result = await SupportService.getAllTickets({
+      status: status as string,
+      priority: priority as string,
+      category: category as string,
+      search: search as string
+    });
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/support/tickets/:ticketId - Update ticket status or resolution notes
+adminRouter.patch('/support/tickets/:ticketId', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { ticketId } = req.params;
+    const { status, priority, adminNotes } = req.body;
+    const updated = await SupportService.updateTicketStatus(ticketId, {
+      status,
+      priority,
+      adminNotes
+    });
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 

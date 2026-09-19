@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { logout, setCredentials } from '@/lib/features/authSlice';
+import { clearCart } from '@/lib/features/cartSlice';
 import { 
   useGetPresignedUrlMutation, 
   useUpdateProfileMutation, 
@@ -51,11 +52,18 @@ export function RegularProfile() {
   const [uploadMedia] = useUploadMediaMutation();
   const [getPresignedUrl] = useGetPresignedUrlMutation();
   const [updateProfile] = useUpdateProfileMutation();
+  const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
 
-  const { data: myStore, isLoading: isStoreLoading } = useGetMyStoreQuery();
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1'}/identity/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {}
     dispatch(logout());
+    dispatch(clearCart());
+    toast.success('Logged out successfully');
     router.push('/login');
   };
 
@@ -138,6 +146,7 @@ export function RegularProfile() {
                     src={user!.avatarUrl} 
                     alt={user?.name || "Profile Avatar"} 
                     className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
                     onError={() => setAvatarError(true)}
                   />
                 ) : (
@@ -265,20 +274,20 @@ export function RegularProfile() {
           <div className="flex flex-col">
             <QuickLinkItem icon={MapPin} label="My Addresses" href="/checkout/address" />
             <QuickLinkItem icon={CreditCard} label="Payment Methods" href="/checkout/payment" />
-            <QuickLinkItem icon={Star} label="My Reviews" />
-            <QuickLinkItem icon={Heart} label="Wishlist" />
-            <QuickLinkItem icon={Clock} label="Recently Viewed" />
-            <QuickLinkItem icon={Store} label="Followed Stores" borderBottom={false} />
+            <QuickLinkItem icon={Star} label="My Reviews" href="/profile/reviews" />
+            <QuickLinkItem icon={Heart} label="Wishlist" href="/wishlist" />
+            <QuickLinkItem icon={Clock} label="Recently Viewed" href="/profile/recently-viewed" />
+            <QuickLinkItem icon={Store} label="Followed Stores" href="/profile/followed-stores" borderBottom={false} />
           </div>
         </div>
 
         {/* Footer Links Card */}
         <div className="bg-white rounded-3xl shadow-sm border border-[#E5E2DC] overflow-hidden mb-6">
           <div className="flex flex-col">
-            <QuickLinkItem icon={Bell} label="Notifications" />
-            <QuickLinkItem icon={Headphones} label="Help & Support" />
-            <QuickLinkItem icon={ShieldCheck} label="Privacy Policy" />
-            <QuickLinkItem icon={FileText} label="Terms & Conditions" />
+            <QuickLinkItem icon={Bell} label="Notifications" href="/notifications" />
+            <QuickLinkItem icon={Headphones} label="Help & Support" href="/profile/help" />
+            <QuickLinkItem icon={ShieldCheck} label="Privacy Policy" href="/profile/privacy-policy" />
+            <QuickLinkItem icon={FileText} label="Terms & Conditions" href="/profile/terms-and-conditions" />
             
             <div 
               onClick={handleLogout}

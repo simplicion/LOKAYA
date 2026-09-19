@@ -12,6 +12,7 @@ import {
   createReelSchema,
   createStorySchema
 } from '../domain/schemas';
+import { redisClient } from '../../../shared/services/redis.service';
 
 const router: Router = Router();
 
@@ -36,7 +37,7 @@ const getOptionalUserId = (req: Request): string | undefined => {
 router.post('/upload/presigned-url', requireAuth, validateRequest(getPresignedUrlSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { filename, contentType } = req.body;
-    const result = await ContentService.getPresignedUrl(filename, contentType);
+    const result = await ContentService.getPresignedUrl(filename, contentType, (req as any).user.id);
     res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -61,6 +62,9 @@ router.post('/stories', requireAuth, validateRequest(createStorySchema), async (
 router.get('/stories/feed', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const viewerId = getOptionalUserId(req);
+    if (!viewerId) {
+      res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+    }
     const feed = await StoryService.getStoriesFeed(viewerId);
     res.status(200).json(feed);
   } catch (error) {
@@ -195,6 +199,9 @@ router.get('/posts', async (req: Request, res: Response, next: NextFunction) => 
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const viewerId = getOptionalUserId(req);
+    if (!viewerId) {
+      res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+    }
     const posts = await ContentService.getPosts(page, limit, viewerId);
     res.status(200).json(posts);
   } catch (error) {
@@ -206,6 +213,16 @@ router.get('/posts/store/:storeId', async (req: Request, res: Response, next: Ne
   try {
     const posts = await ContentService.getStorePosts(req.params.storeId);
     res.status(200).json(posts);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/posts/:postId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const viewerId = getOptionalUserId(req);
+    const post = await ContentService.getPostById(req.params.postId, viewerId);
+    res.status(200).json(post);
   } catch (error) {
     next(error);
   }
@@ -238,6 +255,9 @@ router.get('/reels', async (req: Request, res: Response, next: NextFunction) => 
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const viewerId = getOptionalUserId(req);
+    if (!viewerId) {
+      res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+    }
     const reels = await ContentService.getReels(page, limit, viewerId);
     res.status(200).json(reels);
   } catch (error) {
@@ -249,6 +269,16 @@ router.get('/reels/store/:storeId', async (req: Request, res: Response, next: Ne
   try {
     const reels = await ContentService.getStoreReels(req.params.storeId);
     res.status(200).json(reels);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/reels/:reelId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const viewerId = getOptionalUserId(req);
+    const reel = await ContentService.getReelById(req.params.reelId, viewerId);
+    res.status(200).json(reel);
   } catch (error) {
     next(error);
   }
@@ -269,8 +299,17 @@ router.delete('/reels/:reelId', requireAuth, async (req: Request, res: Response,
 
 router.get('/banners', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+
+    try {
+      const cached = await redisClient.get('cache:public:banners');
+      if (cached) {
+        return res.status(200).json(JSON.parse(cached));
+      }
+    } catch {}
+
     const { prisma } = await import('@workspace/db');
-    let banners = await (prisma as any).banner.findMany({
+    const banners = await (prisma as any).banner.findMany({
       where: { isActive: true },
       orderBy: [
         { displayOrder: 'asc' },
@@ -278,42 +317,11 @@ router.get('/banners', async (req: Request, res: Response, next: NextFunction) =
       ]
     });
 
-    // If no banners exist yet, seed initial starter banners
-    if (!banners || banners.length === 0) {
-      const initialBanners = [
-        {
-          title: 'Summer Collection',
-          subtitle: 'Handcrafted styles curated from top local artisans',
-          tagline: 'Up to 40% OFF',
-          imageUrl: 'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?q=80&w=800&auto=format&fit=crop',
-          linkUrl: '/search?q=shoes',
-          buttonText: 'Shop Now',
-          displayOrder: 1,
-          isActive: true
-        },
-        {
-          title: 'New Arrivals',
-          subtitle: 'Fresh streetwear & traditional designer wear',
-          tagline: 'Trending Today',
-          imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&auto=format&fit=crop',
-          linkUrl: '/search?q=t-shirt',
-          buttonText: 'Explore',
-          displayOrder: 2,
-          isActive: true
-        }
-      ];
+    try {
+      await redisClient.setex('cache:public:banners', 60, JSON.stringify(banners || []));
+    } catch {}
 
-      for (const b of initialBanners) {
-        await (prisma as any).banner.create({ data: b });
-      }
-
-      banners = await (prisma as any).banner.findMany({
-        where: { isActive: true },
-        orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }]
-      });
-    }
-
-    res.status(200).json(banners);
+    res.status(200).json(banners || []);
   } catch (error) {
     next(error);
   }

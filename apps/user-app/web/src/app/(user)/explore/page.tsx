@@ -19,15 +19,7 @@ import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 import { useGetBannersQuery, useGetPublicProductsQuery } from '@/lib/api';
 import { cn, getMediaUrl } from '@/lib/utils';
 
-const TRENDING_TAGS = [
-  'Shoes',
-  'T-Shirt',
-  'Mojari',
-  'Handloom',
-  'Sneakers',
-  'Jewelry',
-  'Artisan'
-];
+
 
 const SORT_OPTIONS = [
   { id: 'newest', label: 'Newest First' },
@@ -49,6 +41,18 @@ export default function ExplorePage() {
   const { data: products = [], isLoading: isProductsLoading } = useGetPublicProductsQuery({
     sort: selectedSort,
   });
+
+  // Dynamically derive trending tags from live catalog products without hardcoded mock tags
+  const trendingTags = React.useMemo(() => {
+    if (!products || products.length === 0) return [];
+    const unique = new Set<string>();
+    products.forEach((p: any) => {
+      if (p.category && typeof p.category === 'string') {
+        unique.add(p.category.trim());
+      }
+    });
+    return Array.from(unique);
+  }, [products]);
 
   // Track scroll direction for sticky bar
   useEffect(() => {
@@ -163,23 +167,25 @@ export default function ExplorePage() {
       )}
 
       {/* 3. Trending Searches Chips */}
-      <div className="pt-2 pb-1">
-        <div className="flex items-center gap-1.5 px-4 mb-2">
-          <TrendingUp className="w-3.5 h-3.5 text-[#FF5A36]" />
-          <h2 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Trending Searches</h2>
+      {trendingTags.length > 0 && (
+        <div className="pt-2 pb-1">
+          <div className="flex items-center gap-1.5 px-4 mb-2">
+            <TrendingUp className="w-3.5 h-3.5 text-[#FF5A36]" />
+            <h2 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Trending Searches</h2>
+          </div>
+          <div className="flex overflow-x-auto no-scrollbar px-4 gap-2 pb-2">
+            {trendingTags.map((tag) => (
+              <Link 
+                key={tag}
+                href={`/search?q=${encodeURIComponent(tag)}`}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-gray-200 bg-white text-gray-800 text-xs font-semibold shrink-0 shadow-2xs hover:border-[#FF5A36] hover:text-[#FF5A36] transition"
+              >
+                <span>#{tag}</span>
+              </Link>
+            ))}
+          </div>
         </div>
-        <div className="flex overflow-x-auto no-scrollbar px-4 gap-2 pb-2">
-          {TRENDING_TAGS.map((tag) => (
-            <Link 
-              key={tag}
-              href={`/search?q=${encodeURIComponent(tag)}`}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-gray-200 bg-white text-gray-800 text-xs font-semibold shrink-0 shadow-2xs hover:border-[#FF5A36] hover:text-[#FF5A36] transition"
-            >
-              <span>#{tag}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* 4. Sticky Header with Products Count & Sort Options */}
       <div className={cn(

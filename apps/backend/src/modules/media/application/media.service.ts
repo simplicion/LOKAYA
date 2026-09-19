@@ -58,6 +58,8 @@ export const ensureR2Cors = async () => {
   }
 };
 
+import fs from 'fs';
+
 export class MediaService {
   async getObjectStream(fileKey: string, range?: string) {
     const bucket = getBucket();
@@ -69,30 +71,48 @@ export class MediaService {
     return await getS3Client().send(command);
   }
 
-  async uploadFile(userId: string, file: { originalname: string; buffer: Buffer; mimetype: string }) {
+  async uploadFile(userId: string, file: { originalname: string; buffer?: Buffer; path?: string; mimetype: string }) {
     const ext = file.originalname.split('.').pop() || 'jpg';
     const fileKey = `uploads/${userId}/${uuidv4()}.${ext}`;
     const bucket = getBucket();
 
-    const command = new PutObjectCommand({
-      Bucket: bucket,
-      Key: fileKey,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    });
+    try {
+      let body: any;
+      if (file.path && fs.existsSync(file.path)) {
+        body = fs.createReadStream(file.path);
+      } else if (file.buffer) {
+        body = file.buffer;
+      } else {
+        throw new Error('No file data provided');
+      }
 
-    await getS3Client().send(command);
+      const command = new PutObjectCommand({
+        Bucket: bucket,
+        Key: fileKey,
+        Body: body,
+        ContentType: file.mimetype,
+      });
 
-    // Provide reliable access URL via streaming proxy or signed URL
-    const baseUrl = process.env.BACKEND_API_URL || 'http://localhost:4002/api/v1';
-    const viewUrl = `${baseUrl}/media/view?key=${encodeURIComponent(fileKey)}`;
+      await getS3Client().send(command);
 
-    return {
-      success: true,
-      fileKey,
-      url: viewUrl,
-      publicUrl: viewUrl,
-    };
+      const baseUrl = process.env.BACKEND_API_URL || 'http://localhost:4002/api/v1';
+      const viewUrl = `${baseUrl}/media/view?key=${encodeURIComponent(fileKey)}`;
+      const streamUrl = `${baseUrl}/media/stream/${fileKey}`;
+
+      return {
+        success: true,
+        fileKey,
+        url: streamUrl,
+        publicUrl: viewUrl,
+      };
+    } finally {
+      // Clean up temp disk file if uploaded via multer diskStorage
+      if (file.path && fs.existsSync(file.path)) {
+        try {
+          fs.unlinkSync(file.path);
+        } catch {}
+      }
+    }
   }
 
   async getPresignedUrl(userId: string, filename: string, contentType: string) {
@@ -110,27 +130,36 @@ export class MediaService {
     const signedUrl = await getSignedUrl(getS3Client(), command, { expiresIn: 900 });
     const baseUrl = process.env.BACKEND_API_URL || 'http://localhost:4002/api/v1';
     const viewUrl = `${baseUrl}/media/view?key=${encodeURIComponent(fileKey)}`;
+    const streamUrl = `${baseUrl}/media/stream/${fileKey}`;
     
-    return { signedUrl, fileKey, uploadUrl: signedUrl, publicUrl: viewUrl };
+    return { signedUrl, fileKey, uploadUrl: signedUrl, publicUrl: streamUrl, viewUrl };
   }
   
   async startProcessing(userId: string, fileKey: string, type: 'VIDEO' | 'IMAGE') {
-    // Create DB Record
+    const baseUrl = process.env.BACKEND_API_URL || 'http://localhost:4002/api/v1';
+    const streamUrl = `${baseUrl}/media/stream/${fileKey}`;
+
+    // Create DB Record with immediate stream URL for zero-delay progressive playback
     const mediaAsset = await prisma.mediaAsset.create({
       data: {
-        url: '', // Will be updated by worker
+        url: streamUrl,
         originalUrl: `s3://${getBucket()}/${fileKey}`,
         type,
-        status: 'PENDING'
+        status: 'PROCESSING'
       }
     });
     
-    // Add to BullMQ
-    await mediaQueue.add('process-media', {
-      mediaId: mediaAsset.id,
-      fileKey,
-      type
-    });
+    // Add to BullMQ for asynchronous HLS adaptive chunking & optimization
+    try {
+      await mediaQueue.add('process-media', {
+        mediaId: mediaAsset.id,
+        fileKey,
+        type,
+        rawUrl: streamUrl
+      });
+    } catch (queueErr) {
+      console.warn('[MediaService] Notice: could not enqueue background job, streaming raw video directly:', queueErr);
+    }
     
     return mediaAsset;
   }

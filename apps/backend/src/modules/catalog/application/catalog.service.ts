@@ -399,7 +399,7 @@ export class CatalogService {
         ? prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length
         : 0;
 
-      const primaryImage = prod.media?.[0]?.url || prod.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400';
+      const primaryImage = prod.media?.[0]?.url || prod.imageUrl || '';
       const price = prod.sellingPrice ?? 0;
       const mrp = prod.mrp && prod.mrp > price ? prod.mrp : undefined;
       const discountLabel = mrp ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
@@ -424,12 +424,209 @@ export class CatalogService {
           isVerified: prod.store?.status === 'VERIFIED',
           logoUrl: prod.store?.logoUrl
         },
-        rating: avgRating > 0 ? avgRating.toFixed(1) : '4.8',
-        reviews: `(${prod.reviews?.length || 0})`,
+        rating: avgRating > 0 ? avgRating.toFixed(1) : null,
+        reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
         reviewsCount: prod.reviews?.length || 0,
         category: prod.category
       };
     });
+  }
+
+  static async getProductsByIds(ids: string[]) {
+    if (!ids || ids.length === 0) return [];
+    
+    // Clean and deduplicate ids
+    const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+    if (uniqueIds.length === 0) return [];
+
+    const products = await prisma.product.findMany({
+      where: {
+        id: { in: uniqueIds },
+        isActive: true
+      },
+      include: {
+        store: true,
+        media: {
+          orderBy: { displayOrder: 'asc' }
+        },
+        reviews: {
+          select: { rating: true }
+        }
+      }
+    });
+
+    const productMap = new Map<string, any>();
+    products.forEach((prod) => {
+      const avgRating = prod.reviews?.length
+        ? prod.reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / prod.reviews.length
+        : 0;
+
+      const primaryImage = prod.media?.[0]?.url || prod.imageUrl || '';
+      const price = prod.sellingPrice ?? 0;
+      const mrp = prod.mrp && prod.mrp > price ? prod.mrp : undefined;
+      const discountLabel = mrp ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
+
+      productMap.set(prod.id, {
+        id: prod.id,
+        title: prod.name,
+        name: prod.name,
+        description: prod.description,
+        image: primaryImage,
+        primaryImage,
+        imageUrl: primaryImage,
+        images: prod.media?.map((m: any) => m.url) || (prod.imageUrl ? [prod.imageUrl] : []),
+        price: price.toLocaleString('en-IN'),
+        sellingPrice: price,
+        originalPrice: mrp ? mrp.toLocaleString('en-IN') : undefined,
+        mrp: mrp,
+        discount: discountLabel,
+        discountLabel: discountLabel,
+        stockCount: prod.stockCount ?? 0,
+        store: {
+          id: prod.store?.id || '',
+          name: prod.store?.name || 'Lokaya Store',
+          isVerified: prod.store?.status === 'VERIFIED',
+          logoUrl: prod.store?.logoUrl
+        },
+        rating: avgRating > 0 ? avgRating.toFixed(1) : null,
+        reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
+        reviewsCount: prod.reviews?.length || 0,
+        category: prod.category
+      });
+    });
+
+    // Return in the exact order of requested ids
+    return uniqueIds
+      .map(id => productMap.get(id))
+      .filter(Boolean);
+  }
+
+  static async createProductReview(userId: string, data: {
+    productId: string;
+    orderId?: string;
+    rating: number;
+    comment?: string;
+  }) {
+    const { productId, orderId, rating, comment } = data;
+
+    if (!productId) {
+      throw new AppError('Product ID is required', 400);
+    }
+    const numRating = Math.round(Number(rating));
+    if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+      throw new AppError('Rating must be an integer between 1 and 5', 400);
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, storeId: true, name: true }
+    });
+
+    if (!product) {
+      throw new AppError('Product not found', 404);
+    }
+
+    // Check if user already reviewed this product
+    const existingReview = await prisma.review.findFirst({
+      where: {
+        userId,
+        productId
+      }
+    });
+
+    if (existingReview) {
+      return await prisma.review.update({
+        where: { id: existingReview.id },
+        data: {
+          rating: numRating,
+          comment: comment?.trim() || null,
+          storeId: product.storeId || existingReview.storeId
+        },
+        include: {
+          product: {
+            select: { id: true, name: true, imageUrl: true, sellingPrice: true, store: true }
+          },
+          store: true
+        }
+      });
+    }
+
+    return await prisma.review.create({
+      data: {
+        userId,
+        productId,
+        storeId: product.storeId || null,
+        rating: numRating,
+        comment: comment?.trim() || null
+      },
+      include: {
+        product: {
+          select: { id: true, name: true, imageUrl: true, sellingPrice: true, store: true }
+        },
+        store: true
+      }
+    });
+  }
+
+  static async getUserReviews(userId: string) {
+    const reviews = await prisma.review.findMany({
+      where: { userId },
+      include: {
+        product: {
+          include: {
+            store: true,
+            media: true
+          }
+        },
+        store: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return reviews.map(r => ({
+      id: r.id,
+      rating: r.rating,
+      comment: r.comment,
+      createdAt: r.createdAt,
+      productId: r.productId,
+      product: r.product ? {
+        id: r.product.id,
+        name: r.product.name,
+        imageUrl: r.product.media?.[0]?.url || r.product.imageUrl || '',
+        sellingPrice: r.product.sellingPrice,
+        price: r.product.sellingPrice ? r.product.sellingPrice.toLocaleString('en-IN') : '0',
+        store: r.product.store ? {
+          id: r.product.store.id,
+          name: r.product.store.name,
+          logoUrl: r.product.store.logoUrl
+        } : null
+      } : null,
+      store: r.store ? {
+        id: r.store.id,
+        name: r.store.name,
+        logoUrl: r.store.logoUrl
+      } : null
+    }));
+  }
+
+  static async deleteUserReview(userId: string, reviewId: string) {
+    const review = await prisma.review.findUnique({
+      where: { id: reviewId }
+    });
+
+    if (!review) {
+      throw new AppError('Review not found', 404);
+    }
+
+    if (review.userId !== userId) {
+      throw new AppError('Unauthorized to delete this review', 403);
+    }
+
+    await prisma.review.delete({
+      where: { id: reviewId }
+    });
+
+    return { success: true, message: 'Review deleted successfully' };
   }
 }
 

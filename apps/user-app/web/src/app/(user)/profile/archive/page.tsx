@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Clock, Eye, Heart, Plus, Sparkles, Check, Loader2, AlertCircle } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/lib/store';
 import { useGetStoryArchiveQuery, useGetMyStoreQuery } from '@/lib/api';
 import { StoryViewerModal } from '@/components/feed/StoryViewerModal';
 import { CreateHighlightModal } from '@/components/profile/CreateHighlightModal';
@@ -11,7 +13,8 @@ import { toast } from 'sonner';
 
 export default function StoryArchivePage() {
   const router = useRouter();
-  const { data: myStore } = useGetMyStoreQuery();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
   const { data: archiveStories, isLoading, refetch } = useGetStoryArchiveQuery();
 
   const [isSelectMode, setIsSelectMode] = useState(false);

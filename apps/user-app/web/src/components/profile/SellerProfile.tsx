@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useDispatch } from 'react-redux';
-import { Grid, PlaySquare, MapPin, Plus, CheckCircle2, Loader2 } from 'lucide-react';
+import { Grid, PlaySquare, MapPin, Plus, CheckCircle2, Loader2, Star } from 'lucide-react';
 import { 
   useGetStoreHighlightsQuery, 
   useGetStorePostsQuery, 
@@ -112,7 +112,8 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
   const avgRating = storeSummary?.avgRating ?? 0;
   const reviewCount = storeSummary?.reviewCount ?? 0;
   const isOpen = storeSummary?.isOpen ?? true;
-  const timingLabel = storeSummary?.timingLabel || (isOpen ? 'Open Now' : 'Closed');
+  const hasHours = Boolean(myStore?.openingTime || myStore?.closingTime || storeSummary?.timingLabel);
+  const timingLabel = storeSummary?.timingLabel || (hasHours ? (isOpen ? 'Open Now' : 'Closed') : '');
 
   const allPosts = storePosts || [];
   const allReels = storeReels || [];
@@ -247,21 +248,40 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
               <CheckCircle2 className="w-4 h-4 text-blue-500 fill-current" />
             )}
           </div>
-          <p className="text-sm text-gray-500 mt-0.5 mb-1.5">{myStore.description || "Official Online Store"} • {myStore.category || "Grocery & Essentials"}</p>
+          {(myStore.description || myStore.category) && (
+            <p className="text-sm text-gray-500 mt-0.5 mb-1.5">
+              {[myStore.description, myStore.category].filter(Boolean).join(' • ')}
+            </p>
+          )}
           
-          <div className="flex items-center gap-3 text-xs text-gray-500 mb-1">
-            <span className="flex items-center text-amber-500 font-semibold">
-              ★ {avgRating > 0 ? avgRating.toFixed(1) : 'New'} <span className="text-gray-400 font-normal ml-0.5">({reviewCount} ratings)</span>
-            </span>
-            <span className={cn("font-medium", isOpen ? "text-emerald-600" : "text-amber-600")}>
-              {timingLabel}
-            </span>
-          </div>
+          {(reviewCount > 0 || (myStore.openingTime && myStore.closingTime)) && (
+            <div className="flex items-center gap-3 text-xs text-gray-500 mb-1">
+              {reviewCount > 0 && (
+                <span className="flex items-center text-amber-500 font-semibold">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 mr-1" />
+                  <span>{avgRating.toFixed(1)}</span>
+                  <span className="text-gray-400 font-normal ml-0.5">({reviewCount} {reviewCount === 1 ? 'rating' : 'ratings'})</span>
+                </span>
+              )}
+              {myStore.openingTime && myStore.closingTime && (
+                <span className={cn("font-medium", isOpen ? "text-emerald-600" : "text-amber-600")}>
+                  {timingLabel}
+                </span>
+              )}
+            </div>
+          )}
           
-          <div className="flex items-center gap-1 text-xs text-gray-400">
-            <MapPin className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{myStore.address || "Address not provided"}</span>
-          </div>
+          {myStore.address && myStore.address !== 'Address not provided' ? (
+            <div className="flex items-center gap-1 text-xs text-gray-400">
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{myStore.address}</span>
+            </div>
+          ) : (myStore.city || myStore.state) ? (
+            <div className="flex items-center gap-1 text-xs text-gray-400">
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{[myStore.city, myStore.state].filter(Boolean).join(', ')}</span>
+            </div>
+          ) : null}
         </div>
         
         {/* Quick Actions */}
@@ -436,7 +456,7 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
       )}
 
       {/* Story Viewer for Highlights */}
-      {isViewerOpen && (
+      {isViewerOpen && (highlightViewerGroup?.[0]?.stories?.length || 0) > 0 && (
         <StoryViewerModal
           isOpen={isViewerOpen}
           onClose={() => setIsViewerOpen(false)}

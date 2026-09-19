@@ -40,7 +40,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
 
   // Active status
   const rawStatus = (trackingData?.status || orderDetails?.status || 'PENDING').toUpperCase();
-  const courierName = trackingData?.courierName || orderDetails?.courierName || (rawStatus === 'SHIPPED' ? 'Delhivery Surface' : null);
+  const courierName = trackingData?.courierName || orderDetails?.courierName || (rawStatus === 'SHIPPED' ? 'Standard Surface' : null);
   const awbCode = trackingData?.awbCode || orderDetails?.awbCode;
   const trackingUrl = trackingData?.trackingUrl || orderDetails?.trackingUrl;
   const estimatedDelivery = trackingData?.estimatedDelivery || orderDetails?.estimatedDelivery || 'Within 3 - 5 business days';
@@ -163,8 +163,8 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
                   <Package className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900 text-xs">Shiprocket 3PL Tracking</h3>
-                  <p className="text-[11px] text-gray-500">{courierName || 'Delhivery Surface'}</p>
+                  <h3 className="font-bold text-gray-900 text-xs">Logistics Tracking</h3>
+                  <p className="text-[11px] text-gray-500">{courierName || 'Express Courier'}</p>
                 </div>
               </div>
 
@@ -180,7 +180,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500 font-medium">Logistics Provider</span>
-                <span className="font-bold text-gray-900">{courierName || 'Delhivery'}</span>
+                <span className="font-bold text-gray-900">{courierName || 'Express Courier'}</span>
               </div>
             </div>
 

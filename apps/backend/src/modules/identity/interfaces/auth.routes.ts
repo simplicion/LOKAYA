@@ -8,12 +8,14 @@ import {
   loginSchema, 
   googleLoginSchema,
   refreshTokenSchema,
-  sendOtpSchema
+  sendOtpSchema,
+  verifyOtpSchema,
+  setPasswordSchema,
+  updateProfileSchema
 } from '../domain/schemas';
 
 export const authRouter: Router = Router();
 const authService = new AuthService();
-
 
 const setTokenCookies = (res: any, token: string, refreshToken: string) => {
   res.cookie('access_token', token, {
@@ -36,10 +38,18 @@ authRouter.post('/send-otp', validateRequest(sendOtpSchema), async (req, res, ne
     const identifier = email || phone;
     const isPhone = !!phone;
     
-    // For now we don't throw error if user exists because they might be logging in or resetting password.
-    // However, the current flow is mainly for registration.
-    
     const result = await authService.sendRegistrationOtp(identifier, isPhone);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post('/verify-otp', validateRequest(verifyOtpSchema), async (req, res, next) => {
+  try {
+    const { email, phone, otp } = req.body;
+    const identifier = email || phone;
+    const result = await authService.verifyRegistrationOtp(identifier, otp);
     res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -51,6 +61,16 @@ authRouter.post('/register', validateRequest(registerSchema), async (req, res, n
     const result = await authService.registerUser(req.body);
     setTokenCookies(res, result.token, result.refreshToken);
     res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post('/set-password', requireAuth, validateRequest(setPasswordSchema), async (req: any, res, next) => {
+  try {
+    const { password } = req.body;
+    const result = await authService.setPassword(req.user.id, password);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -128,10 +148,18 @@ authRouter.get('/me', requireAuth, async (req: any, res, next) => {
         }
       }
     });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      res.clearCookie('access_token');
+      res.clearCookie('refresh_token');
+      return res.status(401).json({ error: 'User session expired or user deleted' });
+    }
     
     const { password, ...userWithoutPassword } = user;
-    const mappedUser = { ...userWithoutPassword, role: user.isSystemAdmin ? 'SYSTEM_ADMIN' : 'USER' };
+    const mappedUser = { 
+      ...userWithoutPassword, 
+      hasPassword: !!password,
+      role: user.isSystemAdmin ? 'SYSTEM_ADMIN' : 'USER' 
+    };
     
     res.status(200).json({ user: mappedUser });
   } catch (error) {
@@ -139,20 +167,36 @@ authRouter.get('/me', requireAuth, async (req: any, res, next) => {
   }
 });
 
-authRouter.put('/profile', requireAuth, async (req: any, res, next) => {
+authRouter.put('/profile', requireAuth, validateRequest(updateProfileSchema), async (req: any, res, next) => {
   try {
-    const { name, avatarUrl } = req.body;
+    const { name, avatarUrl, age, gender, locationArea, city, state, latitude, longitude, phone, password } = req.body;
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
+    if (age !== undefined) updateData.age = age ? Number(age) : null;
+    if (gender !== undefined) updateData.gender = gender;
+    if (locationArea !== undefined) updateData.locationArea = locationArea;
+    if (city !== undefined) updateData.city = city;
+    if (state !== undefined) updateData.state = state;
+    if (latitude !== undefined) updateData.latitude = latitude !== null ? Number(latitude) : null;
+    if (longitude !== undefined) updateData.longitude = longitude !== null ? Number(longitude) : null;
+    if (phone !== undefined) updateData.phone = phone;
+    if (password) {
+      const bcrypt = (await import('bcryptjs')).default;
+      updateData.password = await bcrypt.hash(password, 10);
+    }
 
     const user = await prisma.user.update({
       where: { id: req.user.id },
       data: updateData,
     });
 
-    const { password, ...userWithoutPassword } = user;
-    const mappedUser = { ...userWithoutPassword, role: user.isSystemAdmin ? 'SYSTEM_ADMIN' : 'USER' };
+    const { password: userPassword, ...userWithoutPassword } = user;
+    const mappedUser = { 
+      ...userWithoutPassword, 
+      hasPassword: !!userPassword,
+      role: user.isSystemAdmin ? 'SYSTEM_ADMIN' : 'USER' 
+    };
 
     res.status(200).json({ user: mappedUser });
   } catch (error) {

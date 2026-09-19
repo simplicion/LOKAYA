@@ -152,7 +152,7 @@ export default function SearchPage() {
                   storeAvatar={post.storeAvatar}
                   isVerified={post.isVerified}
                   timeAgo={post.timeAgo || 'Recently'}
-                  media={post.media && post.media.length > 0 ? post.media : [{ type: 'image', url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600' }]}
+                  media={post.media && post.media.length > 0 ? post.media : []}
                   likes={post.likes || '0'}
                   likesCount={post.likesCount || 0}
                   comments={post.comments || '0'}

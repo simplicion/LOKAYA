@@ -239,7 +239,7 @@ export default function StoreCategoryPage({
         {categoryProducts.length > 0 ? (
           <div className="grid grid-cols-2 gap-2 pt-1">
             {categoryProducts.map((product: any) => {
-              const primaryImage = product.media?.[0]?.url || product.imageUrl || product.images?.[0] || 'https://placehold.co/400x400/png?text=No+Image';
+              const primaryImage = product.media?.[0]?.url || product.imageUrl || product.images?.[0] || '';
               const sellingPrice = product.sellingPrice != null ? product.sellingPrice : (product.price || 0);
               const mrp = product.mrp;
               const discountText = mrp && sellingPrice && mrp > sellingPrice
@@ -258,7 +258,8 @@ export default function StoreCategoryPage({
                     discount: discountText,
                     store: { id: store.id, name: storeName, isVerified },
                     rating: product.avgRating ? Number(product.avgRating).toFixed(1) : '5.0',
-                    reviews: `(${product.reviewCount || 0})`
+                    reviews: `(${product.reviewCount || 0})`,
+                    stockCount: product.stockCount,
                   }}
                 />
               );

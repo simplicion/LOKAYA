@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useSelector } from 'react-redux';
-import { RootState, store } from '@/lib/store';
-import { setCredentials } from '@/lib/features/authSlice';
+import { RootState } from '@/lib/store';
+import { useCheckAuthQuery } from '@/lib/api';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AuthGuardProps {
@@ -13,52 +14,45 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
-  const user = useSelector((state: RootState) => state.auth.user);
+  const { data: authData, isLoading: isAuthLoading } = useCheckAuthQuery();
+  const reduxUser = useSelector((state: RootState) => state.auth.user);
+  const user = reduxUser || authData?.user;
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const pathname = usePathname();
+
+  const allowedRolesKey = useMemo(() => allowedRoles?.slice().sort().join(',') || '', [allowedRoles]);
 
   useEffect(() => {
+    // Wait until auth verification completes before making any redirect decision
+    if (isAuthLoading) return;
+
     if (!user) {
       toast.error('Please login to access this page');
-      router.push('/login');
+      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
       return;
     }
 
-    if (allowedRoles && !allowedRoles.includes(user.role)) {
-      // Try to self-heal stale roles by forcing a refresh check
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
-      fetch(`${apiUrl}/identity/me`, {
-        method: 'GET',
-        credentials: 'include'
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.user) {
-          store.dispatch(setCredentials({ user: data.user }));
-          if (allowedRoles.includes(data.user.role)) {
-            setIsAuthorized(true);
-            return; // Success, role is now valid
-          }
-        }
-        toast.error('You do not have permission to access this page');
-        router.push('/');
-      })
-      .catch(() => {
-        toast.error('You do not have permission to access this page');
-        router.push('/');
-      });
+    if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+      toast.error('You do not have permission to access this page');
+      router.replace('/');
       return;
     }
+  }, [user, isAuthLoading, allowedRolesKey, router, pathname, allowedRoles]);
 
-    setIsAuthorized(true);
-  }, [user, allowedRoles, router]);
-
-  if (!isAuthorized) {
+  if (isAuthLoading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="flex h-[60vh] items-center justify-center bg-[#FAF9F6]">
+        <Loader2 className="w-8 h-8 text-[#FF5A36] animate-spin" />
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+    return null;
   }
 
   return <>{children}</>;

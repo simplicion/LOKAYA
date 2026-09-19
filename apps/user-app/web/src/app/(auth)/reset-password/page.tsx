@@ -51,7 +51,7 @@ function ResetPasswordContent() {
       <div className="w-full max-w-sm mx-auto flex flex-col flex-1">
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">New Password 🔒</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">New Password</h1>
           <p className="text-gray-500 font-medium">Create a new, strong password.</p>
         </div>
 

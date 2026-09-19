@@ -168,4 +168,44 @@
   .animate-shimmer {
     animation: shimmer 1.8s infinite ease-in-out;
   }
+
+  @keyframes pulse-radar {
+    0% {
+      transform: scale(0.9);
+      opacity: 0.9;
+    }
+    70% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
+  }
+
+  .animate-pulse-radar {
+    animation: pulse-radar 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes shake-elastic {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-8px); }
+    30% { transform: translateX(7px); }
+    45% { transform: translateX(-5px); }
+    60% { transform: translateX(4px); }
+    75% { transform: translateX(-2px); }
+  }
+
+  .animate-shake {
+    animation: shake-elastic 0.45s ease-in-out;
+  }
+
+  /* Hardware accelerated smooth rendering */
+  .hardware-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+    will-change: transform, opacity;
+  }
 }

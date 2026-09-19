@@ -25,7 +25,7 @@ export default function CreatePostPage() {
   const { startPostUpload } = useUpload();
   const user = useSelector((state: RootState) => state.auth.user);
   const isAuthenticated = Boolean(user);
-  const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !isAuthenticated });
+  const { data: myStore, isLoading: isStoreLoading } = useGetMyStoreQuery(undefined, { skip: !isAuthenticated });
   const { data: allProducts } = useGetStoreProductsQuery(myStore?.id || '', { skip: !myStore?.id });
   
   const [isPosting, setIsPosting] = useState(false);
@@ -50,8 +50,18 @@ export default function CreatePostPage() {
     if (!isAuthenticated && !user) {
       toast.info('Please log in to create posts');
       router.push('/login?redirect=/profile/create/post');
+      return;
     }
   }, [isAuthenticated, user, router]);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center p-4">
+        <Loader2 className="w-8 h-8 text-[#FF5A36] animate-spin mb-3" />
+        <p className="text-sm font-medium text-gray-500">Redirecting to login...</p>
+      </div>
+    );
+  }
 
   const validateAndAddVideo = async (file: File) => {
     if (file.size > MAX_VIDEO_SIZE_BYTES) {
@@ -345,59 +355,61 @@ export default function CreatePostPage() {
           />
         </div>
 
-        {/* Tagging Options */}
-        <div className="flex flex-col mt-2">
-          <button 
-            onClick={() => setShowTagSelector(true)}
-            className="flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-                <Tag className="w-4 h-4 text-blue-600" />
+        {/* Tagging Options (for registered sellers) */}
+        {myStore && (
+          <div className="flex flex-col mt-2">
+            <button 
+              onClick={() => setShowTagSelector(true)}
+              className="flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                  <Tag className="w-4 h-4 text-blue-600" />
+                </div>
+                <span className="font-semibold text-[#171717]">Tag Products</span>
               </div>
-              <span className="font-semibold text-[#171717]">Tag Products</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {selectedProductIds.length > 0 && (
-                <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                  {selectedProductIds.length} added
-                </span>
-              )}
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </div>
-          </button>
+              <div className="flex items-center gap-2">
+                {selectedProductIds.length > 0 && (
+                  <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                    {selectedProductIds.length} added
+                  </span>
+                )}
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </div>
+            </button>
 
-          {/* Selected Products Preview */}
-          {selectedProducts.length > 0 && (
-            <div className="px-4 pb-4 flex gap-3 overflow-x-auto no-scrollbar">
-              {selectedProducts.map((product: any) => {
-                const pImg = product.imageUrl || product.media?.[0]?.url || product.images?.[0] || '';
-                return (
-                  <div key={product.id} className="relative flex-shrink-0 group">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-[#F9F6F0] flex items-center justify-center">
-                      {pImg ? (
-                        <img 
-                          src={getMediaUrl(pImg)} 
-                          alt={product.name || 'Product'}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-[10px] text-gray-400 font-semibold">No Image</span>
-                      )}
+            {/* Selected Products Preview */}
+            {selectedProducts.length > 0 && (
+              <div className="px-4 pb-4 flex gap-3 overflow-x-auto no-scrollbar">
+                {selectedProducts.map((product: any) => {
+                  const pImg = product.imageUrl || product.media?.[0]?.url || product.images?.[0] || '';
+                  return (
+                    <div key={product.id} className="relative flex-shrink-0 group">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-[#F9F6F0] flex items-center justify-center">
+                        {pImg ? (
+                          <img 
+                            src={getMediaUrl(pImg)} 
+                            alt={product.name || 'Product'}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[10px] text-gray-400 font-semibold">No Image</span>
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => setSelectedProductIds(prev => prev.filter(id => id !== product.id))}
+                        className="absolute -top-2 -right-2 bg-white rounded-full shadow-md border border-gray-100 p-1 text-gray-500 hover:text-red-500 transition-colors"
+                        title="Remove product"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </div>
-                    <button 
-                      onClick={() => setSelectedProductIds(prev => prev.filter(id => id !== product.id))}
-                      className="absolute -top-2 -right-2 bg-white rounded-full shadow-md border border-gray-100 p-1 text-gray-500 hover:text-red-500 transition-colors"
-                      title="Remove product"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showTagSelector && (

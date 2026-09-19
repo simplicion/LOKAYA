@@ -28,7 +28,10 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'Story', 'Highlight', 'SavedPost'],
+  refetchOnFocus: false,
+  refetchOnReconnect: true,
+  keepUnusedDataFor: 300, // 5 minutes cache retention to eliminate redundant network fetches
+  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'Story', 'Highlight', 'SavedPost', 'FollowedStores', 'SupportTicket', 'Review'],
   endpoints: (builder) => ({
     checkAuth: builder.query<any, void>({
       query: () => '/identity/me',
@@ -207,6 +210,21 @@ export const api = createApi({
         body,
       }),
     }),
+    verifyRegistrationOtp: builder.mutation<any, { email?: string; phone?: string; otp: string }>({
+      query: (body) => ({
+        url: '/identity/verify-otp',
+        method: 'POST',
+        body,
+      }),
+    }),
+    setPassword: builder.mutation<any, { password: string }>({
+      query: (body) => ({
+        url: '/identity/set-password',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['User'],
+    }),
     forgotPasswordOtp: builder.mutation<any, any>({
       query: (body) => ({
         url: '/identity/forgot-password',
@@ -322,6 +340,24 @@ export const api = createApi({
       },
       providesTags: ['Post'],
     }),
+    getPostById: builder.query<any, string>({
+      query: (postId) => `/content/posts/${postId}`,
+      providesTags: (_result, _error, id) => [{ type: 'Post', id }],
+    }),
+    getReelById: builder.query<any, string>({
+      query: (reelId) => `/content/reels/${reelId}`,
+      providesTags: (_result, _error, id) => [{ type: 'Reel', id }],
+    }),
+    getShareRecipients: builder.query<any[], void>({
+      query: () => '/social/share/recipients',
+    }),
+    sendDirectShare: builder.mutation<any, { recipientId: string; shareUrl: string; message?: string }>({
+      query: (body) => ({
+        url: '/social/share/send',
+        method: 'POST',
+        body,
+      }),
+    }),
     likeReel: builder.mutation<{ liked: boolean; likesCount: number }, string>({
       query: (reelId) => ({
         url: `/social/like/reel/${reelId}`,
@@ -339,6 +375,66 @@ export const api = createApi({
         url: `/social/follow/${userId}`,
         method: 'POST',
       }),
+    }),
+    followStore: builder.mutation<{ following: boolean }, string>({
+      query: (storeId) => ({
+        url: `/social/store/${storeId}/follow`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, storeId) => ['FollowedStores', { type: 'Store', id: storeId }, 'User'],
+    }),
+    getStoreFollowStatus: builder.query<{ following: boolean; followersCount: number }, string>({
+      query: (storeId) => `/social/store/${storeId}/follow-status`,
+      providesTags: (result, error, storeId) => [{ type: 'Store', id: storeId }],
+    }),
+    getFollowedStores: builder.query<any[], void>({
+      query: () => '/social/followed-stores',
+      providesTags: ['FollowedStores'],
+    }),
+    getProductsBatch: builder.query<any[], string[]>({
+      query: (ids) => ({
+        url: '/catalog/products/batch',
+        method: 'POST',
+        body: { ids },
+      }),
+      providesTags: ['Product'],
+    }),
+    // Support Ticket Endpoints
+    createSupportTicket: builder.mutation<any, { subject: string; category: string; description: string; priority?: string; orderId?: string }>({
+      query: (data) => ({
+        url: '/support/tickets',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['SupportTicket'],
+    }),
+    getMySupportTickets: builder.query<{ success: boolean; data: any[] }, void>({
+      query: () => '/support/tickets/my',
+      providesTags: ['SupportTicket'],
+    }),
+    getSupportTicketById: builder.query<{ success: boolean; data: any }, string>({
+      query: (id) => `/support/tickets/${id}`,
+      providesTags: (result, error, id) => [{ type: 'SupportTicket', id }],
+    }),
+    // Review Endpoints
+    createProductReview: builder.mutation<{ success: boolean; data: any }, { productId: string; orderId?: string; rating: number; comment?: string }>({
+      query: (data) => ({
+        url: '/catalog/reviews',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Review', 'Product', 'Store'],
+    }),
+    getMyReviews: builder.query<{ success: boolean; data: any[] }, void>({
+      query: () => '/catalog/reviews/my',
+      providesTags: ['Review'],
+    }),
+    deleteProductReview: builder.mutation<{ success: boolean; message: string }, string>({
+      query: (id) => ({
+        url: `/catalog/reviews/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Review', 'Product', 'Store'],
     }),
     getReelComments: builder.query<any[], string>({
       query: (reelId) => `/social/comment/reel/${reelId}`,
@@ -392,6 +488,10 @@ export const api = createApi({
         body: { content },
       }),
       invalidatesTags: ['Comment'],
+    }),
+    getUserPublicProfile: builder.query<any, string>({
+      query: (userId) => `/social/user/${userId}`,
+      providesTags: ['User'],
     }),
 
     // Stories Endpoints
@@ -748,10 +848,21 @@ export const api = createApi({
         responseHandler: (response) => response.text(),
       }),
     }),
+    getExploreStores: builder.query<any[], { category?: string; search?: string } | void>({
+      query: (params) => {
+        const queryParams = new URLSearchParams();
+        if (params?.category && params.category !== 'all') queryParams.append('category', params.category);
+        if (params?.search && params.search.trim()) queryParams.append('search', params.search.trim());
+        const qs = queryParams.toString();
+        return `/seller/explore${qs ? `?${qs}` : ''}`;
+      },
+      providesTags: ['Store'],
+    }),
   }),
 });
 
 export const { 
+  useGetExploreStoresQuery,
   useCheckAuthQuery,
   useLoginMutation,
   useRegisterMutation,
@@ -780,6 +891,8 @@ export const {
   useUpdateAddressMutation,
   useDeleteAddressMutation,
   useSendRegistrationOtpMutation,
+  useVerifyRegistrationOtpMutation,
+  useSetPasswordMutation,
   useForgotPasswordOtpMutation,
   useVerifyForgotPasswordOtpMutation,
   useResetPasswordMutation,
@@ -793,6 +906,10 @@ export const {
   useCreateReelMutation,
   useGetReelsQuery,
   useGetPostsQuery,
+  useGetPostByIdQuery,
+  useGetReelByIdQuery,
+  useGetShareRecipientsQuery,
+  useSendDirectShareMutation,
   useGetWishlistQuery,
   useToggleWishlistMutation,
   useLikeReelMutation,
@@ -872,5 +989,24 @@ export const {
   // Save Posts Hooks
   useSavePostMutation,
   useSaveReelMutation,
+
+  // User Public Profile Hook
+  useGetUserPublicProfileQuery,
+
+  // Store Follow & Batch Product Hooks
+  useFollowStoreMutation,
+  useGetStoreFollowStatusQuery,
+  useGetFollowedStoresQuery,
+  useGetProductsBatchQuery,
+
+  // Support Ticket Hooks
+  useCreateSupportTicketMutation,
+  useGetMySupportTicketsQuery,
+  useGetSupportTicketByIdQuery,
+
+  // Review Hooks
+  useCreateProductReviewMutation,
+  useGetMyReviewsQuery,
+  useDeleteProductReviewMutation,
 } = api;
 

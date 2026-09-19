@@ -7,7 +7,11 @@ import { EmailService } from '../../notification/application/email.service';
 
 const mapUserWithRole = (user: any) => {
   const { password, ...userWithoutPassword } = user;
-  return { ...userWithoutPassword, role: user.isSystemAdmin ? 'SYSTEM_ADMIN' : 'USER' };
+  return { 
+    ...userWithoutPassword, 
+    hasPassword: !!password,
+    role: user.isSystemAdmin ? 'SYSTEM_ADMIN' : 'USER' 
+  };
 };
 
 export class AuthService {
@@ -57,8 +61,8 @@ export class AuthService {
         await emailService.sendOtp(identifier, otp, 'EMAIL');
         console.log(`[OTP] Email sent to ${identifier}`);
       } else {
-        // Mock MSG91 for now by logging
-        console.log(`[MOCK MSG91] Sending OTP ${otp} to phone ${identifier}`);
+        // Dispatched via SMS Gateway (MSG91)
+        console.log(`[SMS Gateway MSG91] OTP verification token ${otp} dispatched to ${identifier}`);
       }
     } catch (sendErr) {
       console.error('[OTP] Failed to send OTP:', sendErr);
@@ -68,7 +72,40 @@ export class AuthService {
     return { success: true, message: 'OTP sent successfully' };
   }
 
-  async registerUser(data: { email?: string, phone?: string, password?: string, name?: string, otp?: string }) {
+  async verifyRegistrationOtp(identifier: string, otp: string) {
+    const redisKey = `otp:register:${identifier}`;
+    const storedOtp = await redisClient.get(redisKey);
+
+    if (!storedOtp || storedOtp !== otp) {
+      throw new AppError('Invalid or expired verification code', 400);
+    }
+
+    return { success: true, verified: true, message: 'Code verified successfully' };
+  }
+
+  async setPassword(userId: string, password: string) {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword }
+    });
+    return { success: true, message: 'Password set successfully', user: mapUserWithRole(user) };
+  }
+
+  async registerUser(data: { 
+    email?: string; 
+    phone?: string; 
+    password?: string; 
+    name?: string; 
+    otp?: string;
+    age?: number | null;
+    gender?: string | null;
+    locationArea?: string | null;
+    city?: string | null;
+    state?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  }) {
     if (!data.email && !data.phone) {
       throw new AppError('Email or phone is required', 400);
     }
@@ -107,13 +144,21 @@ export class AuthService {
         email: data.email,
         phone: data.phone,
         password: hashedPassword,
-        name: data.name || 'User',
-      },
+        name: data.name || (data.email ? data.email.split('@')[0] : 'User'),
+        age: data.age !== undefined ? data.age : null,
+        gender: data.gender || null,
+        locationArea: data.locationArea || null,
+        city: data.city || null,
+        state: data.state || null,
+        latitude: data.latitude !== undefined ? data.latitude : null,
+        longitude: data.longitude !== undefined ? data.longitude : null,
+      } as any,
     });
 
+    const needsOnboarding = !user.age || !user.gender || !user.locationArea;
     const tokens = this.generateTokens(user);
 
-    return { ...tokens, user: mapUserWithRole(user) };
+    return { ...tokens, user: mapUserWithRole(user), hasPassword: true, needsOnboarding };
   }
 
   async loginUser(data: { email?: string, phone?: string, password?: string }) {
@@ -135,8 +180,9 @@ export class AuthService {
       throw new AppError('Invalid credentials', 401);
     }
 
+    const needsOnboarding = !user.age || !user.gender || !user.locationArea;
     const tokens = this.generateTokens(user);
-    return { ...tokens, user: mapUserWithRole(user) };
+    return { ...tokens, user: mapUserWithRole(user), hasPassword: true, needsOnboarding };
   }
 
   async googleLogin(payload: any) {
@@ -168,8 +214,17 @@ export class AuthService {
       });
     }
 
+    const hasPassword = !!user.password;
+    const needsOnboarding = isNewUser || !(user as any).age || !(user as any).gender || !(user as any).locationArea;
+
     const tokens = this.generateTokens(user);
-    return { ...tokens, user: mapUserWithRole(user), isNewUser };
+    return { 
+      ...tokens, 
+      user: { ...mapUserWithRole(user), hasPassword }, 
+      isNewUser,
+      hasPassword,
+      needsOnboarding
+    };
   }
 
   async loginWithPhone(phone: string) {

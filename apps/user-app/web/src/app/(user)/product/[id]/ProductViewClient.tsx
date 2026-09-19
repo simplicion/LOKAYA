@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
@@ -16,6 +16,7 @@ import {
   ShoppingCart, 
   ChevronRight,
   PackageCheck,
+  Package,
   RotateCcw,
   Loader2,
   Tag
@@ -27,6 +28,7 @@ import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { recordRecentlyViewed } from '@/lib/services/recentlyViewed';
 
 export default function ProductViewClient({ productId }: { productId: string }) {
   const router = useRouter();
@@ -40,6 +42,13 @@ export default function ProductViewClient({ productId }: { productId: string }) 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
+  // Automatically record product in recently viewed history
+  useEffect(() => {
+    if (product?.id) {
+      recordRecentlyViewed(product.id);
+    }
+  }, [product?.id]);
+
   // Computed media list
   const galleryImages = useMemo(() => {
     if (!product) return [];
@@ -51,9 +60,6 @@ export default function ProductViewClient({ productId }: { productId: string }) 
     }
     if (product.imageUrl && !mediaUrls.includes(getMediaUrl(product.imageUrl))) {
       mediaUrls.unshift(getMediaUrl(product.imageUrl));
-    }
-    if (mediaUrls.length === 0) {
-      mediaUrls.push('https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800');
     }
     return mediaUrls;
   }, [product]);
@@ -68,11 +74,26 @@ export default function ProductViewClient({ productId }: { productId: string }) 
     return variants[0];
   }, [variants, selectedVariantId]);
 
-  // Active pricing & stock
+  // Active pricing & authoritative stock
   const activePrice = selectedVariant?.price ?? product?.sellingPrice ?? 0;
   const activeMrp = product?.mrp && product.mrp > activePrice ? product.mrp : undefined;
   const discountPercent = activeMrp ? Math.round(((activeMrp - activePrice) / activeMrp) * 100) : 0;
-  const inStock = (selectedVariant?.stockCount ?? product?.stockCount ?? 1) > 0;
+  
+  const rawStock = selectedVariant?.stockCount ?? product?.stockCount;
+  const activeStock = rawStock !== undefined ? Number(rawStock) : undefined;
+  const inStock = activeStock !== undefined ? activeStock > 0 : true;
+  const isLowStock = inStock && activeStock !== undefined && activeStock > 0 && activeStock <= 5;
+
+  // Cart quantity check to enforce maximum inventory cap
+  const cartItems = useSelector((state: any) => state.cart?.items || []);
+  const currentCartItem = cartItems.find((i: any) => {
+    if (selectedVariant?.id) {
+      return (i.productId === product?.id && i.variantId === selectedVariant.id) || i.id === `${product?.id}-${selectedVariant.id}`;
+    }
+    return i.productId === product?.id || i.id === product?.id;
+  });
+  const cartQuantity = currentCartItem?.quantity || 0;
+  const isMaxInCart = inStock && activeStock !== undefined && cartQuantity >= activeStock;
 
   const handleShare = async () => {
     if (typeof window === 'undefined') return;
@@ -105,6 +126,17 @@ export default function ProductViewClient({ productId }: { productId: string }) 
 
   const handleAddToCart = async () => {
     if (!product?.id) return;
+
+    if (!inStock) {
+      toast.error('This product is currently out of stock');
+      return;
+    }
+
+    if (isMaxInCart) {
+      toast.info(`Maximum available stock (${activeStock} units) is already in your bag`);
+      return;
+    }
+
     const itemPayload = {
       id: selectedVariant ? `${product.id}-${selectedVariant.id}` : product.id,
       productId: product.id,
@@ -112,6 +144,7 @@ export default function ProductViewClient({ productId }: { productId: string }) 
       name: product.name,
       price: activePrice,
       quantity: 1,
+      stockCount: activeStock,
       storeId: product.storeId,
       storeName: product.store?.name,
       image: galleryImages[0],
@@ -135,6 +168,10 @@ export default function ProductViewClient({ productId }: { productId: string }) 
   };
 
   const handleBuyNow = () => {
+    if (!inStock) {
+      toast.error('This product is currently out of stock');
+      return;
+    }
     if (product?.id) {
       router.push(`/checkout?productId=${product.id}${selectedVariant?.id ? `&variantId=${selectedVariant.id}` : ''}&quantity=1`);
     } else {
@@ -218,11 +255,18 @@ export default function ProductViewClient({ productId }: { productId: string }) 
         </div>
 
         {/* Main Image */}
-        <img 
-          src={galleryImages[activeMediaIndex]} 
-          alt={product.name} 
-          className="w-full h-full object-cover select-none"
-        />
+        {galleryImages[activeMediaIndex] ? (
+          <img 
+            src={galleryImages[activeMediaIndex]} 
+            alt={product.name} 
+            className="w-full h-full object-cover select-none"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 text-gray-400 gap-2">
+            <Package className="w-16 h-16 stroke-[1.2]" />
+            <span className="text-xs font-semibold uppercase tracking-wider">No Image Available</span>
+          </div>
+        )}
 
         {/* Pagination Pill */}
         {galleryImages.length > 1 && (
@@ -302,8 +346,8 @@ export default function ProductViewClient({ productId }: { productId: string }) 
           {product.name}
         </h1>
 
-        {/* Pricing */}
-        <div className="flex items-baseline gap-2.5 pt-1">
+        {/* Pricing & Stock Status */}
+        <div className="flex items-baseline gap-2.5 pt-1 flex-wrap">
           <span className="text-2xl font-black text-[#171717]">
             ₹{activePrice.toLocaleString('en-IN')}
           </span>
@@ -317,6 +361,17 @@ export default function ProductViewClient({ productId }: { productId: string }) 
               {discountPercent}% OFF
             </span>
           )}
+          {!inStock ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#171717] text-white tracking-wider uppercase border border-white/20 shadow-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+              OUT OF STOCK
+            </span>
+          ) : isLowStock ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-50 text-[#FF5A36] border border-orange-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A36] animate-pulse"></span>
+              Only {activeStock} left!
+            </span>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1 text-[11px] text-[#208b5e] font-semibold">
@@ -334,6 +389,8 @@ export default function ProductViewClient({ productId }: { productId: string }) 
           <div className="flex flex-wrap gap-2">
             {variants.map((v: any) => {
               const isSelected = (selectedVariant?.id === v.id);
+              const variantStock = v.stockCount !== undefined ? Number(v.stockCount) : undefined;
+              const isVariantOOS = variantStock !== undefined && variantStock <= 0;
               return (
                 <button
                   key={v.id}
@@ -342,11 +399,18 @@ export default function ProductViewClient({ productId }: { productId: string }) 
                     "px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm flex items-center gap-1.5",
                     isSelected 
                       ? "border-[#FF5A36] text-white bg-[#FF5A36] shadow-orange-100" 
+                      : isVariantOOS
+                      ? "border-gray-200 text-gray-400 bg-gray-50/80"
                       : "border-gray-200 text-gray-700 hover:border-gray-300 bg-white"
                   )}
                 >
-                  <span>{v.name}</span>
+                  <span className={isVariantOOS ? "line-through opacity-70" : ""}>{v.name}</span>
                   {v.price && <span className={cn("text-[10px] opacity-80", isSelected ? "text-white" : "text-gray-500")}>₹{v.price}</span>}
+                  {isVariantOOS && (
+                    <span className={cn("text-[9px] font-extrabold uppercase px-1 py-0.2 rounded", isSelected ? "bg-black/25 text-white" : "bg-gray-200 text-gray-500")}>
+                      Sold out
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -424,16 +488,26 @@ export default function ProductViewClient({ productId }: { productId: string }) 
           <Button 
             variant="outline" 
             onClick={handleAddToCart}
-            disabled={!inStock}
-            className="h-12 px-4 rounded-xl border-gray-300 text-gray-800 font-bold hover:bg-gray-50 active:scale-95 transition-transform"
+            disabled={!inStock || isMaxInCart}
+            className={cn(
+              "h-12 px-4 rounded-xl border-gray-300 font-bold transition-transform",
+              (!inStock || isMaxInCart)
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                : "text-gray-800 hover:bg-gray-50 active:scale-95"
+            )}
           >
             <ShoppingCart className="w-4 h-4 mr-1.5" />
-            <span>Add</span>
+            <span>{!inStock ? 'Out of Stock' : isMaxInCart ? 'Max in Bag' : 'Add'}</span>
           </Button>
           <Button 
             onClick={handleBuyNow}
             disabled={!inStock}
-            className="h-12 px-6 rounded-xl bg-[#FF5A36] hover:bg-[#E04B28] text-white font-bold shadow-md shadow-orange-200 active:scale-95 transition-transform flex items-center gap-1.5"
+            className={cn(
+              "h-12 px-6 rounded-xl font-bold shadow-md transition-transform flex items-center gap-1.5",
+              !inStock
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                : "bg-[#FF5A36] hover:bg-[#E04B28] text-white shadow-orange-200 active:scale-95"
+            )}
           >
             <ShoppingBag className="w-4 h-4" />
             <span>{inStock ? 'Buy Now' : 'Out of Stock'}</span>

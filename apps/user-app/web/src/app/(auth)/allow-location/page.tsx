@@ -80,7 +80,7 @@ export default function AllowLocationPage() {
         <div className="w-full space-y-3">
           <Button 
             onClick={handleAllowLocation}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl h-14 text-lg font-medium shadow-[0_8px_30px_rgb(79,70,229,0.2)] transition-all active:scale-[0.98]" 
+            className="w-full bg-[#FF5A36] hover:bg-[#e04d2d] text-white rounded-2xl h-14 text-lg font-bold shadow-[0_8px_30px_rgba(255,90,54,0.2)] transition-all active:scale-[0.98]" 
             disabled={isLoading || isSuccess}
           >
             {isLoading ? 'Getting Location...' : isSuccess ? 'Continuing...' : 'Allow Location'}
@@ -90,7 +90,7 @@ export default function AllowLocationPage() {
             <button 
               type="button" 
               onClick={handleSkip}
-              className="w-full py-3 text-gray-500 font-medium hover:text-indigo-600 transition-colors"
+              className="w-full py-3 text-gray-500 font-medium hover:text-[#FF5A36] transition-colors"
               disabled={isLoading}
             >
               Not Now

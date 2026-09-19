@@ -25,11 +25,12 @@ export default function LoginPage() {
   const user = useSelector((state: any) => state.auth.user);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get('redirect') || '/';
+  const rawRedirect = searchParams.get('redirect') || '/';
+  const redirectUrl = (rawRedirect.startsWith('/') && !rawRedirect.startsWith('/login')) ? rawRedirect : '/';
   
   useEffect(() => {
     if (user) {
-      router.push(redirectUrl);
+      router.replace(redirectUrl);
     }
   }, [user, router, redirectUrl]);
   
@@ -42,8 +43,10 @@ export default function LoginPage() {
       try {
         const result = await googleLoginMut({ token: tokenResponse.access_token }).unwrap();
         dispatch(setCredentials({ user: result.user }));
-        toast.success('Login with Google successful');
-        if (result.isNewUser || !result.user.phone) {
+        toast.success('Signed in with Google');
+        if (!result.hasPassword) {
+          router.push('/create-password?source=google');
+        } else if (result.needsOnboarding) {
           router.push('/onboarding');
         } else {
           router.push(redirectUrl);
@@ -64,7 +67,11 @@ export default function LoginPage() {
       const result = await login(payload).unwrap();
       dispatch(setCredentials({ user: result.user }));
       toast.success('Logged in successfully');
-      router.push(redirectUrl);
+      if (result.needsOnboarding || !result.user.age || !result.user.gender || !result.user.locationArea) {
+        router.push('/onboarding');
+      } else {
+        router.push(redirectUrl);
+      }
     } catch (err: any) {
       toast.error(err.data?.message || 'Failed to login');
     }

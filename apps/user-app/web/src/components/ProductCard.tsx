@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Star } from 'lucide-react';
+import { Star, Package } from 'lucide-react';
 import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart, updateQuantity, removeFromCart } from '@/lib/features/cartSlice';
@@ -31,6 +31,7 @@ export interface ProductCardProps {
     store?: { id?: string; name?: string; isVerified?: boolean };
     rating?: string | number;
     reviews?: string | number;
+    stockCount?: number;
   };
 }
 
@@ -61,9 +62,15 @@ export function ProductCard({ product }: ProductCardProps) {
   const rating = product.rating ? String(product.rating) : null;
   const reviewsCount = product.reviews ? String(product.reviews).replace(/[()]/g, '') : null;
 
+  // Stock calculations & edge-case guards
+  const stockCount = (product as any).stockCount !== undefined ? Number((product as any).stockCount) : undefined;
+  const isOutOfStock = stockCount !== undefined && stockCount <= 0;
+  const isLowStock = stockCount !== undefined && stockCount > 0 && stockCount <= 5;
+
   // Find if item is already in cart to show count or just "Add"
   const cartItem = cartItems.find(item => item.id === product.id || item.productId === product.id);
   const quantity = cartItem?.quantity || 0;
+  const canIncrease = stockCount === undefined || quantity < stockCount;
 
   const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: false });
   const [toggleWishlist] = useToggleWishlistMutation();
@@ -83,6 +90,16 @@ export function ProductCard({ product }: ProductCardProps) {
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (isOutOfStock) {
+      toast.error('This product is currently out of stock');
+      return;
+    }
+
+    if (!canIncrease) {
+      toast.info(`Maximum available stock reached (${stockCount} in bag)`);
+      return;
+    }
     
     dispatch(addToCart({
       id: product.id,
@@ -94,7 +111,8 @@ export function ProductCard({ product }: ProductCardProps) {
       storeId: product.store?.id || (product as any).storeId || '',
       storeName: product.store?.name || '',
       image: rawImage,
-    }));
+      stockCount: stockCount,
+    } as any));
     toast.success(`${rawTitle} added to bag!`);
 
     if (user && product.id) {
@@ -103,7 +121,7 @@ export function ProductCard({ product }: ProductCardProps) {
           productId: product.id,
           quantity: 1,
         }).unwrap();
-      } catch (err) {
+      } catch (err: any) {
         console.warn('[ProductCard] Failed to sync addToCart with backend:', err);
       }
     }
@@ -113,18 +131,32 @@ export function ProductCard({ product }: ProductCardProps) {
     <Link href={`/product/${product.id}`} className="flex flex-col bg-white rounded-2xl p-1.5 border border-gray-100/90 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-md transition-all duration-300 relative group cursor-pointer">
       {/* 1. Product Image Container with Badges */}
       <div className="relative aspect-square w-full rounded-xl bg-[#F8F8F8] border border-gray-100 overflow-hidden">
-        <img 
-          src={getMediaUrl(rawImage)} 
-          alt={rawTitle} 
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-        />
+        {rawImage ? (
+          <img 
+            src={getMediaUrl(rawImage)} 
+            alt={rawTitle} 
+            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${isOutOfStock ? 'grayscale-[25%] opacity-85' : ''}`}
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 text-gray-400">
+            <Package className="w-10 h-10 stroke-[1.2]" />
+          </div>
+        )}
         
-        {/* Custom Tag (if present) */}
-        {product.tag && (
+        {/* Industry-standard Corporate OUT OF STOCK Tag */}
+        {isOutOfStock ? (
+          <div className="absolute top-2 left-2 bg-[#171717]/95 backdrop-blur-md text-white text-[9px] font-black px-2 py-0.5 rounded shadow-sm tracking-wider uppercase z-10 border border-white/20">
+            OUT OF STOCK
+          </div>
+        ) : isLowStock ? (
+          <div className="absolute top-2 left-2 bg-[#FF5A36] text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs tracking-wider uppercase z-10">
+            Only {stockCount} left
+          </div>
+        ) : product.tag ? (
           <div className={`absolute top-2 left-2 ${product.tag.bg || 'bg-[#FF5A36]'} text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-xs tracking-wider uppercase z-10`}>
             {product.tag.text}
           </div>
-        )}
+        ) : null}
         
         {/* Wishlist Button (Top-Right) */}
         <button 
@@ -180,7 +212,18 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Add to Cart Stepper / Button */}
         <div className="w-full mt-2.5">
-          {quantity > 0 ? (
+          {isOutOfStock ? (
+            <button 
+              disabled
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              className="w-full h-8 px-3 bg-gray-100/90 border border-gray-200 text-gray-400 font-bold text-xs rounded-lg cursor-not-allowed flex items-center justify-center select-none shadow-2xs"
+            >
+              Out of Stock
+            </button>
+          ) : quantity > 0 ? (
             <div 
               className="flex items-center justify-between bg-[#FF5A36] text-white rounded-lg h-8 w-full shadow-xs overflow-hidden" 
               onClick={(e) => e.preventDefault()}
@@ -200,11 +243,21 @@ export function ProductCard({ product }: ProductCardProps) {
               </button>
               <span className="font-bold text-xs">{quantity}</span>
               <button 
-                className="w-8 h-full flex items-center justify-center hover:bg-black/15 active:bg-black/25 transition-colors"
+                disabled={!canIncrease}
+                className={`w-8 h-full flex items-center justify-center transition-colors ${
+                  !canIncrease 
+                    ? 'opacity-30 cursor-not-allowed bg-black/20' 
+                    : 'hover:bg-black/15 active:bg-black/25'
+                }`}
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (!canIncrease) {
+                    toast.info(`Maximum available stock reached (${stockCount} in bag)`);
+                    return;
+                  }
                   handleAddToCart(e);
                 }}
+                title={!canIncrease ? `Max stock reached (${stockCount})` : 'Add one more'}
               >
                 <span className="text-base font-bold leading-none mb-0.5">+</span>
               </button>

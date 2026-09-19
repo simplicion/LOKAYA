@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { ShoppingBag } from 'lucide-react';
 
 export interface StoryItemProps {
   id: string;
@@ -25,12 +26,12 @@ export function StoryItem({ id, label, imageUrl, type, hasUnseen = true }: Story
              {/* Actual Image */}
              <div className="w-full h-full rounded-full bg-gray-200 overflow-hidden relative">
                <img src={imageUrl} alt={label} className="w-full h-full object-cover" />
-               {/* Icon overlay for live shopping (shopping bag icon) */}
-               {type === 'live' && (
-                 <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                    <span className="text-white text-xl">🛍️</span>
-                 </div>
-               )}
+                {/* Icon overlay for live shopping (shopping bag icon) */}
+                {type === 'live' && (
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                    <ShoppingBag className="w-5 h-5 text-white drop-shadow-md" />
+                  </div>
+                )}
              </div>
           </div>
         </div>

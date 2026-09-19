@@ -98,14 +98,20 @@ export function StoreProfileCard({ type, data }: StoreProfileCardProps) {
             </p>
           )}
 
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <div className="flex items-center gap-1 bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded">
-              <Star className="w-3 h-3 fill-current" />
-              <span className="font-semibold">{data.rating || '4.5'}</span>
+          {(Boolean(data.rating && data.reviewsCount && data.reviewsCount > 0) || Boolean(data.closingTime)) && (
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              {Boolean(data.rating && data.reviewsCount && data.reviewsCount > 0) && (
+                <>
+                  <div className="flex items-center gap-1 bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded">
+                    <Star className="w-3 h-3 fill-current" />
+                    <span className="font-semibold">{data.rating}</span>
+                  </div>
+                  <span>({data.reviewsCount} {data.reviewsCount === 1 ? 'review' : 'reviews'})</span>
+                </>
+              )}
+              {data.closingTime && <span>{data.reviewsCount && data.reviewsCount > 0 ? '• ' : ''}Open until {data.closingTime}</span>}
             </div>
-            <span>({data.reviewsCount || 0} reviews)</span>
-            {data.closingTime && <span>• Open until {data.closingTime}</span>}
-          </div>
+          )}
         </div>
       </div>
 

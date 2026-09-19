@@ -33,9 +33,9 @@ export class S3Service {
       });
 
       const url = await getSignedUrl(getS3Client(), command, { expiresIn: 3600 });
-      const publicUrl = `https://${process.env.R2_PUBLIC_DOMAIN}/${key}`;
+      const publicUrl = `https://${process.env.R2_PUBLIC_DOMAIN || 'lokaya-cdn'}/${key}`;
 
-      return { uploadUrl: url, publicUrl, key };
+      return { uploadUrl: url, signedUrl: url, publicUrl, key, fileKey: key };
     } catch (error) {
       console.error('Error generating presigned URL:', error);
       throw new AppError('Failed to generate upload URL', 500);

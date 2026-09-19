@@ -36,7 +36,7 @@ export default function ProductDetailsClient({ params }: { params: { id: string 
       returned: 0
     },
     variants: productData?.variants || [],
-    image: getMediaUrl(productData?.imageUrl || productData?.media?.[0]?.url || 'https://images.unsplash.com/photo-1625937286074-9ca519d5d9df'),
+    image: productData?.imageUrl || productData?.media?.[0]?.url ? getMediaUrl(productData?.imageUrl || productData?.media?.[0]?.url) : '',
     orders: (productData?.orderItems || []).map((item: any) => ({
       id: item.order?.id?.slice(0, 8).toUpperCase() || 'ORD',
       customer: item.order?.buyer?.name || 'Customer',
@@ -97,12 +97,16 @@ export default function ProductDetailsClient({ params }: { params: { id: string 
         
         {/* Product Identity Card */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex gap-4 items-start">
-          <div className="w-24 h-24 bg-gray-100 rounded-xl overflow-hidden relative shrink-0">
-            <img 
-              src={product.image} 
-              alt={product.name}
-              className="w-full h-full object-cover"
-            />
+          <div className="w-24 h-24 bg-gray-100 rounded-xl overflow-hidden relative shrink-0 flex items-center justify-center">
+            {product.image ? (
+              <img 
+                src={product.image} 
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Package className="w-8 h-8 text-gray-400 stroke-[1.5]" />
+            )}
           </div>
           <div className="flex-1 pt-1">
             <h2 className="font-bold text-gray-900 leading-tight mb-1 text-lg">

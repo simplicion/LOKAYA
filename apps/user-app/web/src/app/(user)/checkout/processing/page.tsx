@@ -2,17 +2,28 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { 
+  motion, 
+  AnimatePresence, 
+  AnimatedSuccessCheck, 
+  AnimatedErrorCross, 
+  MotionShake, 
+  triggerCelebrationConfetti,
+  PressableScale
+} from '@/components/ui/motion';
+import { ShieldCheck, ArrowRight, RotateCcw } from 'lucide-react';
 
 export default function ProcessingPage() {
   const router = useRouter();
   const [status, setStatus] = useState<'processing' | 'success' | 'failed'>('processing');
 
   useEffect(() => {
-    // Simulate payment gateway delay
+    // Simulate payment gateway completion
     const timer = setTimeout(() => {
-      setStatus('success'); // Change to failed to test error state
-    }, 2000);
+      setStatus('success');
+      triggerCelebrationConfetti();
+    }, 2200);
 
     return () => clearTimeout(timer);
   }, []);
@@ -21,62 +32,113 @@ export default function ProcessingPage() {
     if (status === 'success') {
       const timer = setTimeout(() => {
         router.push('/checkout/success');
-      }, 1500);
+      }, 1800);
       return () => clearTimeout(timer);
     }
   }, [status, router]);
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center max-w-md mx-auto relative px-4">
-      <div className="flex flex-col items-center text-center space-y-6">
-        {status === 'processing' && (
-          <>
-            <div className="relative">
-              <Loader2 className="w-20 h-20 text-[#FF6B00] animate-spin" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-14 h-14 bg-[#FF6B00]/10 rounded-full" />
+    <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center max-w-md mx-auto relative px-6">
+      <div className="w-full flex flex-col items-center text-center">
+        <AnimatePresence mode="wait">
+          {status === 'processing' && (
+            <motion.div
+              key="processing"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col items-center space-y-6"
+            >
+              {/* Radar Pulsing Rings */}
+              <div className="relative flex items-center justify-center w-28 h-28">
+                <div className="absolute inset-0 rounded-full bg-[#FF5A36]/20 animate-pulse-radar" />
+                <div className="absolute inset-2 rounded-full bg-[#FF5A36]/10 animate-ping opacity-75" />
+                <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-[#FF5A36] to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/25 relative z-10">
+                  <ShieldCheck className="w-8 h-8 text-white" />
+                </div>
               </div>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Processing Payment</h2>
-              <p className="text-gray-500 mt-2 font-medium">Please do not close this window or press back</p>
-            </div>
-          </>
-        )}
 
-        {status === 'success' && (
-          <>
-            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
-              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
-                <Check className="w-8 h-8 text-white" strokeWidth={3} />
+              <div>
+                <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+                  Authorizing Payment...
+                </h2>
+                <p className="text-gray-500 mt-2 font-medium text-sm max-w-[280px]">
+                  Connecting to secure bank gateway. Please do not close or refresh this page.
+                </p>
               </div>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Payment Successful!</h2>
-              <p className="text-gray-500 mt-2 font-medium">Redirecting to your order details...</p>
-            </div>
-          </>
-        )}
 
-        {status === 'failed' && (
-          <>
-            <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
-              <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center">
-                <X className="w-8 h-8 text-white" strokeWidth={3} />
+              {/* Progress Bar Shimmer */}
+              <div className="w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#FF5A36] to-transparent animate-shimmer" />
               </div>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Payment Failed</h2>
-              <p className="text-gray-500 mt-2 font-medium">Something went wrong with your transaction.</p>
-              <button 
-                onClick={() => router.push('/checkout/payment')}
-                className="mt-6 w-full py-3 bg-[#FF6B00] text-white rounded-xl font-bold"
-              >
-                Retry Payment
-              </button>
-            </div>
-          </>
-        )}
+            </motion.div>
+          )}
+
+          {status === 'success' && (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="flex flex-col items-center space-y-6"
+            >
+              <AnimatedSuccessCheck size={80} color="#10B981" />
+
+              <div>
+                <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+                  Payment Successful!
+                </h2>
+                <p className="text-gray-500 mt-2 font-medium text-sm">
+                  Your transaction was verified. Generating receipt...
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {status === 'failed' && (
+            <motion.div
+              key="failed"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="w-full flex flex-col items-center space-y-6"
+            >
+              <MotionShake triggerKey={true}>
+                <AnimatedErrorCross size={80} />
+              </MotionShake>
+
+              <div>
+                <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+                  Payment Declined
+                </h2>
+                <p className="text-gray-500 mt-2 font-medium text-sm max-w-[280px]">
+                  The bank transaction could not be completed. You haven't been charged.
+                </p>
+              </div>
+
+              <div className="w-full pt-4 space-y-3">
+                <Button
+                  onClick={() => router.push('/checkout/payment')}
+                  className="w-full h-13 rounded-2xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold text-base shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Retry Payment</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/cart')}
+                  className="w-full h-12 rounded-2xl border-gray-200 text-gray-700 font-semibold text-sm"
+                >
+                  Return to Cart
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

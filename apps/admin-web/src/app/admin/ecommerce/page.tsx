@@ -472,26 +472,10 @@ export default function EcommerceControlPage() {
                 <Input 
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/... or uploaded media URL"
+                  placeholder="Paste banner image URL or upload media"
                   required
                   className="rounded-xl text-sm"
                 />
-                <div className="flex gap-2 pt-1 overflow-x-auto no-scrollbar">
-                  {[
-                    'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?q=80&w=800&auto=format&fit=crop',
-                    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&auto=format&fit=crop',
-                    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=800&auto=format&fit=crop'
-                  ].map((preset, i) => (
-                    <button
-                      type="button"
-                      key={i}
-                      onClick={() => setImageUrl(preset)}
-                      className="text-[10px] text-gray-600 bg-gray-100 hover:bg-orange-100 hover:text-orange-700 px-2 py-1 rounded-md transition"
-                    >
-                      Preset #{i + 1}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* Deep Link & Button Text */}

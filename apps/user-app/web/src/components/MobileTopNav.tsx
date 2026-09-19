@@ -16,7 +16,7 @@ export function MobileTopNav() {
   const user = useSelector((state: RootState) => state.auth.user);
   const cart = useSelector((state: RootState) => state.cart);
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
-  const { data: myStore } = useGetMyStoreQuery();
+  const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
 
   // Hide TopNav on these routes (they have their own headers or are full screen)
   const hideOnRoutes = [
@@ -94,11 +94,11 @@ export function MobileTopNav() {
     );
     rightContent = (
       <div className="flex items-center gap-3.5">
-        <Link href="/notifications" className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5">
+        <Link href="/notifications" prefetch={false} className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5">
           <Bell className="w-6 h-6" />
           <span className="absolute top-0 right-0.5 w-2 h-2 bg-[#FF5A36] rounded-full ring-2 ring-white" />
         </Link>
-        <Link href="/cart" className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5">
+        <Link href="/cart" prefetch={false} className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5">
           <ShoppingCart className="w-6 h-6" />
           {cartTotalItems > 0 && (
             <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white tabular-nums">
@@ -112,10 +112,10 @@ export function MobileTopNav() {
     leftContent = <h1 className="text-2xl font-black text-[#171717]">Explore</h1>;
     rightContent = (
       <div className="flex items-center gap-4">
-        <Link href="/wishlist" className="text-[#171717]">
+        <Link href="/wishlist" prefetch={false} className="text-[#171717]">
           <Heart className="w-6 h-6" />
         </Link>
-        <Link href="/cart" className="relative text-[#171717]">
+        <Link href="/cart" prefetch={false} className="relative text-[#171717]">
           <ShoppingCart className="w-6 h-6" />
           {cartTotalItems > 0 && (
             <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center tabular-nums">
@@ -138,10 +138,10 @@ export function MobileTopNav() {
     );
     rightContent = (
       <div className="flex items-center gap-4">
-        <Link href="/wishlist" className="text-[#171717]">
+        <Link href="/wishlist" prefetch={false} className="text-[#171717]">
           <Heart className="w-6 h-6" />
         </Link>
-        <Link href="/notifications" className="relative text-[#171717]">
+        <Link href="/notifications" prefetch={false} className="relative text-[#171717]">
           <Bell className="w-6 h-6" />
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#FAF9F6] tabular-nums">
             2
@@ -160,7 +160,7 @@ export function MobileTopNav() {
           >
             <PlusSquare className="w-6 h-6" />
           </button>
-          <Link href="/profile/settings" className="relative text-[#171717]">
+          <Link href="/profile/settings" prefetch={false} className="relative text-[#171717]">
             <Menu className="w-6 h-6" />
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#FAF9F6] tabular-nums">
               1
@@ -172,7 +172,7 @@ export function MobileTopNav() {
       leftContent = <h1 className="text-xl font-bold text-[#171717]">My Account</h1>;
       rightContent = (
         <div className="flex items-center gap-4">
-          <Link href="/notifications" className="relative text-[#171717]">
+          <Link href="/notifications" prefetch={false} className="relative text-[#171717]">
             <Bell className="w-6 h-6" />
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#FAF9F6] tabular-nums">
               3

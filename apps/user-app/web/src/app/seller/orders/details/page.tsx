@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, QrCode, Keyboard, Loader2, Truck, Printer, ExternalLink, PackageCheck, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, QrCode, Keyboard, Loader2, Truck, Printer, Download, ExternalLink, PackageCheck, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
   useGetOrderQuery, 
@@ -240,7 +240,7 @@ function OrderDetailsContent() {
             <div className="space-y-2 pt-2 border-t border-gray-100 text-xs">
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 font-medium">Courier Partner</span>
-                <span className="font-bold text-gray-900">{order.courierName || 'Delhivery Surface Express'}</span>
+                <span className="font-bold text-gray-900">{order.courierName || 'Standard Express'}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 font-medium">AWB Tracking Code</span>
@@ -255,8 +255,8 @@ function OrderDetailsContent() {
                     onClick={() => window.open(order.shippingLabelUrl, '_blank')}
                     className="h-10 rounded-xl text-xs font-bold border-gray-300 text-gray-800 flex items-center gap-1.5"
                   >
-                    <Printer className="w-3.5 h-3.5" />
-                    Print Label
+                    <Download className="w-3.5 h-3.5" />
+                    Download Label
                   </Button>
                 )}
 
@@ -276,7 +276,7 @@ function OrderDetailsContent() {
           ) : (
             <div className="pt-2 border-t border-gray-100 space-y-2">
               <p className="text-xs text-gray-500">
-                Book automated doorstep courier pickup (Delhivery / Shadowfax / Bluedart) with 1 click.
+                Book automated doorstep courier pickup with 1 click.
               </p>
               <Button
                 onClick={handleShiprocketDispatch}

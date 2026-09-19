@@ -3,8 +3,10 @@
 import React, { Suspense, useMemo, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SocialReel, SocialReelProps } from '@/components/feed/SocialReel';
-import { ChevronLeft, PlaySquare, PlusCircle, ChevronDown, Users, MapPin, Check } from 'lucide-react';
-import { useGetReelsQuery } from '@/lib/api';
+import { ChevronLeft, PlaySquare, PlusCircle, ChevronDown, Users, MapPin, Check, Compass } from 'lucide-react';
+import { useGetReelsQuery, useGetMyStoreQuery } from '@/lib/api';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -19,6 +21,8 @@ function ReelsContent() {
   const targetStoreName = searchParams?.get('storeName');
   const targetCaption = searchParams?.get('caption');
 
+  const user = useSelector((state: RootState) => state.auth.user);
+  const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
   const { data: serverReels = [], isLoading } = useGetReelsQuery();
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -380,15 +384,27 @@ function ReelsContent() {
           </div>
           <h2 className="text-xl font-bold">No Reels Yet</h2>
           <p className="text-xs text-white/70 max-w-xs leading-relaxed">
-            Short-form video reels from your favorite creators and stores will appear here.
+            {myStore
+              ? 'Be the first seller to showcase your products with short video reels!'
+              : 'Short-form video reels from your favorite creators and stores will appear here.'}
           </p>
-          <Link 
-            href="/profile/create/post" 
-            className="mt-2 inline-flex items-center gap-2 bg-[#FF5A36] text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-lg hover:bg-[#E04B28] active:scale-95 transition"
-          >
-            <PlusCircle className="w-4 h-4" />
-            Upload First Reel
-          </Link>
+          {myStore ? (
+            <Link 
+              href="/profile/create/post" 
+              className="mt-2 inline-flex items-center gap-2 bg-[#FF5A36] text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-lg hover:bg-[#E04B28] active:scale-95 transition"
+            >
+              <PlusCircle className="w-4 h-4" />
+              Upload First Reel
+            </Link>
+          ) : (
+            <Link 
+              href="/explore" 
+              className="mt-2 inline-flex items-center gap-2 bg-[#FF5A36] text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-lg hover:bg-[#E04B28] active:scale-95 transition"
+            >
+              <Compass className="w-4 h-4" />
+              Explore Stores
+            </Link>
+          )}
         </div>
       )}
 

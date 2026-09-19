@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Package, Search, Loader2, ArrowRight } from 'lucide-react';
+import { ChevronLeft, Package, Search, Loader2, ArrowRight, Star } from 'lucide-react';
 import { useGetUserOrdersQuery } from '@/lib/api';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -161,7 +161,7 @@ export default function OrderHistoryPage() {
         ) : (
           filteredOrders.map((order: any) => {
             const firstItem = order.items?.[0];
-            const displayImage = firstItem?.product?.media?.[0]?.url || firstItem?.product?.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400';
+            const displayImage = firstItem?.product?.media?.[0]?.url || firstItem?.product?.imageUrl || '';
             const orderDateStr = order.createdAt 
               ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
               : 'Recent Order';
@@ -217,15 +217,29 @@ export default function OrderHistoryPage() {
                         ₹{(order.totalAmount || 0).toLocaleString('en-IN')}
                       </span>
                       
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/orders/${order.id}/track`);
-                        }}
-                        className="text-[11px] font-bold text-[#FF6B00] hover:underline flex items-center gap-0.5"
-                      >
-                        Track <ArrowRight className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {order.status === 'DELIVERED' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/orders/${order.id}/review`);
+                            }}
+                            className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-lg flex items-center gap-1 hover:bg-amber-100 transition-colors cursor-pointer"
+                          >
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                            <span>Rate</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/orders/${order.id}/track`);
+                          }}
+                          className="text-[11px] font-bold text-[#FF6B00] hover:underline flex items-center gap-0.5"
+                        >
+                          Track <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

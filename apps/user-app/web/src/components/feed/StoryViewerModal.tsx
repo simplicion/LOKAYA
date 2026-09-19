@@ -145,7 +145,7 @@ export function StoryViewerModal({
     }
   }, [currentStoryIdx, currentGroupIdx, groups]);
 
-  // Timer loop for auto-advancing stories (for image media)
+  // Timer loop for advancing stories progress (for image media)
   useEffect(() => {
     if (!isOpen || !currentStory || isPaused || isShareOpen) return;
 
@@ -156,13 +156,16 @@ export function StoryViewerModal({
     }
 
     const stepMs = 50;
+    const increment = (stepMs / STORY_DURATION_MS) * 100;
+
     progressIntervalRef.current = setInterval(() => {
       setProgress(prev => {
-        const next = prev + (stepMs / STORY_DURATION_MS) * 100;
+        const next = prev + increment;
         if (next >= 100) {
-          clearInterval(progressIntervalRef.current!);
-          goToNextStory();
-          return 0;
+          if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+          }
+          return 100;
         }
         return next;
       });
@@ -173,7 +176,17 @@ export function StoryViewerModal({
         clearInterval(progressIntervalRef.current);
       }
     };
-  }, [isOpen, currentStory, isPaused, isShareOpen, goToNextStory]);
+  }, [isOpen, currentStory, isPaused, isShareOpen]);
+
+  // Handle auto-advancing to next story outside of render/updater phase
+  useEffect(() => {
+    if (progress >= 100) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+      goToNextStory();
+    }
+  }, [progress, goToNextStory]);
 
   // Handle video playback events
   const handleVideoTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
@@ -274,7 +287,7 @@ export function StoryViewerModal({
   if (!isOpen || !currentStory) return null;
 
   const isVideo = currentStory.mediaType?.toLowerCase() === 'video';
-  const storeAvatar = currentGroup?.storeAvatar || currentStory.storeAvatar || 'https://i.pravatar.cc/150?img=1';
+  const storeAvatar = currentGroup?.storeAvatar || currentStory.storeAvatar || '';
   const storeName = title || currentGroup?.storeName || currentStory.storeName || 'Store';
   const isVerified = currentGroup?.isVerified ?? currentStory.isVerified ?? false;
 
@@ -308,9 +321,15 @@ export function StoryViewerModal({
           <Link 
             href={currentGroup?.storeId ? `/store/${currentGroup.storeId}` : '#'} 
             onClick={(e) => e.stopPropagation()}
-            className="w-9 h-9 rounded-full overflow-hidden border border-white/80 p-0.5 bg-white/10 shrink-0"
+            className="w-9 h-9 rounded-full overflow-hidden border border-white/80 p-0.5 bg-white/10 shrink-0 flex items-center justify-center"
           >
-            <img src={getMediaUrl(storeAvatar)} alt={storeName} className="w-full h-full rounded-full object-cover" />
+            {storeAvatar ? (
+              <img src={getMediaUrl(storeAvatar)} alt={storeName} className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <div className="w-full h-full rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">
+                {storeName.slice(0, 2).toUpperCase()}
+              </div>
+            )}
           </Link>
           <div className="flex flex-col leading-tight">
             <div className="flex items-center gap-1">

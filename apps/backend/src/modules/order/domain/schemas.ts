@@ -3,10 +3,13 @@ import { OrderStatus } from '@workspace/db';
 
 export const createOrderSchema = z.object({
   body: z.object({
-    storeId: z.string().uuid(),
+    storeId: z.string().uuid().optional(),
+    deliveryAddress: z.string().optional().nullable(),
+    paymentMethod: z.string().optional().nullable(),
+    shippingFee: z.number().optional().nullable(),
     items: z.array(z.object({
       productId: z.string().uuid(),
-      variantId: z.string().uuid().optional(),
+      variantId: z.string().uuid().optional().nullable(),
       quantity: z.number().int().positive()
     })).min(1, 'Order must contain at least one item')
   })

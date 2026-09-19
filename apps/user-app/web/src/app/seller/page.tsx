@@ -25,7 +25,6 @@ export default function SellerDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
   const [activeDateFilter, setActiveDateFilter] = useState('Today');
-
   const { data: store, isLoading, error, refetch, isFetching } = useGetMyStoreQuery();
   const { data: products } = useGetStoreProductsQuery(store?.id || '', { skip: !store?.id || store?.status !== 'VERIFIED' });
   const { data: statsData } = useGetSellerDashboardStatsQuery(activeDateFilter, { skip: !store?.id || store?.status !== 'VERIFIED' });
@@ -33,10 +32,10 @@ export default function SellerDashboardPage() {
   const { data: liveSalesData = [] } = useGetSellerSalesTrendQuery(activeDateFilter, { skip: !store?.id || store?.status !== 'VERIFIED' });
 
   useEffect(() => {
-    if (!isLoading && error && (error as any).status === 404) {
+    if (!isLoading && (!store || (error && (error as any).status === 404))) {
       router.push('/seller/onboarding');
     }
-  }, [isLoading, error, router]);
+  }, [isLoading, store, error, router]);
 
   if (isLoading) {
     return (
@@ -78,7 +77,7 @@ export default function SellerDashboardPage() {
               </div>
               <div>
                 <h4 className="text-xs font-bold text-gray-900">Application & Documents Submitted</h4>
-                <p className="text-[11px] text-gray-500">Aadhaar, PAN & Store details received.</p>
+                <p className="text-[11px] text-gray-500">Owner identity, photograph & store details received.</p>
               </div>
             </div>
 
@@ -245,7 +244,7 @@ export default function SellerDashboardPage() {
         title={
           <div className="flex flex-col ml-1">
             <span className="text-base font-bold text-[#171717] leading-tight">Good morning,</span>
-            <span className="text-base font-bold text-[#171717] leading-tight">{store.name} 👋</span>
+            <span className="text-base font-bold text-[#171717] leading-tight">{store.name}</span>
           </div>
         }
         rightAction={

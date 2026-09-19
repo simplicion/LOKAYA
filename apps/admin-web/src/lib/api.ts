@@ -39,7 +39,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Stores', 'Banners'],
+  tagTypes: ['Stores', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
       query: () => '/seller/pending',
@@ -116,8 +116,101 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['Banners'],
     }),
+    // Coupon Management Endpoints
+    getCoupons: builder.query<any[], void>({
+      query: () => '/admin/coupons',
+      providesTags: ['Coupons'],
+    }),
+    getCouponStats: builder.query<any, void>({
+      query: () => '/admin/coupons/stats',
+      providesTags: ['Coupons'],
+    }),
+    createCoupon: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/admin/coupons',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Coupons'],
+    }),
+    updateCoupon: builder.mutation<any, { id: string; body: any }>({
+      query: ({ id, body }) => ({
+        url: `/admin/coupons/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Coupons'],
+    }),
+    deleteCoupon: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/admin/coupons/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Coupons'],
+    }),
+    toggleCoupon: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/admin/coupons/${id}/toggle`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['Coupons'],
+    }),
     getProducts: builder.query<any[], void>({
       query: () => '/catalog/products',
+    }),
+    // Content Moderation Endpoints
+    getReportedContent: builder.query<any[], void>({
+      query: () => '/admin/content/reports',
+      providesTags: ['Reports'],
+    }),
+    updateReportStatus: builder.mutation<any, { id: string; status: string }>({
+      query: ({ id, status }) => ({
+        url: `/admin/content/reports/${id}`,
+        method: 'PATCH',
+        body: { status },
+      }),
+      invalidatesTags: ['Reports'],
+    }),
+    deleteReportedPost: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/admin/content/posts/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Reports'],
+    }),
+    deleteReportedReel: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/admin/content/reels/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Reports'],
+    }),
+    // Review Moderation Endpoints
+    getAdminReviews: builder.query<any[], void>({
+      query: () => '/admin/reviews',
+      providesTags: ['Reviews'],
+    }),
+    deleteAdminReview: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/admin/reviews/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Reviews'],
+    }),
+    getAdminSupportTickets: builder.query<{ tickets: any[]; counts: { total: number; open: number; inProgress: number; resolved: number } }, { status?: string; priority?: string; category?: string; search?: string } | void>({
+      query: (params) => ({
+        url: '/admin/support/tickets',
+        params: params || {},
+      }),
+      providesTags: ['SupportTickets'],
+    }),
+    updateAdminSupportTicket: builder.mutation<any, { ticketId: string; status?: string; priority?: string; adminNotes?: string }>({
+      query: ({ ticketId, ...body }) => ({
+        url: `/admin/support/tickets/${ticketId}`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['SupportTickets'],
     }),
   }),
 });
@@ -135,5 +228,19 @@ export const {
   useUpdateBannerMutation,
   useDeleteBannerMutation,
   useToggleBannerMutation,
+  useGetCouponsQuery,
+  useGetCouponStatsQuery,
+  useCreateCouponMutation,
+  useUpdateCouponMutation,
+  useDeleteCouponMutation,
+  useToggleCouponMutation,
   useGetProductsQuery,
+  useGetReportedContentQuery,
+  useUpdateReportStatusMutation,
+  useDeleteReportedPostMutation,
+  useDeleteReportedReelMutation,
+  useGetAdminReviewsQuery,
+  useDeleteAdminReviewMutation,
+  useGetAdminSupportTicketsQuery,
+  useUpdateAdminSupportTicketMutation,
 } = adminApi;

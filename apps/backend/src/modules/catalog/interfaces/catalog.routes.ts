@@ -120,6 +120,28 @@ router.put('/products/:productId', requireAuth, validateRequest(updateProductSch
   }
 });
 
+// Batch Get Products by IDs (e.g. for Recently Viewed)
+router.post('/products/batch', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const products = await CatalogService.getProductsByIds(ids);
+    res.status(200).json(products);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/products/batch', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rawIds = req.query.ids;
+    const ids = typeof rawIds === 'string' ? rawIds.split(',') : (Array.isArray(rawIds) ? rawIds as string[] : []);
+    const products = await CatalogService.getProductsByIds(ids);
+    res.status(200).json(products);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get Single Product by ID
 router.get('/products/:productId', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -145,6 +167,43 @@ router.get('/qr/:qrUuid', async (req: Request, res: Response, next: NextFunction
   try {
     const product = await CatalogService.getProductByQr(req.params.qrUuid);
     res.status(200).json(product);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// Customer Product Reviews
+// ==========================================
+
+// Create or update a review
+router.post('/reviews', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const review = await CatalogService.createProductReview(userId, req.body);
+    res.status(201).json({ success: true, data: review });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get user's own reviews
+router.get('/reviews/my', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const reviews = await CatalogService.getUserReviews(userId);
+    res.status(200).json({ success: true, data: reviews });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete user's own review
+router.delete('/reviews/:id', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.id;
+    const result = await CatalogService.deleteUserReview(userId, req.params.id);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

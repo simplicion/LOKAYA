@@ -59,9 +59,9 @@ export default function LocationMap({ userLocation, nearbyStores, className }: M
 
   return (
     <div className={`${className || 'h-[250px] w-full rounded-2xl border border-gray-200'} overflow-hidden z-0 relative`}>
-      {/* global style override for the store marker if you want a different color, you could use a custom icon image, but this is okay for mock */}
+      {/* Store marker styling */}
       <style jsx global>{`
-        .store-marker-icon { filter: hue-rotate(150deg); } /* Make store markers a different color */
+        .store-marker-icon { filter: hue-rotate(150deg); } /* Differentiate store marker color */
       `}</style>
 
       <MapContainer 

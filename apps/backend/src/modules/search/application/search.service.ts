@@ -156,7 +156,7 @@ export class SearchService {
           : 0;
         return {
           ...store,
-          rating: avgRating > 0 ? avgRating.toFixed(1) : '4.8',
+          rating: avgRating > 0 ? avgRating.toFixed(1) : null,
           reviewsCount: store._count.reviews
         };
       }),
@@ -165,7 +165,7 @@ export class SearchService {
           ? prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length
           : 0;
         
-        const primaryImage = prod.media?.[0]?.url || prod.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400';
+        const primaryImage = prod.media?.[0]?.url || prod.imageUrl || '';
         const price = prod.sellingPrice ?? 0;
         const mrp = prod.mrp && prod.mrp > price ? prod.mrp : undefined;
         const discountLabel = mrp ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
@@ -188,8 +188,8 @@ export class SearchService {
             name: prod.store?.name || 'Local Store',
             isVerified: prod.store?.status === 'VERIFIED'
           },
-          rating: avgRating > 0 ? avgRating.toFixed(1) : '4.8',
-          reviews: `(${prod.reviews?.length || 0})`,
+          rating: avgRating > 0 ? avgRating.toFixed(1) : null,
+          reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
           reviewsCount: prod.reviews?.length || 0,
         };
       }),
@@ -207,7 +207,7 @@ export class SearchService {
           timeAgo: 'Recently',
           storeId: store?.id || '',
           storeName: store?.name || post.author.name,
-          storeAvatar: store?.logoUrl || post.author.avatarUrl || 'https://i.pravatar.cc/150?img=1',
+          storeAvatar: store?.logoUrl || post.author.avatarUrl || '',
           isVerified: store?.status === 'VERIFIED',
           media: post.media.map((m: any) => ({
             id: m.id,

@@ -86,10 +86,11 @@ export function SocialPost({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  // Local optimistic state for likes & saves
+  // Local optimistic state for likes, saves & comments
   const [isLiked, setIsLiked] = useState(isLikedByMe);
-  const [likeTotal, setLikeTotal] = useState(likesCount || parseInt(likes.replace(/,/g, '')) || 0);
+  const [likeTotal, setLikeTotal] = useState(likesCount || parseInt(String(likes).replace(/,/g, '')) || 0);
   const [isSaved, setIsSaved] = useState(isSavedByMe);
+  const [commentTotal, setCommentTotal] = useState(() => parseInt(String(comments).replace(/,/g, '')) || 0);
   const [showHeartPop, setShowHeartPop] = useState(false);
   const lastTapRef = useRef<number>(0);
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -122,6 +123,16 @@ export function SocialPost({
   useEffect(() => {
     setIsLiked(isLikedByMe);
   }, [isLikedByMe]);
+
+  useEffect(() => {
+    if (likesCount !== undefined) {
+      setLikeTotal(likesCount);
+    }
+  }, [likesCount]);
+
+  useEffect(() => {
+    setCommentTotal(parseInt(String(comments).replace(/,/g, '')) || 0);
+  }, [comments]);
 
   useEffect(() => {
     setLikeTotal(likesCount || parseInt(likes.replace(/,/g, '')) || 0);
@@ -235,7 +246,7 @@ export function SocialPost({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <Link 
-          href={storeId ? `/store/${storeId}` : '#'}
+          href={storeId ? `/store/${storeId}` : (authorId ? `/user/${authorId}` : '#')}
           className="flex items-center gap-3 cursor-pointer group"
         >
           <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 border border-gray-100 p-0.5 flex items-center justify-center">
@@ -267,88 +278,92 @@ export function SocialPost({
       </div>
 
       {/* Media Container */}
-      <div 
-        className="relative w-full aspect-[4/5] bg-gray-900 overflow-hidden cursor-pointer"
-        onClick={handleMediaClick}
-      >
-        {/* Scrollable Media List */}
+      {media && media.length > 0 && (
         <div 
-          className="w-full h-full flex overflow-x-auto snap-x snap-mandatory hide-scrollbar"
-          onScroll={(e) => {
-            const target = e.target as HTMLElement;
-            const index = Math.round(target.scrollLeft / target.clientWidth);
-            if (index !== currentMediaIndex) {
-              setCurrentMediaIndex(index);
-            }
-          }}
+          className="relative w-full aspect-[4/5] bg-gray-900 overflow-hidden cursor-pointer"
+          onClick={handleMediaClick}
         >
-          {media.map((m, idx) => (
-            <div key={idx} className="relative w-full h-full flex-shrink-0 snap-center">
-              {m.type === 'video' && m.url ? (
-                <VideoPlayer
-                  src={m.url}
-                  poster={m.posterUrl}
-                  autoPlay={true}
-                  isActive={true}
-                  muted={true}
-                  loop={true}
-                  playsInline={true}
-                  className="w-full h-full object-cover"
-                />
-              ) : m.url ? (
-                <img
-                  src={getMediaUrl(m.url)}
-                  alt={`Post Media ${idx + 1}`}
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                />
-              ) : (
-                <div className="absolute inset-0 w-full h-full bg-gray-800 flex items-center justify-center text-gray-400 text-xs">
-                  No Media
-                </div>
-              )}
-
-              {/* Video Overlays */}
-              {m.type === 'video' && (
-                <>
-                  <div className="absolute top-4 right-4 bg-black/60 rounded-full p-1.5 backdrop-blur-sm pointer-events-none">
-                    <VolumeX className="w-4 h-4 text-white" />
+          {/* Scrollable Media List */}
+          <div 
+            className="w-full h-full flex overflow-x-auto snap-x snap-mandatory hide-scrollbar"
+            onScroll={(e) => {
+              const target = e.target as HTMLElement;
+              const index = Math.round(target.scrollLeft / target.clientWidth);
+              if (index !== currentMediaIndex) {
+                setCurrentMediaIndex(index);
+              }
+            }}
+          >
+            {media.map((m, idx) => (
+              <div key={idx} className="relative w-full h-full flex-shrink-0 snap-center">
+                {m.type === 'video' && m.url ? (
+                  <VideoPlayer
+                    src={m.url}
+                    poster={m.posterUrl}
+                    autoPlay={true}
+                    isActive={true}
+                    muted={true}
+                    loop={true}
+                    playsInline={true}
+                    className="w-full h-full object-cover"
+                  />
+                ) : m.url ? (
+                  <img
+                    src={getMediaUrl(m.url)}
+                    alt={`Post Media ${idx + 1}`}
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                  />
+                ) : (
+                  <div className="absolute inset-0 w-full h-full bg-gray-800 flex items-center justify-center text-gray-400 text-xs">
+                    No Media
                   </div>
-                  {m.duration && (
-                    <div className="absolute bottom-[88px] left-4 bg-black/60 rounded-md px-2 py-0.5 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none">
-                      {m.duration}
+                )}
+
+                {/* Video Overlays */}
+                {m.type === 'video' && (
+                  <>
+                    <div className="absolute top-4 right-4 bg-black/60 rounded-full p-1.5 backdrop-blur-sm pointer-events-none">
+                      <VolumeX className="w-4 h-4 text-white" />
                     </div>
-                  )}
-                  <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[10px] font-bold flex items-center gap-1.5 border border-white/10 shadow-sm pointer-events-none">
-                    <Play className="w-3 h-3 fill-white" />
-                    <span>Watch Reel</span>
-                  </div>
-                </>
-              )}
+                    {m.duration && (
+                      <div className="absolute bottom-[88px] left-4 bg-black/60 rounded-md px-2 py-0.5 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none">
+                        {m.duration}
+                      </div>
+                    )}
+                    <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[10px] font-bold flex items-center gap-1.5 border border-white/10 shadow-sm pointer-events-none">
+                      <Play className="w-3 h-3 fill-white" />
+                      <span>Watch Reel</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Big Heart Animation on Double Tap */}
+          {showHeartPop && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 animate-ping duration-500">
+              <Heart className="w-24 h-24 text-red-500 fill-red-500 drop-shadow-2xl opacity-90" />
             </div>
-          ))}
+          )}
+
+          {/* Product Overlay Card */}
+          {product && (
+            <div className="absolute bottom-4 left-4 right-4 z-10" onClick={(e) => e.stopPropagation()}>
+              <ProductOverlayCard product={product} />
+            </div>
+          )}
+
+          {/* Multi-image indicators */}
+          {media.length > 1 && (
+            <div className="absolute top-4 right-4 bg-black/60 rounded-full px-2 py-1 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none">
+              {currentMediaIndex + 1}/{media.length}
+            </div>
+          )}
         </div>
-
-        {/* Big Heart Animation on Double Tap */}
-        {showHeartPop && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 animate-ping duration-500">
-            <Heart className="w-24 h-24 text-red-500 fill-red-500 drop-shadow-2xl opacity-90" />
-          </div>
-        )}
-
-        {/* Product Overlay Card */}
-        {product && (
-          <div className="absolute bottom-4 left-4 right-4 z-10" onClick={(e) => e.stopPropagation()}>
-            <ProductOverlayCard product={product} />
-          </div>
-        )}
-
-        {/* Multi-image indicators */}
-        {media.length > 1 && (
-          <div className="absolute top-4 right-4 bg-black/60 rounded-full px-2 py-1 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none">
-            {currentMediaIndex + 1}/{media.length}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Carousel Dots */}
       {media.length > 1 && (
@@ -382,7 +397,7 @@ export function SocialPost({
           {/* Comment button opens comment sheet */}
           <button onClick={() => setIsCommentsOpen(true)} className="flex items-center gap-1.5 group">
             <MessageCircle className="w-6 h-6 text-[#171717] group-active:scale-90 transition-transform" strokeWidth={1.5} />
-            <span className="font-bold text-[13px] text-[#171717] tabular-nums">{comments}</span>
+            <span className="font-bold text-[13px] text-[#171717] tabular-nums">{commentTotal.toLocaleString()}</span>
           </button>
 
           {/* Share button opens share sheet */}
@@ -432,7 +447,13 @@ export function SocialPost({
       {/* Bottom Sheets */}
       <ShareBottomSheet isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} url={postUrl} />
       <LikesBottomSheet isOpen={isLikesOpen} onClose={() => setIsLikesOpen(false)} targetId={id} type="post" />
-      <CommentsBottomSheet isOpen={isCommentsOpen} onClose={() => setIsCommentsOpen(false)} targetId={id} type="post" />
+      <CommentsBottomSheet 
+        isOpen={isCommentsOpen} 
+        onClose={() => setIsCommentsOpen(false)} 
+        targetId={id} 
+        type="post" 
+        onCommentAdded={() => setCommentTotal(prev => prev + 1)}
+      />
       <ReportBottomSheet 
         isOpen={isReportOpen} 
         onClose={() => setIsReportOpen(false)} 

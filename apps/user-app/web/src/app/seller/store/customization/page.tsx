@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Search, Moon, Edit2, Bell, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Search, Moon, Edit2, Bell, ShieldAlert, Apple, Carrot, Coffee, Utensils, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGetMyStoreQuery, useUpdateStoreThemeMutation } from '@/lib/api';
 import Image from 'next/image';
@@ -152,19 +152,22 @@ export default function StoreCustomizationPage() {
             {/* Categories Preview */}
             <div className="flex justify-between px-5 pb-5 pt-2">
               {[
-                { name: 'Fruits', emoji: '🍎' },
-                { name: 'Veggies', emoji: '🥦' },
-                { name: 'Dairy', emoji: '🥛' },
-                { name: 'Snacks', emoji: '🍪' },
-                { name: 'More', emoji: '🛍️' },
-              ].map(cat => (
-                <div key={cat.name} className="flex flex-col items-center gap-1.5">
-                  <div className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-lg shadow-sm">
-                    {cat.emoji}
+                { name: 'Fruits', icon: Apple, color: 'text-rose-500' },
+                { name: 'Veggies', icon: Carrot, color: 'text-emerald-500' },
+                { name: 'Dairy', icon: Coffee, color: 'text-amber-500' },
+                { name: 'Snacks', icon: Utensils, color: 'text-orange-500' },
+                { name: 'More', icon: ShoppingBag, color: 'text-indigo-500' },
+              ].map(cat => {
+                const Icon = cat.icon;
+                return (
+                  <div key={cat.name} className="flex flex-col items-center gap-1.5">
+                    <div className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center shadow-sm">
+                      <Icon className={`w-4 h-4 ${cat.color}`} />
+                    </div>
+                    <span className="text-[10px] font-medium text-gray-600">{cat.name}</span>
                   </div>
-                  <span className="text-[10px] font-medium text-gray-600">{cat.name}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

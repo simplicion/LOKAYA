@@ -23,6 +23,10 @@ export function StoriesBar() {
   const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
 
+  const handleCloseViewer = React.useCallback(() => {
+    setIsViewerOpen(false);
+  }, []);
+
   // Use live feed from backend exclusively
   const feedGroups: StoryViewerStoreGroup[] = serverFeed || [];
 
@@ -82,8 +86,8 @@ export function StoriesBar() {
     <div className="w-full bg-[#FAF9F6] pt-1 pb-3">
       <div className="flex gap-3.5 overflow-x-auto px-4 snap-x no-scrollbar items-start">
         
-        {/* "Your Story" item for Authenticated Sellers/Users */}
-        {isAuthenticated && user && (
+        {/* "Your Story" item for Authenticated Sellers with a Store */}
+        {isAuthenticated && user && myStore && (
           <div className="snap-start shrink-0 w-[calc(25vw-20px)] max-w-[76px] flex flex-col items-center gap-1 cursor-pointer group">
             <div className="relative w-full aspect-square" onClick={handleOpenMyStory}>
               {/* Ring */}
@@ -173,10 +177,10 @@ export function StoriesBar() {
       </div>
 
       {/* Story Viewer Modal */}
-      {isViewerOpen && (
+      {isViewerOpen && feedGroups.length > 0 && (
         <StoryViewerModal
           isOpen={isViewerOpen}
-          onClose={() => setIsViewerOpen(false)}
+          onClose={handleCloseViewer}
           groups={feedGroups}
           initialGroupIndex={selectedGroupIndex}
         />

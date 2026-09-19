@@ -13,7 +13,8 @@ import {
   Loader2, 
   Package, 
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Star
 } from 'lucide-react';
 import { useGetOrderQuery } from '@/lib/api';
 import Image from 'next/image';
@@ -118,7 +119,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           {order.awbCode && (
             <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px]">
               <span className="text-gray-500">AWB: <span className="font-mono font-bold text-gray-900">{order.awbCode}</span></span>
-              <span className="font-semibold text-gray-700">{order.courierName || 'Delhivery Surface'}</span>
+              <span className="font-semibold text-gray-700">{order.courierName || 'Standard Surface'}</span>
             </div>
           )}
         </div>
@@ -132,20 +133,24 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
 
           <div className="divide-y divide-gray-100">
             {order.items?.map((item: any) => {
-              const itemImg = item.product?.media?.[0]?.url || item.product?.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400';
+              const itemImg = item.product?.media?.[0]?.url || item.product?.imageUrl || '';
               return (
                 <div key={item.id} className="py-3 flex gap-3.5 items-center first:pt-0 last:pb-0">
                   <div 
                     onClick={() => item.productId && router.push(`/product/${item.productId}`)}
-                    className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-100 bg-gray-50 shrink-0 cursor-pointer"
+                    className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-100 bg-gray-50 shrink-0 cursor-pointer flex items-center justify-center"
                   >
-                    <Image 
-                      src={itemImg} 
-                      alt={item.productName || 'Product'} 
-                      fill 
-                      className="object-cover" 
-                      sizes="64px"
-                    />
+                    {itemImg ? (
+                      <Image 
+                        src={itemImg} 
+                        alt={item.productName || 'Product'} 
+                        fill 
+                        className="object-cover" 
+                        sizes="64px"
+                      />
+                    ) : (
+                      <Package className="w-6 h-6 text-gray-300" />
+                    )}
                   </div>
                   
                   <div className="flex-1 min-w-0">
@@ -170,6 +175,16 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                         Qty: {item.quantity}
                       </span>
                     </div>
+
+                    {isDelivered && (
+                      <button
+                        onClick={() => router.push(`/orders/${order.id}/review?productId=${item.productId || item.product?.id}`)}
+                        className="mt-2 text-xs font-bold text-[#FF5A36] hover:text-[#e04d2d] flex items-center gap-1.5 border border-orange-200/80 bg-orange-50/60 px-3 py-1.5 rounded-xl w-fit cursor-pointer transition-all active:scale-95"
+                      >
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span>Write a Review</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );

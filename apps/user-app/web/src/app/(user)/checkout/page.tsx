@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
 import Image from 'next/image';
@@ -19,6 +20,7 @@ import {
   ShoppingBag, 
   Loader2, 
   AlertCircle,
+  AlertTriangle,
   X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,9 +31,11 @@ import {
   useGetCartQuery,
   useCreateOrderMutation,
   useCreatePaymentOrderMutation,
-  useVerifyPaymentMutation
+  useVerifyPaymentMutation,
+  useRemoveFromCartMutation,
+  useUpdateCartItemMutation
 } from '@/lib/api';
-import { clearCart } from '@/lib/features/cartSlice';
+import { clearCart, removeFromCart, updateQuantity } from '@/lib/features/cartSlice';
 import { toast } from 'sonner';
 
 function CheckoutContent() {
@@ -103,7 +107,9 @@ function CheckoutContent() {
         ? directProduct.variants?.find((v: any) => v.id === directVariantId) 
         : directProduct.variants?.[0];
       const price = variant?.price ?? directProduct.sellingPrice ?? 0;
-      const image = directProduct.media?.[0]?.url || directProduct.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800';
+      const image = directProduct.media?.[0]?.url || directProduct.imageUrl || '';
+      const rawStock = variant?.stockCount ?? directProduct.stockCount;
+      const stockCount = rawStock !== undefined ? Number(rawStock) : undefined;
 
       return [{
         id: variant ? `${directProduct.id}-${variant.id}` : directProduct.id,
@@ -112,6 +118,7 @@ function CheckoutContent() {
         name: directProduct.name,
         price,
         quantity: directQty,
+        stockCount,
         storeId: directProduct.storeId,
         storeName: directProduct.store?.name,
         image,
@@ -121,38 +128,82 @@ function CheckoutContent() {
 
     const resolvedMap = new Map<string, any>();
 
-    // 1. Backend cart items
+    // 1. Backend cart items (authoritative for logged in user)
     if (cartData?.items && cartData.items.length > 0) {
-      cartData.items.forEach((item: any) => {
-        const key = item.productId ? `${item.productId}-${item.variantId || 'base'}` : item.id;
-        resolvedMap.set(key, {
-          id: item.id,
-          productId: item.productId,
-          variantId: item.variantId,
-          name: item.product?.name || item.productName || 'Product',
-          price: item.variant?.price ?? item.product?.sellingPrice ?? item.priceAt ?? 0,
-          quantity: item.quantity,
-          storeId: item.product?.storeId || '',
-          storeName: item.product?.store?.name,
-          image: item.product?.media?.[0]?.url || item.product?.imageUrl || '',
-          variantName: item.variant?.name,
+      cartData.items
+        .filter((item: any) => item.product != null && item.product.id && item.product.isActive !== false)
+        .forEach((item: any) => {
+          const key = item.productId ? `${item.productId}-${item.variantId || 'base'}` : item.id;
+          const rawStock = item.variant?.stockCount ?? item.product?.stockCount;
+          const stockCount = rawStock !== undefined ? Number(rawStock) : undefined;
+          resolvedMap.set(key, {
+            id: item.id,
+            productId: item.productId,
+            variantId: item.variantId,
+            name: item.product?.name || item.productName || 'Product',
+            price: item.variant?.price ?? item.product?.sellingPrice ?? item.priceAt ?? 0,
+            quantity: item.quantity,
+            stockCount,
+            storeId: item.product?.storeId || '',
+            storeName: item.product?.store?.name,
+            image: item.product?.media?.[0]?.url || item.product?.imageUrl || '',
+            variantName: item.variant?.name,
+          });
         });
+    }
+
+    // 2. Redux cart items (only used if guest user is not logged in)
+    if (!user) {
+      reduxCartItems.forEach((item: any) => {
+        const key = item.productId ? `${item.productId}-${item.variantId || 'base'}` : item.id;
+        if (!resolvedMap.has(key)) {
+          resolvedMap.set(key, {
+            ...item,
+            productId: item.productId || item.id,
+            stockCount: item.stockCount !== undefined ? Number(item.stockCount) : undefined,
+          });
+        }
       });
     }
 
-    // 2. Redux cart items (ensuring newly added products are never dropped)
-    reduxCartItems.forEach((item: any) => {
-      const key = item.productId ? `${item.productId}-${item.variantId || 'base'}` : item.id;
-      if (!resolvedMap.has(key)) {
-        resolvedMap.set(key, {
-          ...item,
-          productId: item.productId || item.id,
-        });
-      }
-    });
-
     return Array.from(resolvedMap.values());
-  }, [directProductId, directProduct, directVariantId, directQty, cartData, reduxCartItems]);
+  }, [directProductId, directProduct, directVariantId, directQty, cartData, reduxCartItems, user]);
+
+  // Inventory validation to prevent 400 Bad Request at order placement
+  const invalidCheckoutItems = React.useMemo(() => {
+    return orderItems.filter((i: any) => i.stockCount !== undefined && (i.stockCount <= 0 || i.quantity > i.stockCount));
+  }, [orderItems]);
+
+  const hasStockShortage = invalidCheckoutItems.length > 0;
+
+  const [removeFromCartAPI] = useRemoveFromCartMutation();
+  const [updateCartQtyAPI] = useUpdateCartItemMutation();
+
+  const handleAutoAdjustCheckoutItems = async () => {
+    for (const item of invalidCheckoutItems) {
+      if (item.stockCount <= 0) {
+        dispatch(removeFromCart(item.id));
+        if (item.productId) dispatch(removeFromCart(item.productId));
+        if (user && item.id) {
+          try {
+            await removeFromCartAPI(item.id).unwrap();
+          } catch (e) {
+            console.warn('Failed to remove out-of-stock item from backend cart:', e);
+          }
+        }
+      } else if (item.quantity > item.stockCount) {
+        dispatch(updateQuantity({ id: item.id, quantity: item.stockCount }));
+        if (user && item.id) {
+          try {
+            await updateCartQtyAPI({ itemId: item.id, quantity: item.stockCount }).unwrap();
+          } catch (e) {
+            console.warn('Failed to adjust item quantity in backend cart:', e);
+          }
+        }
+      }
+    }
+    toast.success('Your order has been adjusted to available stock');
+  };
 
   // Pricing calculations
   const itemsSubtotal = orderItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
@@ -188,6 +239,11 @@ function CheckoutContent() {
       return;
     }
 
+    if (hasStockShortage) {
+      toast.error('Some items in your order are out of stock or exceed inventory. Please click "Auto-Adjust Order" above.');
+      return;
+    }
+
     if (!selectedAddressId && addresses.length === 0) {
       setIsAddressModalOpen(true);
       toast.info('Please enter your delivery address');
@@ -202,11 +258,8 @@ function CheckoutContent() {
     setIsProcessing(true);
 
     try {
-      // 1. Group items by store if multiple, or use primary storeId
-      const primaryStoreId = orderItems[0].storeId;
-      if (!primaryStoreId) {
-        throw new Error('Missing store information for checkout');
-      }
+      // 1. Resolve primary storeId if available (backend automatically resolves from items if omitted)
+      const primaryStoreId = orderItems.find((i: any) => i.storeId && i.storeId.length > 10)?.storeId || undefined;
 
       // Format delivery address string
       const chosenAddress = addresses.find((a: any) => a.id === selectedAddressId) || addresses[0];
@@ -301,13 +354,33 @@ function CheckoutContent() {
     }
   };
 
-  const isLoading = (directProductId && isDirectLoading) || isAddressesLoading;
+  const isLoading = (directProductId && isDirectLoading) || isAddressesLoading || (user && isCartLoading);
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-[#FF6B00]" />
         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Preparing Checkout...</span>
+      </div>
+    );
+  }
+
+  if (orderItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center text-[#FF6B00] mb-4">
+          <ShoppingBag className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Your Bag is Empty</h2>
+        <p className="text-sm text-gray-500 max-w-sm mb-6">
+          The items in your bag are no longer available or have been cleared. Discover new arrivals and handcrafted goods in our marketplace!
+        </p>
+        <Link
+          href="/shop"
+          className="bg-[#171717] hover:bg-black text-white font-bold text-sm px-6 py-3 rounded-xl transition-all shadow-sm"
+        >
+          Explore Products
+        </Link>
       </div>
     );
   }
@@ -342,6 +415,34 @@ function CheckoutContent() {
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-5">
         
+        {/* Inventory Shortage Warning Alert */}
+        {hasStockShortage && (
+          <div className="bg-red-50/95 border border-red-200 rounded-2xl p-4 shadow-sm animate-in fade-in duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-red-950 text-sm">Inventory shortage detected</h4>
+                  <p className="text-xs text-red-800/90 mt-0.5 leading-relaxed">
+                    {invalidCheckoutItems.map((it: any) => 
+                      it.stockCount <= 0 
+                        ? `"${it.name}" is currently out of stock`
+                        : `"${it.name}" has only ${it.stockCount} available (you requested ${it.quantity})`
+                    ).join(', ')}.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleAutoAdjustCheckoutItems}
+                className="bg-[#171717] hover:bg-black text-white text-xs font-bold px-4 py-2.5 rounded-xl shrink-0 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <span>Auto-Adjust Order</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Step 1: Delivery Address */}
         <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -538,35 +639,53 @@ function CheckoutContent() {
         <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm">
           <h2 className="font-bold text-gray-900 text-sm mb-3">Order Items ({orderItems.length})</h2>
           <div className="divide-y divide-gray-100">
-            {orderItems.map((item: any, idx: number) => (
-              <div key={idx} className="py-3 flex items-center gap-3">
-                <div className="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden relative flex-shrink-0 border border-gray-200">
-                  {item.image ? (
-                    <Image 
-                      src={item.image} 
-                      alt={item.name} 
-                      fill 
-                      className="object-cover" 
-                      sizes="56px" 
-                    />
-                  ) : (
-                    <ShoppingBag className="w-6 h-6 m-auto text-gray-400" />
-                  )}
+            {orderItems.map((item: any, idx: number) => {
+              const isItemOOS = item.stockCount !== undefined && item.stockCount <= 0;
+              const isItemOver = item.stockCount !== undefined && item.stockCount > 0 && item.quantity > item.stockCount;
+              return (
+                <div key={idx} className={`py-3 flex items-center gap-3 ${isItemOOS ? 'opacity-85' : ''}`}>
+                  <div className="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden relative flex-shrink-0 border border-gray-200">
+                    {item.image ? (
+                      <Image 
+                        src={item.image} 
+                        alt={item.name} 
+                        fill 
+                        className={`object-cover ${isItemOOS ? 'grayscale' : ''}`}
+                        sizes="56px" 
+                      />
+                    ) : (
+                      <ShoppingBag className="w-6 h-6 m-auto text-gray-400" />
+                    )}
+                    {isItemOOS && (
+                      <div className="absolute inset-0 bg-[#171717]/75 backdrop-blur-[1px] flex items-center justify-center">
+                        <span className="text-[8px] font-black text-white uppercase tracking-tighter">OOS</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-xs text-gray-900 truncate">{item.name}</h4>
+                    {item.variantName && (
+                      <p className="text-[10px] text-gray-500 font-medium">{item.variantName}</p>
+                    )}
+                    <p className="text-[11px] text-gray-500 font-medium">Qty: {item.quantity}</p>
+                    {isItemOOS ? (
+                      <span className="inline-block mt-0.5 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-[#171717] text-white tracking-wider border border-white/20">
+                        OUT OF STOCK
+                      </span>
+                    ) : isItemOver ? (
+                      <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                        Only {item.stockCount} in stock
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-right">
+                    <span className="font-bold text-xs text-gray-900">
+                      ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-xs text-gray-900 truncate">{item.name}</h4>
-                  {item.variantName && (
-                    <p className="text-[10px] text-gray-500 font-medium">{item.variantName}</p>
-                  )}
-                  <p className="text-[11px] text-gray-500 font-medium">Qty: {item.quantity}</p>
-                </div>
-                <div className="text-right">
-                  <span className="font-bold text-xs text-gray-900">
-                    ₹{(item.price * item.quantity).toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -620,14 +739,20 @@ function CheckoutContent() {
 
           <Button
             onClick={handlePlaceOrder}
-            disabled={isProcessing || isCreatingOrder || isCreatingPayment || isVerifyingPayment}
-            className="flex-1 max-w-xs h-12 rounded-xl bg-[#FF6B00] hover:bg-[#ff7a1f] text-white font-bold text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2"
+            disabled={isProcessing || isCreatingOrder || isCreatingPayment || isVerifyingPayment || hasStockShortage || orderItems.length === 0}
+            className={`flex-1 max-w-xs h-12 rounded-xl text-white font-bold text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 ${
+              hasStockShortage 
+                ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed shadow-none' 
+                : 'bg-[#FF6B00] hover:bg-[#ff7a1f]'
+            }`}
           >
             {isProcessing || isCreatingOrder || isCreatingPayment ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Processing...</span>
               </>
+            ) : hasStockShortage ? (
+              <span>Fix Stock to Place Order</span>
             ) : paymentMethod === 'ONLINE' ? (
               <>
                 <span>Pay via Razorpay</span>

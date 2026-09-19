@@ -2,6 +2,7 @@ import { prisma } from '@workspace/db';
 import { AppError } from '../../../shared/errors/AppError';
 import { processMediaJob } from '../../media/application/media-worker.service';
 import { ContentService } from './content.service';
+import { redisClient } from '../../../shared/services/redis.service';
 
 export class StoryService {
   /**
@@ -100,6 +101,9 @@ export class StoryService {
       }
     }
 
+    // Invalidate cached stories feed
+    await ContentService.invalidateFeedCaches('cache:stories:*');
+
     return story;
   }
 
@@ -107,6 +111,14 @@ export class StoryService {
    * Get active stories grouped by store for the Home feed tray.
    */
   static async getStoriesFeed(viewerId?: string) {
+    const cacheKey = !viewerId ? 'cache:stories:feed' : null;
+    if (cacheKey) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+
     const now = new Date();
 
     const activeStories = await prisma.story.findMany({
@@ -202,6 +214,13 @@ export class StoryService {
       if (!a.hasUnseen && b.hasUnseen) return 1;
       return new Date(b.latestStoryAt).getTime() - new Date(a.latestStoryAt).getTime();
     });
+
+    if (cacheKey && result.length > 0) {
+      const k: string = cacheKey;
+      try {
+        await redisClient.setex(k, 30, JSON.stringify(result));
+      } catch {}
+    }
 
     return result;
   }
@@ -447,6 +466,9 @@ export class StoryService {
     await prisma.story.delete({
       where: { id: storyId }
     });
+
+    // Invalidate cached stories feed
+    await ContentService.invalidateFeedCaches('cache:stories:*');
 
     return { success: true };
   }

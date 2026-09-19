@@ -81,6 +81,15 @@ model User {
   
   // Capabilities
   isSystemAdmin Boolean     @default(false)
+
+  // Profile & Onboarding details
+  age          Int?
+  gender       String?      // 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY'
+  city         String?
+  state        String?
+  latitude     Float?
+  longitude    Float?
+  locationArea String?
   
   stores       StoreUser[]
   orders       Order[]
@@ -103,6 +112,7 @@ model User {
   storyLikes   StoryLike[]
   savedPosts   SavedPost[]
   addresses    Address[]
+  supportTickets SupportTicket[]
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -894,5 +904,40 @@ model Banner {
   updatedAt    DateTime  @updatedAt
 
   @@index([isActive, displayOrder])
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model SupportTicket {
+  id           String         @id @default(uuid())
+  ticketNumber String         @unique
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject      String
+  category     String         // 'ORDER', 'PAYMENT', 'DELIVERY', 'SELLER', 'ACCOUNT', 'OTHER'
+  priority     TicketPriority @default(MEDIUM)
+  status       TicketStatus   @default(OPEN)
+  description  String
+  orderId      String?
+  attachments  String[]       @default([])
+  adminNotes   String?
+  
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
 

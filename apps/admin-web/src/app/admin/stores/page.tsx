@@ -198,27 +198,27 @@ export default function VerificationCenter() {
                         <div className="flex flex-wrap gap-1.5">
                           {store.aadhaarFrontUrl && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-orange-50 text-orange-700 text-[11px] font-medium border border-orange-200">
-                              Aadhaar Front
+                              Owner ID (Front)
                             </span>
                           )}
                           {store.aadhaarBackUrl && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-orange-50 text-orange-700 text-[11px] font-medium border border-orange-200">
-                              Aadhaar Back
+                              Owner ID (Back)
                             </span>
                           )}
                           {store.panCardUrl && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[11px] font-medium border border-blue-200">
-                              PAN
+                              Owner Photo
                             </span>
                           )}
                           {store.gstOrLicenseUrl && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200">
-                              GST
+                              Business License
                             </span>
                           )}
                           {(!store.aadhaarFrontUrl && !store.panCardUrl && store.aadharPanUrl) && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-50 text-purple-700 text-[11px] font-medium border border-purple-200">
-                              ID / PAN
+                              Universal ID
                             </span>
                           )}
                         </div>
@@ -338,10 +338,28 @@ export default function VerificationCenter() {
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Aadhaar Front */}
+                  {/* Location & Country Metadata */}
+                  {(selectedStore.landmark || selectedStore.state || (selectedStore.latitude && selectedStore.longitude)) && (
+                    <div className="sm:col-span-2 p-3 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between text-xs text-gray-700">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-[#FF5A36] shrink-0" />
+                        <div>
+                          <span className="font-semibold text-gray-900">Detected Location: </span>
+                          <span>{selectedStore.landmark || [selectedStore.city, selectedStore.state].filter(Boolean).join(', ')}</span>
+                        </div>
+                      </div>
+                      {selectedStore.latitude && selectedStore.longitude && (
+                        <span className="font-mono text-[11px] text-gray-500 bg-white border px-2 py-0.5 rounded">
+                          {selectedStore.latitude.toFixed(4)}°, {selectedStore.longitude.toFixed(4)}°
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Owner ID Front */}
                   <div className="border rounded-xl p-4 bg-white flex flex-col justify-between space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-800">Aadhaar Card (Front)</span>
+                      <span className="text-xs font-bold text-gray-800">Government Identity (Front / Info Page)</span>
                       {selectedStore.aadhaarFrontUrl ? (
                         <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-semibold">Available</span>
                       ) : (
@@ -376,10 +394,10 @@ export default function VerificationCenter() {
                     )}
                   </div>
 
-                  {/* Aadhaar Back */}
+                  {/* Owner ID Back */}
                   <div className="border rounded-xl p-4 bg-white flex flex-col justify-between space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-800">Aadhaar Card (Back)</span>
+                      <span className="text-xs font-bold text-gray-800">Government Identity (Back / Address Page)</span>
                       {selectedStore.aadhaarBackUrl ? (
                         <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-semibold">Available</span>
                       ) : (
@@ -414,10 +432,10 @@ export default function VerificationCenter() {
                     )}
                   </div>
 
-                  {/* PAN Card */}
+                  {/* Owner Photo */}
                   <div className="border rounded-xl p-4 bg-white flex flex-col justify-between space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-800">PAN Card (Front)</span>
+                      <span className="text-xs font-bold text-gray-800">Owner Identity Photograph (Portrait/Selfie)</span>
                       {selectedStore.panCardUrl ? (
                         <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-semibold">Available</span>
                       ) : (
@@ -452,10 +470,10 @@ export default function VerificationCenter() {
                     )}
                   </div>
 
-                  {/* GST / Trade License */}
+                  {/* Business License / Certificate */}
                   <div className="border rounded-xl p-4 bg-white flex flex-col justify-between space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-800">GST / Shop License</span>
+                      <span className="text-xs font-bold text-gray-800">Business Registration / Commercial License</span>
                       {selectedStore.gstOrLicenseUrl ? (
                         <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-semibold">Provided (Optional)</span>
                       ) : (

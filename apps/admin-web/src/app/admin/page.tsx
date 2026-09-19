@@ -49,7 +49,7 @@ export default function AdminDashboard() {
                 {pendingCount} {pendingCount === 1 ? 'Store Application' : 'Store Applications'} Awaiting KYC Verification
               </h4>
               <p className="text-xs text-amber-700 mt-0.5">
-                New sellers submitted Aadhaar and PAN cards and are waiting for your approval to start selling.
+                New sellers submitted identification documents and are waiting for your approval to start selling.
               </p>
             </div>
           </div>
@@ -148,7 +148,7 @@ export default function AdminDashboard() {
             </div>
             <h3 className="font-bold text-gray-900 text-base">Store Verification Center</h3>
             <p className="text-xs text-gray-500 mt-1">
-              Review Aadhaar front & back cards, PAN cards, and optional shop licenses. Approve or reject onboarding applications.
+              Review owner identity documents, owner photographs, and commercial licenses. Approve or reject onboarding applications.
             </p>
           </div>
         </Link>

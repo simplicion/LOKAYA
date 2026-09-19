@@ -4,13 +4,17 @@ import React from 'react';
 import { StoriesBar } from '@/components/feed/StoriesBar';
 import { FeedUploadProgressBar } from '@/components/feed/FeedUploadProgressBar';
 import { SocialPost } from '@/components/feed/SocialPost';
-import { useGetPostsQuery } from '@/lib/api';
-import { Sparkles, PlusCircle } from 'lucide-react';
+import { useGetPostsQuery, useGetMyStoreQuery } from '@/lib/api';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/lib/store';
+import { Sparkles, PlusCircle, Compass, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 
 export default function SocialHomePage() {
   const { data: serverPosts, isLoading } = useGetPostsQuery();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
 
   const postsToRender = (serverPosts && serverPosts.length > 0)
     ? serverPosts.map((p) => ({
@@ -21,7 +25,7 @@ export default function SocialHomePage() {
         storeAvatar: p.storeAvatar,
         isVerified: p.isVerified,
         timeAgo: 'Recently',
-        media: p.media && p.media.length > 0 ? p.media : [{ type: 'image' as const, url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600' }],
+        media: p.media && p.media.length > 0 ? p.media : [],
         likes: p.likes || '0',
         likesCount: p.likesCount || 0,
         isLikedByMe: p.isLikedByMe,
@@ -66,21 +70,35 @@ export default function SocialHomePage() {
             </div>
             <h3 className="text-lg font-bold text-[#171717]">Welcome to Lokaya!</h3>
             <p className="text-xs text-[#6B6B6B] max-w-xs mt-1 leading-relaxed">
-              No posts in your feed yet. Be the first creator to share a post or follow your favorite local stores.
+              {myStore
+                ? 'No posts in your feed yet. Be the first seller to share your products with local customers!'
+                : 'No posts in your feed yet. Discover and follow your favorite local artisan stores to see their latest updates!'}
             </p>
-            <Link 
-              href="/profile/create/post" 
-              className="mt-5 inline-flex items-center gap-2 bg-[#FF5A36] text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-md hover:bg-[#E04B28] active:scale-95 transition"
-            >
-              <PlusCircle className="w-4 h-4" />
-              Create First Post
-            </Link>
+            {myStore ? (
+              <Link 
+                href="/profile/create/post" 
+                className="mt-5 inline-flex items-center gap-2 bg-[#FF5A36] text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-md hover:bg-[#E04B28] active:scale-95 transition"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Create First Post
+              </Link>
+            ) : (
+              <Link 
+                href="/explore" 
+                className="mt-5 inline-flex items-center gap-2 bg-[#FF5A36] text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-md hover:bg-[#E04B28] active:scale-95 transition"
+              >
+                <Compass className="w-4 h-4" />
+                Explore Stores
+              </Link>
+            )}
           </div>
         )}
 
         {/* End of Feed Watermark */}
         <div className="flex flex-col items-center justify-center py-8 pb-12 opacity-80">
-          <p className="text-xs font-bold text-[#999999] tracking-wide uppercase">Made with ❤️ in Delhi, India</p>
+          <p className="text-xs font-bold text-[#999999] tracking-wide uppercase flex items-center justify-center gap-1">
+            Made with <Heart className="w-3.5 h-3.5 text-[#FF5A36] fill-[#FF5A36]" /> for local communities
+          </p>
         </div>
       </div>
     </div>

@@ -27,6 +27,11 @@ export const authSlice = createSlice({
     },
     logout: (state) => {
       state.user = null;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('persist:root');
+        } catch {}
+      }
     },
   },
 });

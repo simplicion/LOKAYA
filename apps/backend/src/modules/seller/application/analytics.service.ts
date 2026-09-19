@@ -76,7 +76,7 @@ export class AnalyticsService {
         sold: 0,
         cp: Math.round(item.priceAt * 0.75), // estimated cost price
         sp: item.priceAt,
-        image: item.product?.imageUrl || 'https://images.unsplash.com/photo-1625937286074-9ca519d5d9df'
+        image: item.product?.imageUrl || ''
       };
       existing.sold += item.quantity;
       productMap.set(item.productId, existing);
@@ -128,7 +128,7 @@ export class AnalyticsService {
         name: item.productName || item.product?.name || 'Product',
         orders: 0,
         revenue: 0,
-        image: item.product?.imageUrl || 'https://images.unsplash.com/photo-1628102491629-778571d893a3'
+        image: item.product?.imageUrl || ''
       };
       p.orders += item.quantity;
       p.revenue += (item.priceAt * item.quantity);
@@ -139,7 +139,7 @@ export class AnalyticsService {
       const c = categoryMap.get(catName) || {
         id: catName,
         name: catName,
-        icon: '📦',
+        icon: 'Package',
         sales: 0,
         orders: 0
       };

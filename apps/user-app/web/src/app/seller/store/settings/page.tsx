@@ -1,8 +1,8 @@
 'use client';
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/lib/store';
 import { 
   Clock, 
   ListTree, 
@@ -37,6 +37,7 @@ import { setCredentials } from '@/lib/features/authSlice';
 import { getMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
+import { StoreLocationPicker } from '@/components/seller/StoreLocationPicker';
 
 const POPULAR_CATEGORIES = [
   'Footwear & Shoes',
@@ -52,6 +53,7 @@ const POPULAR_CATEGORIES = [
 export default function StoreSettingsMenuPage() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const user = useSelector((state: RootState) => state.auth.user);
 
   const { data: storeData, isLoading: isLoadingStore } = useGetMyStoreQuery();
   const [updateStoreProfile, { isLoading: isUpdating }] = useUpdateStoreProfileMutation();
@@ -66,6 +68,8 @@ export default function StoreSettingsMenuPage() {
   const [contactPhone, setContactPhone] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [isActive, setIsActive] = useState(true);
   const [acceptsOnline, setAcceptsOnline] = useState(true);
   
@@ -81,14 +85,20 @@ export default function StoreSettingsMenuPage() {
       setName(storeData.name || '');
       setDescription(storeData.description || '');
       setCategory(storeData.category || '');
-      setAddress(storeData.address || '');
+      const anyUser = user as any;
+      const initialAddress = (storeData.address && storeData.address !== 'Address not provided')
+        ? storeData.address
+        : (anyUser?.locationArea || [anyUser?.city, anyUser?.state].filter(Boolean).join(', ') || storeData.address || '');
+      setAddress(initialAddress);
       setContactPhone(storeData.contactPhone || '');
+      setLatitude(typeof storeData.latitude === 'number' ? storeData.latitude : null);
+      setLongitude(typeof storeData.longitude === 'number' ? storeData.longitude : null);
       setIsActive(storeData.isActive ?? true);
       setAcceptsOnline(storeData.acceptedPayments?.includes('ONLINE PAYMENT') ?? true);
       setBannerUrl(storeData.bannerUrl || '');
       setLogoUrl(storeData.logoUrl || storeData.users?.[0]?.user?.avatarUrl || '');
     }
-  }, [storeData]);
+  }, [storeData, user]);
 
   // Check if there are unsaved text/toggle modifications
   const isDirty = useMemo(() => {
@@ -100,10 +110,12 @@ export default function StoreSettingsMenuPage() {
       category !== (storeData.category || '') ||
       address !== (storeData.address || '') ||
       contactPhone !== (storeData.contactPhone || '') ||
+      latitude !== (storeData.latitude ?? null) ||
+      longitude !== (storeData.longitude ?? null) ||
       isActive !== (storeData.isActive ?? true) ||
       acceptsOnline !== initialAcceptsOnline
     );
-  }, [storeData, name, description, category, address, contactPhone, isActive, acceptsOnline]);
+  }, [storeData, name, description, category, address, contactPhone, latitude, longitude, isActive, acceptsOnline]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'banner' | 'logo') => {
     const file = e.target.files?.[0];
@@ -222,6 +234,8 @@ export default function StoreSettingsMenuPage() {
           category: category.trim() || undefined,
           address: address.trim() || undefined,
           contactPhone: contactPhone.trim() || undefined,
+          latitude: typeof latitude === 'number' ? latitude : undefined,
+          longitude: typeof longitude === 'number' ? longitude : undefined,
           bannerUrl: bannerUrl || undefined,
           logoUrl: logoUrl || undefined,
           isActive,
@@ -254,6 +268,8 @@ export default function StoreSettingsMenuPage() {
       setCategory(storeData.category || '');
       setAddress(storeData.address || '');
       setContactPhone(storeData.contactPhone || '');
+      setLatitude(typeof storeData.latitude === 'number' ? storeData.latitude : null);
+      setLongitude(typeof storeData.longitude === 'number' ? storeData.longitude : null);
       setIsActive(storeData.isActive ?? true);
       setAcceptsOnline(storeData.acceptedPayments?.includes('ONLINE PAYMENT') ?? true);
       toast.info('Changes discarded');
@@ -367,23 +383,8 @@ export default function StoreSettingsMenuPage() {
 
         {/* 1. STORE BRANDING CARD (Banner + Avatar) */}
         <section className="bg-white rounded-3xl p-5 shadow-xs border border-gray-100 space-y-4">
-          <div className="flex items-center justify-between pb-1 border-b border-gray-50">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-orange-50 text-[#FF5A36] flex items-center justify-center font-bold">
-                <ImageIcon className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-black text-gray-900 uppercase tracking-wide">Store Branding</h2>
-                <p className="text-[11px] text-gray-500">Cover banner and profile avatar for your store</p>
-              </div>
-            </div>
-            <span className="text-[11px] font-bold text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-100/80">
-              Visual Identity
-            </span>
-          </div>
-
           {/* Unified Banner & Avatar Stage */}
-          <div className="relative pt-1 pb-4">
+          <div className="relative pt-1 pb-2">
             
             {/* 16:9 Banner Canvas */}
             <div className="relative w-full aspect-[16/9] max-h-52 rounded-2xl overflow-hidden bg-gradient-to-tr from-[#1E1B4B] via-[#312E81] to-[#4338CA] shadow-inner group">
@@ -514,15 +515,6 @@ export default function StoreSettingsMenuPage() {
                 </button>
               </div>
             </div>
-
-            {/* Sync Notice */}
-            <div className="mt-3.5 mx-2 bg-gray-50 rounded-xl px-3.5 py-2.5 border border-gray-200/60 flex items-center gap-2 text-gray-600 text-[11px] font-medium">
-              <Info className="w-4 h-4 text-orange-500 shrink-0" />
-              <span>
-                Your store logo is automatically synced with your personal seller profile avatar across Lokaya.
-              </span>
-            </div>
-
           </div>
         </section>
 
@@ -558,43 +550,55 @@ export default function StoreSettingsMenuPage() {
             </div>
           </div>
 
-          {/* Store Category with Quick Select Chips */}
+          {/* Store Category Dropdown & Custom Category Input */}
           <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-orange-500" />
                 <span>Primary Category</span>
-              </span>
-              <span className="text-[10px] font-semibold text-gray-400">Select or type custom</span>
-            </label>
-            
-            <input 
-              type="text" 
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Footwear & Shoes"
-              className="w-full bg-[#FAF9F6] border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:bg-white focus:border-[#FF5A36] focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-semibold text-gray-800 text-sm mb-2"
-            />
+                <span className="text-red-500">*</span>
+              </label>
+              {category && !POPULAR_CATEGORIES.includes(category) && (
+                <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
+                  Custom Category
+                </span>
+              )}
+            </div>
 
-            {/* Quick Category Chips */}
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {POPULAR_CATEGORIES.map((cat) => {
-                const isSelected = category.toLowerCase() === cat.toLowerCase();
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setCategory(cat)}
-                    className={`text-xs px-3 py-1 rounded-full font-bold transition-all active:scale-95 border ${
-                      isSelected 
-                        ? 'bg-[#FF5A36] text-white border-[#FF5A36] shadow-xs' 
-                        : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200/80'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
+            <div className="space-y-2">
+              <select
+                value={POPULAR_CATEGORIES.includes(category) ? category : (category ? '__CUSTOM__' : '')}
+                onChange={(e) => {
+                  if (e.target.value === '__CUSTOM__') {
+                    if (POPULAR_CATEGORIES.includes(category)) setCategory('');
+                  } else {
+                    setCategory(e.target.value);
+                  }
+                }}
+                className="w-full bg-[#FAF9F6] border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:bg-white focus:border-[#FF5A36] focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-semibold text-gray-800 text-sm cursor-pointer"
+              >
+                <option value="" disabled>Select a category</option>
+                {POPULAR_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+                <option value="__CUSTOM__">✨ + Create Custom Category...</option>
+              </select>
+
+              {/* Custom category text input shown when custom option is chosen or custom value exists */}
+              {(!POPULAR_CATEGORIES.includes(category) || category === '') && (
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={POPULAR_CATEGORIES.includes(category) ? '' : category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="Enter custom category name (e.g. Handmade Leather Goods)"
+                    className="w-full bg-[#FAF9F6] border border-orange-200 rounded-2xl px-4 py-3 outline-none focus:bg-white focus:border-[#FF5A36] focus:ring-4 focus:ring-[#FF5A36]/10 transition-all font-semibold text-gray-900 text-sm"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">
+                    Custom
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -635,10 +639,17 @@ export default function StoreSettingsMenuPage() {
 
           {/* Physical Address */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Physical Shop Address</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Physical Shop Address</span>
+              </label>
+              {address && (
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Auto-filled from Onboarding
+                </span>
+              )}
+            </div>
             <input 
               type="text" 
               value={address}
@@ -646,6 +657,20 @@ export default function StoreSettingsMenuPage() {
               placeholder="Shop number, floor, street, landmark, city"
               className="w-full bg-[#FAF9F6] border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:bg-white focus:border-[#FF5A36] focus:ring-4 focus:ring-[#FF5A36]/10 transition-all text-sm font-medium text-gray-800"
             />
+
+            {/* Interactive Map Pinpoint Picker */}
+            <div className="pt-2">
+              <StoreLocationPicker
+                initialLat={latitude}
+                initialLng={longitude}
+                initialAddress={address}
+                onLocationSelect={(loc) => {
+                  setAddress(loc.address);
+                  setLatitude(loc.lat);
+                  setLongitude(loc.lng);
+                }}
+              />
+            </div>
           </div>
 
           {/* Contact Phone */}
