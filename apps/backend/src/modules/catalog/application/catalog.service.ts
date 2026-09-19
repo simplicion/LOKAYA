@@ -104,6 +104,22 @@ export class CatalogService {
     const primaryMedia = data.media?.find((m: any) => m.isPrimary) || data.media?.[0];
     const imageUrl = data.imageUrl || primaryMedia?.url || null;
 
+    let computedSellingPrice = data.sellingPrice !== undefined && data.sellingPrice !== null ? Number(data.sellingPrice) : 0;
+    let computedMrp = data.mrp !== undefined && data.mrp !== null ? Number(data.mrp) : 0;
+    let computedStock = data.stockCount !== undefined && data.stockCount !== null ? Number(data.stockCount) : 0;
+
+    if (data.hasVariants && data.variants && data.variants.length > 0) {
+      if (computedSellingPrice <= 0) {
+        computedSellingPrice = Number(data.variants[0].price) || 0;
+      }
+      if (computedMrp <= 0) {
+        computedMrp = computedSellingPrice;
+      }
+      if (computedStock <= 0) {
+        computedStock = data.variants.reduce((sum: number, v: any) => sum + (Number(v.stockCount) || 0), 0);
+      }
+    }
+
     const productData = {
       storeId: data.storeId,
       name: data.name,
@@ -112,9 +128,9 @@ export class CatalogService {
       category: categoryName,
       categoryId: categoryId,
       sku: sku,
-      mrp: data.mrp !== undefined && data.mrp !== null ? Number(data.mrp) : 0,
-      sellingPrice: data.sellingPrice !== undefined && data.sellingPrice !== null ? Number(data.sellingPrice) : 0,
-      stockCount: data.stockCount !== undefined && data.stockCount !== null ? Number(data.stockCount) : 0,
+      mrp: computedMrp,
+      sellingPrice: computedSellingPrice,
+      stockCount: computedStock,
       imageUrl: imageUrl,
       isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
       qrUuid,

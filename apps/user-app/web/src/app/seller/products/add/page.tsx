@@ -119,7 +119,18 @@ export default function ManualAddProductPage() {
   const handleNext = async () => {
     let fieldsToValidate: any[] = [];
     if (currentStep === 0) fieldsToValidate = ['name', 'category', 'description', 'sku'];
-    if (currentStep === 1) fieldsToValidate = ['sellingPrice', 'mrp', 'stockCount'];
+    if (currentStep === 1) {
+      if (watch('hasVariants')) {
+        const currentVariants = watch('variants') || [];
+        if (currentVariants.length === 0) {
+          toast.error('Please add at least one variant option');
+          return;
+        }
+        fieldsToValidate = ['variants'];
+      } else {
+        fieldsToValidate = ['sellingPrice', 'mrp', 'stockCount'];
+      }
+    }
     
     const isStepValid = await form.trigger(fieldsToValidate as any);
     
@@ -158,16 +169,36 @@ export default function ManualAddProductPage() {
     try {
       const selectedCategory = categories.find((c: any) => c.id === data.category || c.name === data.category);
       
+      const hasVariants = data.hasVariants;
+      const variants = data.variants || [];
+      const primaryVariant = variants.length > 0 ? variants[0] : null;
+
+      const computedSellingPrice = hasVariants && primaryVariant
+        ? (Number(primaryVariant.price) || 0)
+        : (data.sellingPrice !== undefined && data.sellingPrice !== null && !isNaN(Number(data.sellingPrice)) ? Number(data.sellingPrice) : 0);
+
+      const computedMrp = hasVariants && primaryVariant
+        ? (data.mrp ? Number(data.mrp) : computedSellingPrice)
+        : (data.mrp !== undefined && data.mrp !== null && !isNaN(Number(data.mrp)) ? Number(data.mrp) : computedSellingPrice);
+
+      const computedStockCount = hasVariants && variants.length > 0
+        ? variants.reduce((sum: number, v: any) => sum + (Number(v.stockCount) || 0), 0)
+        : (data.stockCount !== undefined && data.stockCount !== null && !isNaN(Number(data.stockCount)) ? Number(data.stockCount) : 0);
+
+      const primaryMedia = data.media?.find((m: any) => m.isPrimary && m.type !== 'VIDEO')
+        || data.media?.find((m: any) => m.type !== 'VIDEO')
+        || data.media?.[0];
+
       const payload = {
         ...data,
         storeId: storeData.id,
         category: selectedCategory?.name || data.category || '',
         categoryId: selectedCategory?.id || (data.category && data.category.includes('-') ? data.category : undefined),
         status: 'PUBLISHED',
-        imageUrl: data.media?.[0]?.url || undefined,
-        sellingPrice: data.sellingPrice !== undefined ? Number(data.sellingPrice) : 0,
-        mrp: data.mrp !== undefined ? Number(data.mrp) : (data.sellingPrice !== undefined ? Number(data.sellingPrice) : 0),
-        stockCount: data.stockCount !== undefined ? Number(data.stockCount) : 0,
+        imageUrl: primaryMedia?.url || undefined,
+        sellingPrice: computedSellingPrice,
+        mrp: computedMrp,
+        stockCount: computedStockCount,
       };
 
       await addProduct({ 
@@ -193,6 +224,27 @@ export default function ManualAddProductPage() {
     const currentValues = form.getValues();
     try {
       const selectedCategory = categories.find((c: any) => c.id === currentValues.category || c.name === currentValues.category);
+
+      const hasVariants = currentValues.hasVariants;
+      const variants = currentValues.variants || [];
+      const primaryVariant = variants.length > 0 ? variants[0] : null;
+
+      const computedSellingPrice = hasVariants && primaryVariant
+        ? (Number(primaryVariant.price) || 0)
+        : (currentValues.sellingPrice !== undefined && currentValues.sellingPrice !== null && !isNaN(Number(currentValues.sellingPrice)) ? Number(currentValues.sellingPrice) : 0);
+
+      const computedMrp = hasVariants && primaryVariant
+        ? (currentValues.mrp ? Number(currentValues.mrp) : computedSellingPrice)
+        : (currentValues.mrp !== undefined && currentValues.mrp !== null && !isNaN(Number(currentValues.mrp)) ? Number(currentValues.mrp) : computedSellingPrice);
+
+      const computedStockCount = hasVariants && variants.length > 0
+        ? variants.reduce((sum: number, v: any) => sum + (Number(v.stockCount) || 0), 0)
+        : (currentValues.stockCount !== undefined && currentValues.stockCount !== null && !isNaN(Number(currentValues.stockCount)) ? Number(currentValues.stockCount) : 0);
+
+      const primaryMedia = currentValues.media?.find((m: any) => m.isPrimary && m.type !== 'VIDEO')
+        || currentValues.media?.find((m: any) => m.type !== 'VIDEO')
+        || currentValues.media?.[0];
+
       const payload = {
         ...currentValues,
         name: currentValues.name || 'Untitled Product Draft',
@@ -200,10 +252,10 @@ export default function ManualAddProductPage() {
         category: selectedCategory?.name || currentValues.category || '',
         categoryId: selectedCategory?.id || (currentValues.category && currentValues.category.includes('-') ? currentValues.category : undefined),
         status: 'DRAFT',
-        imageUrl: currentValues.media?.[0]?.url || undefined,
-        sellingPrice: currentValues.sellingPrice !== undefined ? Number(currentValues.sellingPrice) : 0,
-        mrp: currentValues.mrp !== undefined ? Number(currentValues.mrp) : 0,
-        stockCount: currentValues.stockCount !== undefined ? Number(currentValues.stockCount) : 0,
+        imageUrl: primaryMedia?.url || undefined,
+        sellingPrice: computedSellingPrice,
+        mrp: computedMrp,
+        stockCount: computedStockCount,
       };
 
       await addProduct({ 
@@ -279,8 +331,21 @@ export default function ManualAddProductPage() {
 
         toast.success(`Uploaded ${file.name}`);
       } catch (error) {
-        console.error('Upload failed', error);
-        toast.error(`Failed to upload ${file.name}`);
+        console.warn('Backend upload failed, creating local object preview:', error);
+        const localPreview = URL.createObjectURL(file);
+        const currentMedia = form.getValues('media') || [];
+        const isPrimary = currentMedia.length === 0;
+
+        setValue('media', [
+          ...currentMedia,
+          {
+            url: localPreview,
+            type: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
+            isPrimary,
+            displayOrder: currentMedia.length
+          }
+        ]);
+        toast.info(`Using local preview for ${file.name}`);
       } finally {
         setUploadingFiles(prev => ({ ...prev, [fileId]: false }));
       }
@@ -586,74 +651,103 @@ export default function ManualAddProductPage() {
           </div>
         )}
 
-        {currentStep === 3 && (
-          <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
-            <div className="flex items-center gap-3 text-brand-navy">
-              <CheckCircle2 className="w-8 h-8 text-green-500 shrink-0" />
-              <div>
-                <h2 className="text-xl font-bold leading-tight">Ready to Publish</h2>
-                <p className="text-xs text-gray-500 font-medium">Customer store card preview</p>
-              </div>
-            </div>
-            
-            {/* Exact Product Card Preview */}
-            <div className="bg-white rounded-2xl border border-[#E5E2DC] p-5 shadow-xs flex flex-col items-center">
-              <div className="w-full max-w-[240px]">
-                <ProductCard
-                  isPreview={true}
-                  product={{
-                    id: 'preview',
-                    title: watch('name') || 'Product Name',
-                    name: watch('name') || 'Product Name',
-                    brand: storeData?.storeName || storeData?.name || 'Store',
-                    image: watch('media')?.[0]?.url || '',
-                    imageUrl: watch('media')?.[0]?.url || '',
-                    sellingPrice: watch('sellingPrice') !== undefined ? Number(watch('sellingPrice')) : 0,
-                    price: watch('sellingPrice') !== undefined ? Number(watch('sellingPrice')) : 0,
-                    originalPrice: watch('mrp') ? Number(watch('mrp')) : undefined,
-                    mrp: watch('mrp') ? Number(watch('mrp')) : undefined,
-                    store: {
-                      id: storeData?.id,
-                      name: storeData?.storeName || storeData?.name || 'Store',
-                      isVerified: storeData?.status === 'VERIFIED'
-                    },
-                    stockCount: watch('stockCount') !== undefined ? Number(watch('stockCount')) : undefined,
-                  }}
-                />
-              </div>
+        {currentStep === 3 && (() => {
+          const mediaList = watch('media') || [];
+          const primaryMedia = mediaList.find((m: any) => m.isPrimary && m.type !== 'VIDEO') 
+            || mediaList.find((m: any) => m.type !== 'VIDEO')
+            || mediaList[0];
+          const previewImageUrl = primaryMedia?.url || '';
 
-              {/* Delivery & Category Badges */}
-              <div className="w-full pt-4 mt-4 border-t border-gray-100 flex flex-wrap gap-2 justify-center items-center">
-                {watch('category') && (
-                  <span className="bg-orange-50 text-brand-orange text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                    {categories.find((c: any) => c.id === watch('category'))?.name || watch('category')}
-                  </span>
-                )}
-                {watch('isAvailableForDelivery') && (
-                  <span className="bg-green-50 text-green-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
-                    ✓ Delivery Available
-                  </span>
-                )}
-                {watch('isAvailableForPickup') && (
-                  <span className="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
-                    ✓ Store Pickup
-                  </span>
-                )}
-                {watch('hasVariants') && (
-                  <span className="bg-purple-50 text-purple-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
-                    {watch('variants')?.length || 0} Variants
-                  </span>
-                )}
-              </div>
+          const hasVariants = watch('hasVariants');
+          const variants = watch('variants') || [];
+          const primaryVariant = variants.length > 0 ? variants[0] : null;
 
-              {watch('description') && (
-                <div className="w-full mt-3 text-xs text-gray-500 text-center line-clamp-2 px-2">
-                  {watch('description')}
+          const rawSellingPrice = watch('sellingPrice');
+          const rawMrp = watch('mrp');
+          const rawStockCount = watch('stockCount');
+
+          const previewPrice = hasVariants && primaryVariant
+            ? (Number(primaryVariant.price) || 0)
+            : (rawSellingPrice !== undefined && rawSellingPrice !== null && !isNaN(Number(rawSellingPrice)) ? Number(rawSellingPrice) : 0);
+
+          const previewMrp = hasVariants && primaryVariant
+            ? (rawMrp ? Number(rawMrp) : undefined)
+            : (rawMrp !== undefined && rawMrp !== null && !isNaN(Number(rawMrp)) ? Number(rawMrp) : undefined);
+
+          const previewStock = hasVariants && variants.length > 0
+            ? variants.reduce((sum: number, v: any) => sum + (Number(v?.stockCount) || 0), 0)
+            : (rawStockCount !== undefined && rawStockCount !== null && !isNaN(Number(rawStockCount)) ? Number(rawStockCount) : undefined);
+
+          return (
+            <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
+              <div className="flex items-center gap-3 text-brand-navy">
+                <CheckCircle2 className="w-8 h-8 text-green-500 shrink-0" />
+                <div>
+                  <h2 className="text-xl font-bold leading-tight">Ready to Publish</h2>
+                  <p className="text-xs text-gray-500 font-medium">Customer store card preview</p>
                 </div>
-              )}
+              </div>
+              
+              {/* Exact Product Card Preview */}
+              <div className="bg-white rounded-2xl border border-[#E5E2DC] p-5 shadow-xs flex flex-col items-center">
+                <div className="w-full max-w-[240px]">
+                  <ProductCard
+                    isPreview={true}
+                    product={{
+                      id: 'preview',
+                      title: watch('name') || 'Product Name',
+                      name: watch('name') || 'Product Name',
+                      brand: storeData?.storeName || storeData?.name || 'Store',
+                      image: previewImageUrl,
+                      imageUrl: previewImageUrl,
+                      sellingPrice: previewPrice,
+                      price: previewPrice,
+                      originalPrice: previewMrp,
+                      mrp: previewMrp,
+                      store: {
+                        id: storeData?.id,
+                        name: storeData?.storeName || storeData?.name || 'Store',
+                        isVerified: storeData?.status === 'VERIFIED'
+                      },
+                      stockCount: previewStock,
+                      variants: variants,
+                    }}
+                  />
+                </div>
+
+                {/* Delivery & Category Badges */}
+                <div className="w-full pt-4 mt-4 border-t border-gray-100 flex flex-wrap gap-2 justify-center items-center">
+                  {watch('category') && (
+                    <span className="bg-orange-50 text-brand-orange text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      {categories.find((c: any) => c.id === watch('category'))?.name || watch('category')}
+                    </span>
+                  )}
+                  {watch('isAvailableForDelivery') && (
+                    <span className="bg-green-50 text-green-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                      ✓ Delivery Available
+                    </span>
+                  )}
+                  {watch('isAvailableForPickup') && (
+                    <span className="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                      ✓ Store Pickup
+                    </span>
+                  )}
+                  {hasVariants && variants.length > 0 && (
+                    <span className="bg-purple-50 text-purple-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                      {variants.length} Variants ({previewStock ?? 0} in stock)
+                    </span>
+                  )}
+                </div>
+
+                {watch('description') && (
+                  <div className="w-full mt-3 text-xs text-gray-500 text-center line-clamp-2 px-2">
+                    {watch('description')}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
       </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Star, Package } from 'lucide-react';
 import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
@@ -32,6 +32,7 @@ export interface ProductCardProps {
     rating?: string | number;
     reviews?: string | number;
     stockCount?: number;
+    variants?: any[];
   };
   isPreview?: boolean;
 }
@@ -41,17 +42,34 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
   const cartItems = useSelector((state: RootState) => state.cart.items);
   const user = useSelector((state: RootState) => (state as any).auth?.user);
   const [addToCartAPI] = useAddToCartMutation();
-  
+  const [imageError, setImageError] = useState(false);
+
+  const rawImage = product.image || product.primaryImage || product.imageUrl || '';
+
+  useEffect(() => {
+    setImageError(false);
+  }, [rawImage]);
+
   const brandOrStore = product.brand || product.store?.name;
   const rawTitle = product.title || product.name || '';
   const displayTitle = brandOrStore && rawTitle.toLowerCase().startsWith(brandOrStore.toLowerCase())
-    ? rawTitle.slice(brandOrStore.length).trim() || rawTitle
+    ? rawTitle.slice(brandOrStore.length).trim() || brandOrStore
     : rawTitle;
 
-  const rawImage = product.image || product.primaryImage || product.imageUrl || '';
-  const priceValue = typeof product.price === 'number' 
+  const variants = product.variants;
+  const hasVariantsList = Array.isArray(variants) && variants.length > 0;
+
+  let priceValue = typeof product.price === 'number' 
     ? product.price 
     : (typeof product.sellingPrice === 'number' ? product.sellingPrice : parseFloat(String(product.price || '0').replace(/,/g, '')) || 0);
+
+  if (priceValue <= 0 && hasVariantsList) {
+    const firstVariantPrice = Number(variants[0]?.price) || 0;
+    if (firstVariantPrice > 0) {
+      priceValue = firstVariantPrice;
+    }
+  }
+
   const formattedPrice = priceValue.toLocaleString('en-IN');
 
   const originalPriceValue = typeof product.originalPrice === 'number' 
@@ -63,8 +81,18 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
   const rating = product.rating ? String(product.rating) : null;
   const reviewsCount = product.reviews ? String(product.reviews).replace(/[()]/g, '') : null;
 
-  // Stock calculations & edge-case guards
-  const stockCount = (product as any).stockCount !== undefined ? Number((product as any).stockCount) : undefined;
+  // Stock calculations & edge-case guards (supporting variants fallback)
+  let stockCount = (product as any).stockCount !== undefined && (product as any).stockCount !== null && (product as any).stockCount !== ''
+    ? Number((product as any).stockCount)
+    : undefined;
+
+  if ((stockCount === undefined || isNaN(stockCount) || stockCount <= 0) && hasVariantsList) {
+    const totalVariantStock = variants.reduce((sum: number, v: any) => sum + (Number(v?.stockCount) || 0), 0);
+    if (totalVariantStock > 0 || stockCount === undefined) {
+      stockCount = totalVariantStock;
+    }
+  }
+
   const isOutOfStock = stockCount !== undefined && stockCount <= 0;
   const isLowStock = stockCount !== undefined && stockCount > 0 && stockCount <= 5;
 
@@ -150,15 +178,17 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
     >
       {/* 1. Product Image Container with Badges */}
       <div className="relative aspect-square w-full rounded-xl bg-[#F8F8F8] border border-gray-100 overflow-hidden">
-        {rawImage ? (
+        {rawImage && !imageError ? (
           <img 
             src={getMediaUrl(rawImage)} 
-            alt={rawTitle} 
+            alt={rawTitle || 'Product'} 
+            onError={() => setImageError(true)}
             className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${isOutOfStock ? 'grayscale-[25%] opacity-85' : ''}`}
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 text-gray-400">
-            <Package className="w-10 h-10 stroke-[1.2]" />
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 text-gray-400 select-none">
+            <Package className="w-10 h-10 stroke-[1.2] opacity-40 mb-1" />
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">No Image</span>
           </div>
         )}
         
@@ -209,7 +239,9 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
           {brandOrStore && (
             <span className="font-bold text-gray-900 mr-1.5 uppercase tracking-tight">{brandOrStore}</span>
           )}
-          <span className="text-gray-500 font-normal">{displayTitle}</span>
+          {displayTitle && displayTitle.toLowerCase() !== brandOrStore?.toLowerCase() && (
+            <span className="text-gray-500 font-normal">{displayTitle}</span>
+          )}
         </div>
 
         {/* Price Row (MRP strikethrough, Selling Price, Discount %) */}
@@ -242,6 +274,12 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
             >
               Out of Stock
             </button>
+          ) : isPreview ? (
+            <div 
+              className="w-full h-8 px-3 bg-white border border-[#FF5A36] text-[#FF5A36] font-bold text-xs rounded-lg flex items-center justify-center shadow-2xs select-none"
+            >
+              ADD
+            </div>
           ) : quantity > 0 ? (
             <div 
               className="flex items-center justify-between bg-[#FF5A36] text-white rounded-lg h-8 w-full shadow-xs overflow-hidden" 
