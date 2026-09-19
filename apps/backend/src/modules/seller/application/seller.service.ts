@@ -189,7 +189,19 @@ export class SellerService {
   async getAllStores(status?: string) {
     const whereClause: any = {};
     if (status && status !== 'ALL') {
-      whereClause.status = status;
+      if (status === 'PENDING') {
+        whereClause.OR = [
+          { status: 'PENDING' },
+          { verificationStatus: 'PENDING' }
+        ];
+      } else if (status === 'VERIFIED') {
+        whereClause.OR = [
+          { status: 'VERIFIED' },
+          { isVerified: true }
+        ];
+      } else {
+        whereClause.status = status;
+      }
     }
 
     return await prisma.store.findMany({
@@ -277,6 +289,33 @@ export class SellerService {
     });
   }
 
+  async requestVerification(userId: string, storeId: string) {
+    const storeUser = await prisma.storeUser.findFirst({
+      where: { userId, storeId }
+    });
+
+    if (!storeUser) {
+      throw new AppError('Unauthorized: You do not own this store', 403);
+    }
+
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) {
+      throw new AppError('Store not found', 404);
+    }
+
+    if (store.isVerified) {
+      throw new AppError('Store is already verified with blue tick', 400);
+    }
+
+    return await prisma.store.update({
+      where: { id: storeId },
+      data: {
+        verificationStatus: 'PENDING',
+        verificationRequestedAt: new Date()
+      }
+    });
+  }
+
   async verifyStore(storeId: string) {
     const store = await prisma.store.findUnique({ where: { id: storeId } });
     if (!store) {
@@ -287,6 +326,8 @@ export class SellerService {
       where: { id: storeId },
       data: { 
         status: 'VERIFIED',
+        isVerified: true,
+        verificationStatus: 'APPROVED',
         isActive: true
       }
     });
@@ -301,8 +342,8 @@ export class SellerService {
     return await prisma.store.update({
       where: { id: storeId },
       data: { 
-        status: 'REJECTED',
-        isActive: false
+        isVerified: false,
+        verificationStatus: 'REJECTED'
       }
     });
   }

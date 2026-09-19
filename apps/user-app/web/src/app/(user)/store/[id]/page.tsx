@@ -65,7 +65,7 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const storeCategory = store?.category;
   const bannerUrl = store?.bannerUrl;
   const logoUrl = store?.logoUrl || store?.users?.[0]?.user?.avatarUrl;
-  const isVerified = store?.status === 'VERIFIED';
+  const isVerified = Boolean(store?.isVerified);
   const isOpen = storeSummary?.isOpen ?? true;
   const hasHours = Boolean(store?.openingTime || store?.closingTime || storeSummary?.timingLabel);
   const timingLabel = storeSummary?.timingLabel || (hasHours ? (isOpen ? 'Open Now' : 'Closed') : '');
@@ -183,7 +183,7 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
                 <h2 className="text-2xl font-black text-gray-900 flex items-center gap-1.5 leading-tight truncate">
                   {storeName}
                   {isVerified && (
-                    <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-50 flex-shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-500 text-white flex-shrink-0 animate-in zoom-in duration-300" />
                   )}
                 </h2>
 

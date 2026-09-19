@@ -18,7 +18,8 @@ import {
   ShoppingBag,
   CreditCard,
   Banknote,
-  Tag
+  Tag,
+  Sparkles
 } from 'lucide-react';
 import { 
   useGetStoreHighlightsQuery, 
@@ -35,6 +36,7 @@ import { setCredentials } from '@/lib/features/authSlice';
 import { toast } from 'sonner';
 import { CreateHighlightModal } from './CreateHighlightModal';
 import { StoryViewerModal } from '../feed/StoryViewerModal';
+import { BlueTickVerificationSheet } from './BlueTickVerificationSheet';
 import { cn, getMediaUrl } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -133,6 +135,10 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
   const timingLabel = storeSummary?.timingLabel || (hasHours ? (isOpen ? 'Open Now' : 'Closed') : '');
 
   const isStoreLive = myStore?.isActive ?? storeSummary?.store?.isActive ?? true;
+  const isVerified = Boolean(myStore?.isVerified || storeSummary?.store?.isVerified);
+  const verificationStatus = myStore?.verificationStatus || storeSummary?.store?.verificationStatus || (isVerified ? 'APPROVED' : 'NOT_APPLIED');
+  const [isBlueTickSheetOpen, setIsBlueTickSheetOpen] = useState(false);
+
   const storeCategory = myStore?.category || storeSummary?.store?.category;
   const contactPhone = myStore?.contactPhone || storeSummary?.store?.contactPhone;
   const acceptedPayments = myStore?.acceptedPayments || storeSummary?.store?.acceptedPayments || ['ONLINE PAYMENT', 'CASH'];
@@ -272,8 +278,8 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
               <h2 className="font-bold text-[#171717] text-base truncate">{myStore.name}</h2>
-              {myStore.status === 'VERIFIED' && (
-                <CheckCircle2 className="w-4 h-4 text-blue-500 fill-current shrink-0" />
+              {isVerified && (
+                <CheckCircle2 className="w-4 h-4 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
               )}
             </div>
             
@@ -380,6 +386,51 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
             <div className="flex items-center gap-1 text-xs text-gray-500">
               <MapPin className="w-3.5 h-3.5 shrink-0 text-gray-400" />
               <span className="truncate">{displayAddress}</span>
+            </div>
+          )}
+
+          {/* Blue Tick Verification Strip (Request-based) */}
+          {!isVerified && (
+            <div className="mt-3">
+              {verificationStatus === 'PENDING' ? (
+                <div className="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                      <Clock className="w-4 h-4 animate-pulse" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-bold text-xs text-amber-900">Blue Tick In Review</h4>
+                        <span className="text-[10px] font-black bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full">Pending Review</span>
+                      </div>
+                      <p className="text-[11px] text-amber-700 truncate">Application submitted to Verification Center.</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-purple-50/70 border border-blue-200/80 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-bold text-xs text-gray-900">Apply for Blue Tick Verification</h4>
+                        <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Official</span>
+                      </div>
+                      <p className="text-[11px] text-gray-600 truncate">Get verified badge for profile & store</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsBlueTickSheetOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs px-3.5 py-1.5 rounded-full shadow-sm shadow-blue-500/20 shrink-0 transition-all cursor-pointer"
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -564,6 +615,18 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
           title={viewerHighlightTitle}
         />
       )}
+
+      {/* Blue Tick Verification Bottom Sheet */}
+      <BlueTickVerificationSheet
+        isOpen={isBlueTickSheetOpen}
+        onClose={() => setIsBlueTickSheetOpen(false)}
+        store={{
+          id: myStore.id,
+          name: myStore.name,
+          logoUrl: resolvedAvatar,
+          category: storeCategory
+        }}
+      />
     </div>
   );
 }

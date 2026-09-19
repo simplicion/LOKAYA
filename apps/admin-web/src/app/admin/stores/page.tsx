@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { 
   Store, FileText, CheckCircle2, XCircle, Clock, Search, 
   ExternalLink, ShieldCheck, Eye, MapPin, Phone, Mail, 
-  AlertCircle, Building2, RefreshCw, X
+  AlertCircle, Building2, RefreshCw, X, Sparkles
 } from 'lucide-react';
 
 export default function VerificationCenter() {
@@ -60,8 +60,7 @@ export default function VerificationCenter() {
     );
   }) || [];
 
-  // Summary counts
-  const pendingCount = stores?.filter((s) => s.status === 'PENDING').length ?? 0;
+  const pendingCount = stores?.filter((s) => s.status === 'PENDING' || s.verificationStatus === 'PENDING').length ?? 0;
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
@@ -226,19 +225,34 @@ export default function VerificationCenter() {
 
                       {/* Status */}
                       <td className="px-5 py-4">
-                        {store.status === 'VERIFIED' && (
+                        {store.verificationStatus === 'PENDING' ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                              <Sparkles className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+                              Blue Tick Requested
+                            </span>
+                            {store.verificationRequestedAt && (
+                              <span className="text-[10px] text-gray-400">
+                                Applied {new Date(store.verificationRequestedAt).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        ) : store.isVerified ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                            Blue Tick Verified
+                          </span>
+                        ) : store.status === 'VERIFIED' ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            Verified
+                            Active Store
                           </span>
-                        )}
-                        {store.status === 'PENDING' && (
+                        ) : store.status === 'PENDING' ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                             <Clock className="w-3.5 h-3.5" />
                             Pending Review
                           </span>
-                        )}
-                        {store.status === 'REJECTED' && (
+                        ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
                             <XCircle className="w-3.5 h-3.5" />
                             Rejected
@@ -258,14 +272,14 @@ export default function VerificationCenter() {
                             <Eye className="w-3.5 h-3.5" />
                             Review
                           </Button>
-                          {store.status !== 'VERIFIED' && (
+                          {(!store.isVerified || store.status !== 'VERIFIED') && (
                             <Button
                               size="sm"
                               onClick={() => handleVerify(store.id)}
                               disabled={isVerifying}
                               className="text-xs h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                             >
-                              Approve
+                              {store.verificationStatus === 'PENDING' ? 'Approve Blue Tick' : 'Approve'}
                             </Button>
                           )}
                         </div>
@@ -532,13 +546,13 @@ export default function VerificationCenter() {
                   </Button>
                 )}
 
-                {selectedStore.status !== 'VERIFIED' && (
+                {(!selectedStore.isVerified || selectedStore.status !== 'VERIFIED') && (
                   <Button
                     onClick={() => handleVerify(selectedStore.id)}
                     disabled={isVerifying}
                     className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5"
                   >
-                    {isVerifying ? 'Approving...' : 'Approve & Activate Store'}
+                    {isVerifying ? 'Approving...' : selectedStore.verificationStatus === 'PENDING' ? 'Approve Blue Tick Verification' : 'Approve & Activate Store'}
                   </Button>
                 )}
               </div>

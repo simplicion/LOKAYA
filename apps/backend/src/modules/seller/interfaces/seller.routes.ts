@@ -306,6 +306,16 @@ sellerRouter.post('/analytics/export', requireAuth, async (req: AuthRequest, res
 // Parameterized Store Routes (Placed at bottom to prevent shadowing static routes)
 // ----------------------------------------------------
 
+sellerRouter.post('/:storeId/request-verification', requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { storeId } = req.params;
+    const store = await sellerService.requestVerification(req.user!.id, storeId);
+    res.status(200).json({ message: 'Verification request submitted to Verification Center', store });
+  } catch (error) {
+    next(error);
+  }
+});
+
 sellerRouter.patch('/:storeId/verify', requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const { storeId } = req.params;

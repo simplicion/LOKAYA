@@ -254,6 +254,13 @@ export const api = createApi({
       }),
       invalidatesTags: ['Store'],
     }),
+    requestStoreVerification: builder.mutation<any, string>({
+      query: (storeId) => ({
+        url: `/seller/${storeId}/request-verification`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Store', 'SellerDashboard'],
+    }),
     createCategory: builder.mutation<any, any>({
       query: (body) => ({
         url: `/catalog/store/${body.storeId}/categories`,
@@ -897,6 +904,7 @@ export const {
   useVerifyForgotPasswordOtpMutation,
   useResetPasswordMutation,
   useUpdateStoreProfileMutation,
+  useRequestStoreVerificationMutation,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useGetStoreCategoriesQuery,

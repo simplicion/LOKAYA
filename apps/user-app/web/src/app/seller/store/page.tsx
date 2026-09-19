@@ -265,8 +265,8 @@ export default function StorePreviewPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <h2 className="text-2xl font-black text-gray-900 leading-tight truncate">{storeData?.name || ''}</h2>
-                    {storeData?.status === 'VERIFIED' && (
-                      <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-50 shrink-0" />
+                    {storeData?.isVerified && (
+                      <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
                     )}
                   </div>
 

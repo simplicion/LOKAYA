@@ -186,7 +186,7 @@ export class SearchService {
           store: {
             id: prod.store?.id || '',
             name: prod.store?.name || 'Local Store',
-            isVerified: prod.store?.status === 'VERIFIED'
+            isVerified: Boolean(prod.store?.isVerified)
           },
           rating: avgRating > 0 ? avgRating.toFixed(1) : null,
           reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
@@ -208,7 +208,7 @@ export class SearchService {
           storeId: store?.id || '',
           storeName: store?.name || post.author.name,
           storeAvatar: store?.logoUrl || post.author.avatarUrl || '',
-          isVerified: store?.status === 'VERIFIED',
+          isVerified: Boolean(store?.isVerified),
           media: post.media.map((m: any) => ({
             id: m.id,
             type: (m.type?.toLowerCase() || 'image') as 'image' | 'video',

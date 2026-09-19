@@ -313,7 +313,7 @@ export default function ProductViewClient({ productId }: { productId: string }) 
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="font-bold text-[#171717] text-[14px] leading-tight">{store.name}</h3>
-                {store.status === 'VERIFIED' && <CheckCircle className="w-3.5 h-3.5 text-blue-500 fill-blue-50" />}
+                {Boolean(store.isVerified) && <CheckCircle className="w-3.5 h-3.5 text-blue-500 fill-blue-500 text-white animate-in zoom-in duration-300" />}
               </div>
               <p className="text-[11px] text-gray-500 mt-0.5">
                 {store.city || store.address || 'Local Merchant'} • <span className="font-semibold text-emerald-600">Verified Seller</span>

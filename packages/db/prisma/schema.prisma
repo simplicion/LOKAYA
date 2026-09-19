@@ -156,6 +156,9 @@ model Store {
   minimumOrder  Float?      @default(0)
   acceptedPayments String[] @default(["ONLINE PAYMENT", "CASH"])
   status        StoreStatus @default(PENDING)
+  isVerified    Boolean     @default(false)
+  verificationStatus String  @default("NOT_APPLIED") // "NOT_APPLIED" | "PENDING" | "APPROVED" | "REJECTED"
+  verificationRequestedAt DateTime?
   
   users         StoreUser[]
   products      Product[]
