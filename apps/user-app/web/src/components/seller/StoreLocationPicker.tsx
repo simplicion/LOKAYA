@@ -229,8 +229,8 @@ export function StoreLocationPicker({
         )}
       </div>
 
-      {/* Interactive Leaflet Map Container */}
-      <div className="relative w-full h-64 rounded-2xl overflow-hidden border border-gray-200 shadow-inner">
+      {/* Interactive Leaflet Map Container with isolated stacking context */}
+      <div className="relative w-full h-64 rounded-2xl overflow-hidden border border-gray-200 shadow-inner isolate z-0">
         <LeafletMapInner
           centerLat={currentLat}
           centerLng={currentLng}
@@ -238,7 +238,7 @@ export function StoreLocationPicker({
         />
         
         {/* Helper Badge overlay */}
-        <div className="absolute bottom-2 left-2 z-[400] bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-gray-200 shadow-sm text-[10px] font-mono text-gray-600 flex items-center gap-1">
+        <div className="absolute bottom-2 left-2 z-10 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-gray-200 shadow-sm text-[10px] font-mono text-gray-600 flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span>{currentLat.toFixed(5)}°, {currentLng.toFixed(5)}°</span>
         </div>

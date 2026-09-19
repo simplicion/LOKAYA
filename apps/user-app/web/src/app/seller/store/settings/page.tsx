@@ -79,43 +79,75 @@ export default function StoreSettingsMenuPage() {
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
+  const [initialFormValues, setInitialFormValues] = useState<{
+    name: string;
+    description: string;
+    category: string;
+    address: string;
+    contactPhone: string;
+    latitude: number | null;
+    longitude: number | null;
+    isActive: boolean;
+    acceptsOnline: boolean;
+  } | null>(null);
+
   // Sync state when storeData arrives
   useEffect(() => {
     if (storeData) {
-      setName(storeData.name || '');
-      setDescription(storeData.description || '');
-      setCategory(storeData.category || '');
+      const initialName = storeData.name || '';
+      const initialDesc = storeData.description || '';
+      const initialCat = storeData.category || '';
       const anyUser = user as any;
       const initialAddress = (storeData.address && storeData.address !== 'Address not provided')
         ? storeData.address
         : (anyUser?.locationArea || [anyUser?.city, anyUser?.state].filter(Boolean).join(', ') || storeData.address || '');
+      const initialPhone = storeData.contactPhone || '';
+      const initialLat = typeof storeData.latitude === 'number' ? storeData.latitude : null;
+      const initialLng = typeof storeData.longitude === 'number' ? storeData.longitude : null;
+      const initialActive = storeData.isActive ?? true;
+      const initialAccepts = storeData.acceptedPayments?.includes('ONLINE PAYMENT') ?? true;
+
+      setName(initialName);
+      setDescription(initialDesc);
+      setCategory(initialCat);
       setAddress(initialAddress);
-      setContactPhone(storeData.contactPhone || '');
-      setLatitude(typeof storeData.latitude === 'number' ? storeData.latitude : null);
-      setLongitude(typeof storeData.longitude === 'number' ? storeData.longitude : null);
-      setIsActive(storeData.isActive ?? true);
-      setAcceptsOnline(storeData.acceptedPayments?.includes('ONLINE PAYMENT') ?? true);
+      setContactPhone(initialPhone);
+      setLatitude(initialLat);
+      setLongitude(initialLng);
+      setIsActive(initialActive);
+      setAcceptsOnline(initialAccepts);
       setBannerUrl(storeData.bannerUrl || '');
       setLogoUrl(storeData.logoUrl || storeData.users?.[0]?.user?.avatarUrl || '');
+
+      setInitialFormValues({
+        name: initialName,
+        description: initialDesc,
+        category: initialCat,
+        address: initialAddress,
+        contactPhone: initialPhone,
+        latitude: initialLat,
+        longitude: initialLng,
+        isActive: initialActive,
+        acceptsOnline: initialAccepts,
+      });
     }
   }, [storeData, user]);
 
   // Check if there are unsaved text/toggle modifications
   const isDirty = useMemo(() => {
-    if (!storeData) return false;
-    const initialAcceptsOnline = storeData.acceptedPayments?.includes('ONLINE PAYMENT') ?? true;
+    if (!initialFormValues) return false;
     return (
-      name !== (storeData.name || '') ||
-      description !== (storeData.description || '') ||
-      category !== (storeData.category || '') ||
-      address !== (storeData.address || '') ||
-      contactPhone !== (storeData.contactPhone || '') ||
-      latitude !== (storeData.latitude ?? null) ||
-      longitude !== (storeData.longitude ?? null) ||
-      isActive !== (storeData.isActive ?? true) ||
-      acceptsOnline !== initialAcceptsOnline
+      name !== initialFormValues.name ||
+      description !== initialFormValues.description ||
+      category !== initialFormValues.category ||
+      address !== initialFormValues.address ||
+      contactPhone !== initialFormValues.contactPhone ||
+      latitude !== initialFormValues.latitude ||
+      longitude !== initialFormValues.longitude ||
+      isActive !== initialFormValues.isActive ||
+      acceptsOnline !== initialFormValues.acceptsOnline
     );
-  }, [storeData, name, description, category, address, contactPhone, latitude, longitude, isActive, acceptsOnline]);
+  }, [initialFormValues, name, description, category, address, contactPhone, latitude, longitude, isActive, acceptsOnline]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'banner' | 'logo') => {
     const file = e.target.files?.[0];
@@ -254,6 +286,18 @@ export default function StoreSettingsMenuPage() {
         }
       }
 
+      setInitialFormValues({
+        name,
+        description,
+        category,
+        address,
+        contactPhone,
+        latitude,
+        longitude,
+        isActive,
+        acceptsOnline,
+      });
+
       toast.success('Store settings saved successfully!');
     } catch (error: any) {
       console.error('Failed to update store profile:', error);
@@ -262,16 +306,16 @@ export default function StoreSettingsMenuPage() {
   };
 
   const handleDiscardChanges = () => {
-    if (storeData) {
-      setName(storeData.name || '');
-      setDescription(storeData.description || '');
-      setCategory(storeData.category || '');
-      setAddress(storeData.address || '');
-      setContactPhone(storeData.contactPhone || '');
-      setLatitude(typeof storeData.latitude === 'number' ? storeData.latitude : null);
-      setLongitude(typeof storeData.longitude === 'number' ? storeData.longitude : null);
-      setIsActive(storeData.isActive ?? true);
-      setAcceptsOnline(storeData.acceptedPayments?.includes('ONLINE PAYMENT') ?? true);
+    if (initialFormValues) {
+      setName(initialFormValues.name);
+      setDescription(initialFormValues.description);
+      setCategory(initialFormValues.category);
+      setAddress(initialFormValues.address);
+      setContactPhone(initialFormValues.contactPhone);
+      setLatitude(initialFormValues.latitude);
+      setLongitude(initialFormValues.longitude);
+      setIsActive(initialFormValues.isActive);
+      setAcceptsOnline(initialFormValues.acceptsOnline);
       toast.info('Changes discarded');
     }
   };
@@ -308,7 +352,7 @@ export default function StoreSettingsMenuPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#F8F9FA] pb-28">
+    <div className="min-h-[100dvh] bg-[#F8F9FA] pb-36 sm:pb-40">
       {/* Hidden File Inputs */}
       <input 
         type="file" 
@@ -829,7 +873,7 @@ export default function StoreSettingsMenuPage() {
 
       {/* Persistent Bottom Bar / Action Trigger */}
       {isDirty ? (
-        <div className="fixed bottom-4 inset-x-4 max-w-2xl mx-auto z-40 animate-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed bottom-4 inset-x-4 max-w-2xl mx-auto z-[1050] animate-in slide-in-from-bottom-4 duration-300 pointer-events-auto">
           <div className="bg-[#18181B] text-white p-3.5 sm:p-4 rounded-3xl shadow-2xl flex items-center justify-between gap-3 border border-white/10 backdrop-blur-md">
             <div className="flex items-center gap-2.5 min-w-0 pl-1">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />

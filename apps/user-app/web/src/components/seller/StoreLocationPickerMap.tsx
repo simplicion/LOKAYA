@@ -131,6 +131,7 @@ export default function StoreLocationPickerMap({
       style={{ height: '100%', width: '100%' }}
       zoomControl={false}
       attributionControl={false}
+      className="isolate z-0"
     >
       <MapUpdater lat={safeLat} lng={safeLng} />
       <MapClickHandler onPinMoved={onPinMoved} />
