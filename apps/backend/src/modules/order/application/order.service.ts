@@ -406,12 +406,17 @@ export class OrderService {
       where: { id: orderId },
       include: {
         items: {
-          include: { product: true, variant: true }
+          include: { 
+            product: {
+              include: { media: true }
+            }, 
+            variant: true 
+          }
         },
         store: true,
         payment: true,
         buyer: {
-          select: { id: true, name: true, phone: true, avatarUrl: true }
+          select: { id: true, name: true, phone: true, avatarUrl: true, email: true, isSystemAdmin: true }
         },
         pickupOtp: true
       }
@@ -419,10 +424,13 @@ export class OrderService {
 
     if (!order) throw new AppError('Order not found', 404);
 
-    // Verify authorization: only the buyer or the store staff can view the order
+    // Verify authorization: only the buyer, store staff, or system admin can view the order
     if (order.buyerId !== userId) {
       const isStoreUser = await prisma.storeUser.findUnique({ where: { userId_storeId: { userId, storeId: order.storeId } } });
-      if (!isStoreUser) throw new AppError('Unauthorized access to order', 403);
+      const requestingUser = await prisma.user.findUnique({ where: { id: userId }, select: { isSystemAdmin: true } });
+      if (!isStoreUser && !requestingUser?.isSystemAdmin) {
+        throw new AppError('Unauthorized access to order', 403);
+      }
     }
 
     const isToday = new Date(order.createdAt).toDateString() === new Date().toDateString();
@@ -436,26 +444,66 @@ export class OrderService {
     else if (order.status === OrderStatus.DELIVERED) uiStatus = 'Completed';
     else if (order.status === OrderStatus.CANCELLED) uiStatus = 'Cancelled';
 
+    let resolvedPaymentMethod = 'Cash on Pickup';
+    if (order.payment?.provider === 'RAZORPAY') {
+      resolvedPaymentMethod = 'Prepaid (UPI/Card)';
+    } else if (order.paymentMethod === 'COD' || order.paymentMethod?.toLowerCase() === 'cod') {
+      resolvedPaymentMethod = order.deliveryAddress ? 'Cash on Delivery (COD)' : 'Cash on Pickup';
+    } else if (order.paymentMethod) {
+      resolvedPaymentMethod = order.paymentMethod;
+    }
+
     return {
       id: order.id,
+      buyerId: order.buyerId,
+      storeId: order.storeId,
       customerName: order.buyer?.name || 'Customer',
       phone: order.buyer?.phone || '+91 Not provided',
       itemsCount: order.items.reduce((acc, i) => acc + i.quantity, 0),
       total: order.totalAmount,
+      totalAmount: order.totalAmount,
+      shippingFee: order.shippingFee || 0,
       status: uiStatus,
       rawStatus: order.status,
       timeLabel,
-      paymentMethod: order.payment?.provider === 'RAZORPAY' ? 'Prepaid (UPI/Card)' : 'Cash on Pickup',
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      deliveryAddress: order.deliveryAddress,
+      estimatedDelivery: order.estimatedDelivery || (order.deliveryAddress ? 'Within 2 - 4 hours (Express Local)' : 'Ready for Pickup'),
+      awbCode: order.awbCode,
+      courierName: order.courierName,
+      trackingUrl: order.trackingUrl,
+      paymentMethod: resolvedPaymentMethod,
+      rawPaymentMethod: order.paymentMethod,
+      payment: order.payment,
+      paymentStatus: order.payment?.status || (order.paymentMethod === 'COD' ? 'PAY_ON_DELIVERY' : 'PENDING'),
       pickupTime: isToday ? `Today, ${timeLabel}` : timeLabel,
       pickupOtp: order.pickupOtp?.otpCode || '',
       qrToken: order.pickupOtp?.qrToken || '',
-      items: order.items.map(item => ({
-        id: item.id,
-        name: item.productName || item.product?.name || 'Item',
-        qty: item.quantity,
-        price: item.priceAt,
-        image: item.product?.imageUrl || null
-      })),
+      items: order.items.map(item => {
+        const primaryMedia = item.product?.media?.find((m: any) => m.isPrimary)?.url;
+        const firstMedia = item.product?.media?.[0]?.url;
+        const imgUrl = primaryMedia || firstMedia || item.product?.imageUrl || null;
+        return {
+          id: item.id,
+          productId: item.productId,
+          name: item.productName || item.product?.name || 'Item',
+          productName: item.productName || item.product?.name || 'Item',
+          title: item.productName || item.product?.name || 'Item',
+          qty: item.quantity,
+          quantity: item.quantity,
+          price: item.priceAt,
+          priceAt: item.priceAt,
+          sku: item.sku,
+          image: imgUrl,
+          variantName: item.variant?.name || null,
+          variant: item.variant,
+          product: item.product ? {
+            ...item.product,
+            imageUrl: imgUrl
+          } : null
+        };
+      }),
       buyer: order.buyer,
       store: order.store
     };
