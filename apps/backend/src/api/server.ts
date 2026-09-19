@@ -16,6 +16,7 @@ import searchRoutes from '../modules/search/interfaces/search.routes';
 import { wishlistRoutes } from '../modules/wishlist/interfaces/wishlist.routes';
 import { adminRouter } from '../modules/admin/interfaces/admin.routes';
 import { supportRoutes } from '../modules/support/interfaces/support.routes';
+import { metaRoutes } from '../modules/common/meta.routes';
 import { initSocket } from './socket';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -101,6 +102,7 @@ export function startApiServer() {
   app.use('/api/v1/wishlist', wishlistRoutes);
   app.use('/api/v1/support', supportRoutes);
   app.use('/api/v1/admin', adminRouter);
+  app.use('/api/v1/meta', metaRoutes);
 
   app.get('/health', (req, res) => {
     res.json({ 

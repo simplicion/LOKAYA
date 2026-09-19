@@ -1,12 +1,21 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { PaymentService } from '../application/payment.service';
+import { RazorpayWebhookHandler } from './razorpay.webhook';
 import { validateRequest } from '../../../shared/middleware/validate';
 import { requireAuth } from '../../../shared/middleware/auth';
 import { createRazorpayOrderSchema, verifyPaymentSchema } from '../domain/schemas';
 
 const router: Router = Router();
 
-router.use(requireAuth); // All payment routes require auth
+/**
+ * PUBLIC / UNAUTHENTICATED WEBHOOK ENDPOINT
+ * Razorpay servers call this directly with x-razorpay-signature header
+ */
+router.post('/webhook', (req: Request, res: Response) => {
+  return RazorpayWebhookHandler.handleWebhook(req, res);
+});
+
+router.use(requireAuth); // Subsequent payment routes require user auth
 
 router.post('/create-session', validateRequest(createRazorpayOrderSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {

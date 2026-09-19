@@ -36,12 +36,15 @@ import {
   useUpdateCartItemMutation
 } from '@/lib/api';
 import { clearCart, removeFromCart, updateQuantity } from '@/lib/features/cartSlice';
+import { useCurrency } from '@/context/CurrencyContext';
+import { isIndianStore } from '@/lib/utils';
 import { toast } from 'sonner';
 
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
+  const { formatPrice, currencySymbol } = useCurrency();
   const user = useSelector((state: RootState) => (state as any).auth?.user);
 
   // URL Query Params for direct buy now
@@ -121,6 +124,7 @@ function CheckoutContent() {
         stockCount,
         storeId: directProduct.storeId,
         storeName: directProduct.store?.name,
+        store: directProduct.store,
         image,
         variantName: variant?.name,
       }];
@@ -146,6 +150,7 @@ function CheckoutContent() {
             stockCount,
             storeId: item.product?.storeId || '',
             storeName: item.product?.store?.name,
+            store: item.product?.store,
             image: item.product?.media?.[0]?.url || item.product?.imageUrl || '',
             variantName: item.variant?.name,
           });
@@ -161,6 +166,7 @@ function CheckoutContent() {
             ...item,
             productId: item.productId || item.id,
             stockCount: item.stockCount !== undefined ? Number(item.stockCount) : undefined,
+            store: item.store || item.product?.store,
           });
         }
       });
@@ -168,6 +174,24 @@ function CheckoutContent() {
 
     return Array.from(resolvedMap.values());
   }, [directProductId, directProduct, directVariantId, directQty, cartData, reduxCartItems, user]);
+
+  // Check if all stores in the checkout are located in India (India only for Razorpay)
+  const allStoresAreIndian = React.useMemo(() => {
+    if (directProductId && directProduct) {
+      return isIndianStore(directProduct.store);
+    }
+    if (orderItems.length > 0) {
+      return orderItems.every((item: any) => isIndianStore(item.store));
+    }
+    return true;
+  }, [directProductId, directProduct, orderItems]);
+
+  // Enforce Cash on Delivery if any store is located outside India
+  useEffect(() => {
+    if (!allStoresAreIndian && paymentMethod !== 'COD') {
+      setPaymentMethod('COD');
+    }
+  }, [allStoresAreIndian, paymentMethod]);
 
   // Inventory validation to prevent 400 Bad Request at order placement
   const invalidCheckoutItems = React.useMemo(() => {
@@ -559,7 +583,7 @@ function CheckoutContent() {
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-bold text-xs text-gray-900">Express Courier</span>
-                <span className="font-black text-xs text-gray-900">₹49</span>
+                <span className="font-black text-xs text-gray-900">{formatPrice(49)}</span>
               </div>
               <p className="text-[11px] text-gray-500">Priority 1-2 day fast transit</p>
             </div>
@@ -575,39 +599,54 @@ function CheckoutContent() {
             <h2 className="font-bold text-gray-900 text-sm">Payment Method</h2>
           </div>
 
-          <div className="space-y-3">
-            {/* Online Option */}
-            <div
-              onClick={() => setPaymentMethod('ONLINE')}
-              className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${
-                paymentMethod === 'ONLINE'
-                  ? 'border-[#FF6B00] bg-orange-50/20'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="mt-0.5">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  paymentMethod === 'ONLINE' ? 'border-[#FF6B00]' : 'border-gray-300'
-                }`}>
-                  {paymentMethod === 'ONLINE' && <div className="w-2 h-2 rounded-full bg-[#FF6B00]" />}
-                </div>
-              </div>
-
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-gray-900">Prepaid / UPI & Cards</span>
-                    <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Sparkles className="w-2.5 h-2.5" /> 5% INSTANT OFF
-                    </span>
-                  </div>
-                  <CreditCard className="w-4 h-4 text-gray-400" />
-                </div>
-                <p className="text-xs text-gray-500">Google Pay, PhonePe, Paytm, Cards, NetBanking via Razorpay</p>
+          {/* Regional Store Notice if outside India */}
+          {!allStoresAreIndian && (
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 mb-3.5">
+              <MapPin className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Store Located Outside India</p>
+                <p className="text-[11px] text-amber-800/90 mt-0.5">
+                  Domestic Razorpay UPI / Card payments are only available for Indian-registered stores. <strong>Cash on Delivery / Direct Store Settlement</strong> is active for this order.
+                </p>
               </div>
             </div>
+          )}
 
-            {/* Cash on Delivery Option */}
+          <div className="space-y-3">
+            {/* Online Option (India-registered stores only) */}
+            {allStoresAreIndian && (
+              <div
+                onClick={() => setPaymentMethod('ONLINE')}
+                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${
+                  paymentMethod === 'ONLINE'
+                    ? 'border-[#FF6B00] bg-orange-50/20'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="mt-0.5">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    paymentMethod === 'ONLINE' ? 'border-[#FF6B00]' : 'border-gray-300'
+                  }`}>
+                    {paymentMethod === 'ONLINE' && <div className="w-2 h-2 rounded-full bg-[#FF6B00]" />}
+                  </div>
+                </div>
+
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-gray-900">Prepaid / UPI & Cards</span>
+                      <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5" /> 5% INSTANT OFF
+                      </span>
+                    </div>
+                    <CreditCard className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <p className="text-xs text-gray-500">Google Pay, PhonePe, Paytm, Cards, NetBanking via Razorpay</p>
+                </div>
+              </div>
+            )}
+
+            {/* Cash on Delivery Option (Always Available) */}
             <div
               onClick={() => setPaymentMethod('COD')}
               className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${
@@ -629,7 +668,7 @@ function CheckoutContent() {
                   <span className="font-bold text-sm text-gray-900">Cash on Delivery</span>
                   <Banknote className="w-4 h-4 text-gray-400" />
                 </div>
-                <p className="text-xs text-gray-500">Pay cash upon delivery. +₹49 verification & handling fee.</p>
+                <p className="text-xs text-gray-500">Pay cash upon delivery. +{formatPrice(49)} verification & handling fee.</p>
               </div>
             </div>
           </div>
@@ -680,7 +719,7 @@ function CheckoutContent() {
                   </div>
                   <div className="text-right">
                     <span className="font-bold text-xs text-gray-900">
-                      ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                      {formatPrice(item.price * item.quantity)}
                     </span>
                   </div>
                 </div>
@@ -695,33 +734,33 @@ function CheckoutContent() {
           
           <div className="flex justify-between text-gray-600">
             <span>Items Subtotal</span>
-            <span className="font-semibold text-gray-900">₹{itemsSubtotal.toLocaleString('en-IN')}</span>
+            <span className="font-semibold text-gray-900">{formatPrice(itemsSubtotal)}</span>
           </div>
 
           <div className="flex justify-between text-gray-600">
             <span>Delivery Fee</span>
             <span className={`font-semibold ${deliveryFee === 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
-              {deliveryFee === 0 ? 'FREE' : `+₹${deliveryFee}`}
+              {deliveryFee === 0 ? 'FREE' : `+${formatPrice(deliveryFee)}`}
             </span>
           </div>
 
           {prepaidDiscount > 0 && (
             <div className="flex justify-between text-emerald-600 font-medium">
               <span>Prepaid Discount (5%)</span>
-              <span className="font-bold">-₹{prepaidDiscount}</span>
+              <span className="font-bold">-{formatPrice(prepaidDiscount)}</span>
             </div>
           )}
 
           {codFee > 0 && (
             <div className="flex justify-between text-gray-600">
               <span>COD Handling Charge</span>
-              <span className="font-semibold text-gray-900">+₹{codFee}</span>
+              <span className="font-semibold text-gray-900">+{formatPrice(codFee)}</span>
             </div>
           )}
 
           <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-sm font-black text-gray-900">
             <span>Grand Total</span>
-            <span className="text-base text-[#FF6B00]">₹{grandTotal.toLocaleString('en-IN')}</span>
+            <span className="text-base text-[#FF6B00]">{formatPrice(grandTotal)}</span>
           </div>
         </section>
 
@@ -733,7 +772,7 @@ function CheckoutContent() {
           <div>
             <span className="block text-[11px] text-gray-500 font-medium">Total Amount</span>
             <span className="text-lg font-black text-gray-900">
-              ₹{grandTotal.toLocaleString('en-IN')}
+              {formatPrice(grandTotal)}
             </span>
           </div>
 

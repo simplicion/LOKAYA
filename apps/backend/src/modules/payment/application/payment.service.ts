@@ -1,24 +1,54 @@
 import { prisma } from '@workspace/db';
 import { AppError } from '../../../shared/errors/AppError';
 import { RazorpayService } from '../infrastructure/razorpay.service';
+import { CurrencyService } from '../../common/currency.service';
 import { OrderService } from '../../order/application/order.service';
 
 export class PaymentService {
   
   static async createPaymentSession(userId: string, orderId: string, amount: number) {
-    // 1. Verify order exists and belongs to user
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    // 1. Verify order exists, belongs to user, and fetch associated store info
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        store: true,
+        subOrders: {
+          include: {
+            store: true
+          }
+        }
+      }
+    });
+
     if (!order) throw new AppError('Order not found', 404);
     if (order.buyerId !== userId) throw new AppError('Unauthorized', 403);
     if (order.status !== 'PENDING') throw new AppError('Order is no longer pending payment', 400);
 
-    // 2. Create Razorpay order
+    // 2. Validate Store Registration Country (India only for Razorpay)
+    const primaryStoreIsIndian = CurrencyService.isIndianEntity(order.store);
+    const allSubStoresAreIndian = order.subOrders.every(so => CurrencyService.isIndianEntity(so.store));
+
+    if (!primaryStoreIsIndian || !allSubStoresAreIndian) {
+      throw new AppError(
+        'Online payment via Razorpay is only available for stores registered in India. This store is located outside India—please select Cash on Delivery or Pay on Pickup.',
+        400
+      );
+    }
+
+    // 3. Create Razorpay order
     const razorpayOrder = await RazorpayService.createOrder(amount, `receipt_${orderId}`);
 
-    // 3. Save payment intent in DB
-    const payment = await prisma.payment.create({
-      data: {
+    // 4. Save payment intent in DB (upsert if retry)
+    const payment = await prisma.payment.upsert({
+      where: { orderId },
+      create: {
         orderId,
+        amount,
+        provider: 'RAZORPAY',
+        status: 'PENDING',
+        providerOrderId: razorpayOrder.id,
+      },
+      update: {
         amount,
         provider: 'RAZORPAY',
         status: 'PENDING',

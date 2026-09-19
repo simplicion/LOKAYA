@@ -10,7 +10,18 @@ export class CartService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, imageUrl: true, sellingPrice: true, storeId: true, stockCount: true, isActive: true }
+              select: { 
+                id: true, 
+                name: true, 
+                imageUrl: true, 
+                sellingPrice: true, 
+                storeId: true, 
+                stockCount: true, 
+                isActive: true,
+                store: {
+                  select: { id: true, name: true, address: true, city: true, state: true }
+                }
+              }
             },
             variant: true
           }
@@ -25,7 +36,18 @@ export class CartService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, imageUrl: true, sellingPrice: true, storeId: true, stockCount: true, isActive: true }
+                select: { 
+                  id: true, 
+                  name: true, 
+                  imageUrl: true, 
+                  sellingPrice: true, 
+                  storeId: true, 
+                  stockCount: true, 
+                  isActive: true,
+                  store: {
+                    select: { id: true, name: true, address: true, city: true, state: true }
+                  }
+                }
               },
               variant: true
             }

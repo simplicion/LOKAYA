@@ -7,6 +7,7 @@ import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart, updateQuantity, removeFromCart } from '@/lib/features/cartSlice';
 import { useGetWishlistQuery, useToggleWishlistMutation, useAddToCartMutation } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 import { RootState } from '@/lib/store';
 import { getMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -39,6 +40,7 @@ export interface ProductCardProps {
 
 export function ProductCard({ product, isPreview = false }: ProductCardProps) {
   const dispatch = useDispatch();
+  const { formatPrice } = useCurrency();
   const cartItems = useSelector((state: RootState) => state.cart.items);
   const user = useSelector((state: RootState) => (state as any).auth?.user);
   const [addToCartAPI] = useAddToCartMutation();
@@ -70,12 +72,9 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
     }
   }
 
-  const formattedPrice = priceValue.toLocaleString('en-IN');
-
   const originalPriceValue = typeof product.originalPrice === 'number' 
     ? product.originalPrice 
     : (typeof product.mrp === 'number' ? product.mrp : (product.originalPrice ? parseFloat(String(product.originalPrice).replace(/,/g, '')) : undefined));
-  const formattedOriginalPrice = originalPriceValue ? originalPriceValue.toLocaleString('en-IN') : undefined;
 
   const discount = product.discount || product.discountLabel || (originalPriceValue && originalPriceValue > priceValue ? `${Math.round(((originalPriceValue - priceValue) / originalPriceValue) * 100)}% off` : undefined);
   const rating = product.rating ? String(product.rating) : null;
@@ -246,13 +245,13 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
 
         {/* Price Row (MRP strikethrough, Selling Price, Discount %) */}
         <div className="flex items-baseline gap-1.5 mt-1 flex-wrap">
-          {formattedOriginalPrice && (
+          {originalPriceValue && originalPriceValue > priceValue && (
             <span className="text-[11px] sm:text-xs text-gray-400 line-through font-normal tabular-nums leading-none">
-              ₹{formattedOriginalPrice}
+              {formatPrice(originalPriceValue)}
             </span>
           )}
           <span className="text-sm sm:text-[15px] font-bold text-gray-900 tabular-nums leading-none">
-            ₹{formattedPrice}
+            {formatPrice(priceValue)}
           </span>
           {discount && (
             <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 tracking-tight leading-none">

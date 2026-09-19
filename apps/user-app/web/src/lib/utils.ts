@@ -160,3 +160,48 @@ export function generateStandardSku(prefix = 'LKY'): string {
   return `${prefix}-${random8Digits}`;
 }
 
+/**
+ * Helper to check if a store is registered in India.
+ * Non-Indian stores (e.g., Nepal, USA, etc.) are restricted to Cash on Delivery (COD) / Pay on Pickup.
+ */
+export function isIndianStore(store: { address?: string | null; city?: string | null; state?: string | null; country?: string | null } | undefined | null): boolean {
+  if (!store) return true; // Default safe fallback
+
+  const address = (store.address || '').toLowerCase();
+  const city = (store.city || '').toLowerCase();
+  const state = (store.state || '').toLowerCase();
+  const country = (store.country || '').toLowerCase();
+
+  // Check Nepal and international signatures
+  if (
+    country.includes('nepal') ||
+    state.includes('bagmati') ||
+    state.includes('madhesh') ||
+    state.includes('gandaki') ||
+    state.includes('lumbini') ||
+    state.includes('karnali') ||
+    state.includes('sudurpashchim') ||
+    city.includes('kathmandu') ||
+    city.includes('lalbandi') ||
+    city.includes('pokhara') ||
+    city.includes('biratnagar') ||
+    city.includes('lalitpur') ||
+    city.includes('bhaktapur') ||
+    city.includes('butwal') ||
+    city.includes('dharan') ||
+    city.includes('birgunj') ||
+    address.includes('nepal') ||
+    address.includes('lalbandi') ||
+    address.includes('sarlahi')
+  ) {
+    return false;
+  }
+
+  if (country && country !== 'india' && country !== 'in' && country !== 'bharat') {
+    return false;
+  }
+
+  return true;
+}
+
+
