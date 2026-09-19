@@ -28,12 +28,19 @@ export const Dropdown = React.forwardRef<HTMLButtonElement, DropdownProps>(
     return (
       <Select
         value={value}
+        items={options}
         onValueChange={(val: any) => onChange?.(val)}
         disabled={disabled}
         name={name}
       >
         <SelectTrigger ref={ref} className={className} id={id}>
-          <SelectValue placeholder={placeholder} />
+          <SelectValue placeholder={placeholder}>
+            {(val: any) => {
+              if (!val) return placeholder;
+              const opt = options.find((o) => o.value === val || o.label === val);
+              return opt ? opt.label : val;
+            }}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
