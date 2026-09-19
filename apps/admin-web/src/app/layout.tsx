@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 import StoreProvider from "@/lib/StoreProvider";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function RootLayout({
   children,
@@ -44,7 +44,7 @@ export default function RootLayout({
       <body suppressHydrationWarning className="min-h-full flex flex-col">
         <StoreProvider>
           {children}
-          <Toaster position="top-right" richColors />
+          <Toaster position="top-right" />
         </StoreProvider>
       </body>
     </html>

@@ -48,7 +48,7 @@ export default function RootLayout({
           <UploadProvider>
             <OfflineDetector />
             <main className="flex-1">{children}</main>
-            <Toaster richColors />
+            <Toaster position="top-center" />
           </UploadProvider>
         </StoreProvider>
       </body>

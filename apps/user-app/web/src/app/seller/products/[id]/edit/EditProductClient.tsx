@@ -248,10 +248,10 @@ export default function EditProductClient({ params }: { params: { id: string } }
       }).unwrap();
 
       setSaved(true);
-      toast.success('Product updated and submitted for admin verification!');
+      toast.success('Product updated successfully!');
       setTimeout(() => {
         router.back();
-      }, 1600);
+      }, 1400);
     } catch (err: any) {
       console.error('Failed to update product:', err);
       toast.error(err?.data?.message || err?.message || 'Failed to update product');
@@ -269,12 +269,12 @@ export default function EditProductClient({ params }: { params: { id: string } }
   if (saved) {
     return (
       <div className="flex flex-col h-[100dvh] bg-white items-center justify-center p-6 text-center animate-in fade-in">
-        <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mb-4">
-          <Clock className="w-8 h-8 animate-pulse" />
+        <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+          <CheckCircle2 className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Submitted for Verification!</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Product Updated Successfully!</h2>
         <p className="text-sm text-gray-600 max-w-sm">
-          Your edits to <strong>{name}</strong> have been sent to the Admin Verification Center. Once reviewed, changes will appear live in your store catalog.
+          Your changes to <strong>{name}</strong> have been saved to your catalog.
         </p>
       </div>
     );
@@ -343,7 +343,7 @@ export default function EditProductClient({ params }: { params: { id: string } }
           <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3.5 flex items-center gap-3">
             <Clock className="w-4 h-4 text-amber-600 shrink-0" />
             <p className="text-xs text-amber-800">
-              This product is currently pending admin verification. You can make additional edits below before review.
+              This product is currently in review. You can make additional updates anytime.
             </p>
           </div>
         )}
@@ -668,16 +668,6 @@ export default function EditProductClient({ params }: { params: { id: string } }
           </div>
         </div>
 
-        {/* Section 5: Verification Submission Notice */}
-        <div className="bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border border-orange-200/80 rounded-2xl p-4 flex items-start gap-3">
-          <Sparkles className="w-5 h-5 text-[#FF5A36] shrink-0 mt-0.5" />
-          <div className="text-xs text-gray-700 leading-relaxed">
-            <h4 className="font-bold text-gray-900 mb-0.5">Admin Verification Lifecycle</h4>
-            <p>
-              When you submit changes, our team reviews photo quality, product authenticity, and pricing accuracy in the <strong>Product Verification Center</strong>. Approved products go live immediately.
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Sticky Bottom Action Bar */}
@@ -702,10 +692,10 @@ export default function EditProductClient({ params }: { params: { id: string } }
             {isSaving ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Submitting for Verification...
+                Saving Changes...
               </>
             ) : (
-              'Save & Submit for Verification'
+              'Save Changes'
             )}
           </Button>
         </div>

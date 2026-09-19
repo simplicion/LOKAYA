@@ -100,7 +100,7 @@ export default function ProductDetailsClient({ params }: { params: { id: string 
             <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
             <div className="text-xs">
               <h4 className="font-bold text-rose-900">Needs Revision</h4>
-              <p className="text-rose-700 mt-0.5">{productData?.rejectionReason || 'Please update the product details and re-submit for verification.'}</p>
+              <p className="text-rose-700 mt-0.5">{productData?.rejectionReason || 'Please review and update the product details.'}</p>
             </div>
           </div>
         ) : productData?.verificationStatus === 'APPROVED' ? (
@@ -115,7 +115,7 @@ export default function ProductDetailsClient({ params }: { params: { id: string 
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-amber-800 font-semibold">
               <Clock className="w-4 h-4 text-amber-600 shrink-0 animate-pulse" />
-              <span>Pending Admin Verification</span>
+              <span>Under Review</span>
             </div>
             <span className="text-[10px] bg-amber-200/60 text-amber-900 font-bold px-2 py-0.5 rounded-md">Under Review</span>
           </div>
