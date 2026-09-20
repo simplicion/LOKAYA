@@ -44,10 +44,71 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # 4. Prepare /opt/lokaya deployment workspace
-echo "📁 [4/6] Setting up /opt/lokaya directory..."
+echo "📁 [4/6] Setting up /opt/lokaya directory & production environment..."
 sudo mkdir -p /opt/lokaya
 sudo chown -R $USER:$USER /opt/lokaya
 cd /opt/lokaya
+
+cat << 'ENVEOF' | sudo tee /opt/lokaya/.env > /dev/null
+NODE_ENV=production
+PORT=4002
+
+DATABASE_URL=postgresql://lokaya_user:e0137DxFhGt00xXfJZaTvgMm77IHVTvs@dpg-daigdi7qj5pc73a0ns5g-a.oregon-postgres.render.com/lokaya?sslmode=require
+DIRECT_URL=postgresql://lokaya_user:e0137DxFhGt00xXfJZaTvgMm77IHVTvs@dpg-daigdi7qj5pc73a0ns5g-a.oregon-postgres.render.com/lokaya?sslmode=require
+
+REDIS_URL=rediss://red-dafi1ftbedkc739bbovg:YP3C2SCtDTlvZL2un0PgQ12OUAiSlcud@virginia-keyvalue.render.com:6379
+REDIS_HOST=virginia-keyvalue.render.com
+REDIS_PORT=6379
+REDIS_USERNAME=red-dafi1ftbedkc739bbovg
+REDIS_PASSWORD=YP3C2SCtDTlvZL2un0PgQ12OUAiSlcud
+REDIS_TLS=true
+
+JWT_SECRET=cce165b61b8a327dba615226ec9d266e4401434b552aa7b36eb5125e378ac0a0
+JWT_REFRESH_SECRET=0288403b131b825471e4122027b90c31f29cedaf84b37d34d78de2db79ee0094
+SUPER_ADMIN_JWT_SECRET=93a5fca43bd1644fa9b08aa171d8591119c2b54050f9122fd6938be7eb86a0ca
+
+CLIENT_URL=https://lokaya.shop
+FRONTEND_URL=https://lokaya.shop,https://www.lokaya.shop,https://admin.lokaya.shop,http://localhost:3101
+ADMIN_URL=https://admin.lokaya.shop
+APP_BASE_URL=https://api.lokaya.shop
+
+ADMIN_EMAIL=admin@lokaya.shop
+ADMIN_PASSWORD=AdminPassword123!
+
+GOOGLE_CLIENT_ID=924762867355-6lfudinvj763rl4usv256svhtu3muemi.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+
+RAZORPAY_KEY_ID=rzp_live_TJ4cJdMCagilvq
+RAZORPAY_KEY_SECRET=c5RbhL5k0DIQKTDOQot3cyei
+RAZORPAY_WEBHOOK_SECRET=whsec_lokaya_live_2026_x8F2n9Lp4Qv7Mw1A
+RAZORPAY_WEBHOOK_URL=https://api.lokaya.shop/api/v1/payments/webhook
+
+CLOUDFLARE_ACCOUNT_ID=7158d01d5e0dd9e7f5be050ed3717b14
+R2_ACCOUNT_ID=7158d01d5e0dd9e7f5be050ed3717b14
+R2_ACCESS_KEY_ID=0fc5788e73739c590c9458c2953ebcb1
+R2_ACCESS_KEY=0fc5788e73739c590c9458c2953ebcb1
+R2_SECRET_ACCESS_KEY=6acdb20aa6540405077e90c99b96de2fd2148edc3058f0c09a1edf770dfa275a
+R2_SECRET_KEY=6acdb20aa6540405077e90c99b96de2fd2148edc3058f0c09a1edf770dfa275a
+R2_BUCKET_NAME=lokaya-cdn
+R2_ENDPOINT=https://7158d01d5e0dd9e7f5be050ed3717b14.r2.cloudflarestorage.com
+NEXT_PUBLIC_CDN_DOMAIN=https://7158d01d5e0dd9e7f5be050ed3717b14.r2.cloudflarestorage.com/lokaya-cdn
+
+AWS_REGION=us-east-1
+AWS_S3_RAW_BUCKET=lokaya-cdn
+AWS_S3_PROCESSED_BUCKET=lokaya-cdn
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=simplicion.com@gmail.com
+SMTP_PASS=vbaqzpfnslttmcaf
+SMTP_SECURE=true
+SMTP_FROM_EMAIL=noreply@lokaya.shop
+EMAIL_FROM=Lokaya <noreply@lokaya.shop>
+ENVEOF
+
+sudo chmod 600 /opt/lokaya/.env
+sudo chown $USER:$USER /opt/lokaya/.env
+echo "✅ /opt/lokaya/.env created successfully."
 
 # 5. Configure Nginx Reverse Proxy for api.lokaya.shop with WebSockets
 echo "🌐 [5/6] Configuring Nginx for api.lokaya.shop..."
