@@ -194,7 +194,7 @@ jobs:
             type=sha,format=short
 
       - name: Build and Push Backend Docker Image to GHCR
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile.backend
@@ -312,7 +312,7 @@ jobs:
             type=sha,format=short
 
       - name: Build and Push User App Docker Image to GHCR
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile.user-app
@@ -406,7 +406,7 @@ jobs:
             type=sha,format=short
 
       - name: Build and Push Admin App Docker Image to GHCR
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile.admin-web

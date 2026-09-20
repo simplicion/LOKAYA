@@ -34,7 +34,7 @@ export default function AdminLogin() {
       dispatch(setCredentials({ user: response.user, token: response.token }));
       router.push('/admin');
     } catch (err: any) {
-      setError(err.data?.error || 'Login failed');
+      setError(err.data?.message || err.data?.error || 'Login failed');
     }
   };
 

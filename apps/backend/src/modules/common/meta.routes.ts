@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { CurrencyService } from './currency.service';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * GET /api/v1/meta/detect-location
@@ -69,4 +69,4 @@ router.post('/convert-currency', async (req: Request, res: Response, next: NextF
   }
 });
 
-export const metaRoutes = router;
+export const metaRoutes: Router = router;

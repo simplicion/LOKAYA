@@ -48,11 +48,14 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     const fetchRates = async () => {
       try {
         setIsLoading(true);
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
-        const res = await fetch(`${apiUrl}/api/v1/meta/currency-rates?base=INR`);
+        const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
+        const baseUrl = rawApiUrl.replace(/\/api\/v1\/?$/, '');
+        const res = await fetch(`${baseUrl}/api/v1/meta/currency-rates?base=INR`);
         if (res.ok) {
           const data = await res.json();
-          if (data?.data?.rates) {
+          if (data?.rates) {
+            setRates(data.rates);
+          } else if (data?.data?.rates) {
             setRates(data.data.rates);
           }
         }

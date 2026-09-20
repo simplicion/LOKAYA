@@ -54,8 +54,9 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // 1. Fetch live rates dynamically from real endpoints
   const fetchLiveRates = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
-      const res = await fetch(`${apiUrl}/api/v1/meta/currency-rates?base=INR`);
+      const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
+      const baseUrl = rawApiUrl.replace(/\/api\/v1\/?$/, '');
+      const res = await fetch(`${baseUrl}/api/v1/meta/currency-rates?base=INR`);
       if (res.ok) {
         const data = await res.json();
         if (data && data.rates) {

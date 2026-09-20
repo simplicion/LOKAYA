@@ -24,10 +24,17 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     return next(new AppError('Unauthorized', 401));
   }
 
+  let userId: string;
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
-    const userId = payload.id || payload.userId;
+    userId = payload.id || payload.userId;
+  } catch (jwtErr) {
+    res.clearCookie('access_token');
+    res.clearCookie('refresh_token');
+    return next(new AppError('Invalid or expired session token', 401));
+  }
 
+  try {
     // Authoritative check: ensure user actually exists in the database
     const dbUser = await prisma.user.findUnique({
       where: { id: userId },
@@ -45,10 +52,18 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
       isSystemAdmin: dbUser.isSystemAdmin || false
     };
     next();
-  } catch (err) {
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
-    next(new AppError('Invalid or expired session token', 401));
+  } catch (dbErr: any) {
+    // Database connection failure should NOT clear auth cookies or be reported as an expired token
+    const isDbUnreachable = 
+      dbErr?.name === 'PrismaClientInitializationError' || 
+      dbErr?.code === 'P1001' || 
+      (typeof dbErr?.message === 'string' && dbErr.message.includes("Can't reach database server"));
+
+    if (isDbUnreachable) {
+      return next(new AppError('Database service is temporarily unavailable. Please try again shortly.', 503));
+    }
+
+    return next(dbErr);
   }
 };
 
