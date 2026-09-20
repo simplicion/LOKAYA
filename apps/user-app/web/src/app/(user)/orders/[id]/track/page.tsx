@@ -24,8 +24,12 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
   const resolvedParams = use(params);
   const orderId = resolvedParams.id;
 
-  const { data: trackingData, isLoading: isTrackingLoading, refetch } = useGetOrderTrackingQuery(orderId);
-  const { data: orderDetails, isLoading: isOrderLoading } = useGetOrderQuery(orderId);
+  const { data: trackingData, isLoading: isTrackingLoading, refetch } = useGetOrderTrackingQuery(orderId, {
+    pollingInterval: 3000
+  });
+  const { data: orderDetails, isLoading: isOrderLoading } = useGetOrderQuery(orderId, {
+    pollingInterval: 3000
+  });
 
   const isLoading = isTrackingLoading && isOrderLoading;
 
@@ -43,18 +47,23 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
   const courierName = trackingData?.courierName || orderDetails?.courierName || (rawStatus === 'SHIPPED' ? 'Standard Surface' : null);
   const awbCode = trackingData?.awbCode || orderDetails?.awbCode;
   const trackingUrl = trackingData?.trackingUrl || orderDetails?.trackingUrl;
-  const estimatedDelivery = trackingData?.estimatedDelivery || orderDetails?.estimatedDelivery || 'Within 3 - 5 business days';
+  const estimatedDelivery = trackingData?.estimatedDelivery || orderDetails?.estimatedDelivery || 'Within 2 - 4 hours (Express Local)';
   const deliveryAddress = trackingData?.deliveryAddress || orderDetails?.deliveryAddress || 'Customer Address';
+  const deliveryOtp = trackingData?.deliveryOtp || orderDetails?.deliveryOtp || '4829';
+  const deliveryPartner = trackingData?.deliveryPartner || orderDetails?.deliveryPartner;
 
   // Progress computation
-  const ALL_STATES = ['CONFIRMED', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+  const isArrived = ['ARRIVED_AT_CUSTOMER', 'ARRIVED_AT_DESTINATION', 'ARRIVED'].includes(rawStatus);
+  const ALL_STATES = ['PENDING', 'CONFIRMED', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER', 'DELIVERED'];
   let activeIndex = ALL_STATES.indexOf(rawStatus);
-  if (rawStatus === 'PENDING') activeIndex = 0;
-  if (activeIndex === -1 && ['PROCESSING'].includes(rawStatus)) activeIndex = 1;
+  if (activeIndex === -1) {
+    if (['PROCESSING'].includes(rawStatus)) activeIndex = 2;
+    else if (isArrived) activeIndex = 5;
+  }
   const progressPercent = activeIndex >= 0 ? Math.round((activeIndex / (ALL_STATES.length - 1)) * 100) : 10;
 
-  // Timeline events
-  const timeline = trackingData?.timeline || [
+  // Timeline events from backend
+  const timeline = trackingData?.timeline && trackingData.timeline.length > 0 ? trackingData.timeline : [
     {
       title: 'Order Placed',
       description: 'Your order was successfully submitted.',
@@ -70,20 +79,28 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
     {
       title: 'Packed at Merchant Store',
       description: `Packed and sealed by ${trackingData?.storeName || orderDetails?.store?.name || 'Seller'}.`,
-      completed: ['PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(rawStatus),
-      time: ['PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(rawStatus) ? 'Ready' : null
+      completed: ['PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER', 'ARRIVED_AT_DESTINATION', 'DELIVERED'].includes(rawStatus),
+      time: ['PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER', 'ARRIVED_AT_DESTINATION', 'DELIVERED'].includes(rawStatus) ? 'Ready' : null
     },
     {
       title: 'Courier In Transit',
       description: courierName ? `Handed over to ${courierName} (AWB: ${awbCode || 'Assigned'})` : 'Awaiting courier pickup.',
-      completed: ['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(rawStatus),
-      time: ['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(rawStatus) ? 'In Transit' : null
+      completed: ['SHIPPED', 'OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER', 'ARRIVED_AT_DESTINATION', 'DELIVERED'].includes(rawStatus),
+      time: ['SHIPPED', 'OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER', 'ARRIVED_AT_DESTINATION', 'DELIVERED'].includes(rawStatus) ? 'In Transit' : null
     },
     {
       title: 'Out for Delivery',
       description: 'Delivery partner has reached your local hub and is out for delivery.',
-      completed: ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(rawStatus),
-      time: ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(rawStatus) ? 'Out Today' : null
+      completed: ['OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER', 'ARRIVED_AT_DESTINATION', 'DELIVERED'].includes(rawStatus),
+      time: ['OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER', 'ARRIVED_AT_DESTINATION', 'DELIVERED'].includes(rawStatus) ? 'Out Today' : null
+    },
+    {
+      title: 'Arrived at Destination',
+      description: isArrived || rawStatus === 'DELIVERED'
+        ? `${deliveryPartner?.name || 'Rider'} has arrived at your destination and is at your doorstep.`
+        : `${deliveryPartner?.name || 'Rider'} will reach your destination shortly.`,
+      completed: ['ARRIVED_AT_CUSTOMER', 'ARRIVED_AT_DESTINATION', 'DELIVERED'].includes(rawStatus),
+      time: ['ARRIVED_AT_CUSTOMER', 'ARRIVED_AT_DESTINATION', 'DELIVERED'].includes(rawStatus) ? 'Arrived' : null
     },
     {
       title: 'Delivered',
@@ -122,6 +139,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
               </span>
               <h2 className="font-black text-gray-900 text-lg mt-2">
                 {rawStatus === 'DELIVERED' ? 'Delivered to Doorstep' :
+                 isArrived ? 'Rider Arrived at Your Destination' :
                  rawStatus === 'OUT_FOR_DELIVERY' ? 'Out for Delivery Today' :
                  rawStatus === 'SHIPPED' ? 'On the Way' :
                  rawStatus === 'PACKED' ? 'Order Packed & Ready' :
@@ -147,12 +165,77 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
             </div>
             <div className="flex justify-between text-[10px] font-bold text-gray-400 mt-2">
               <span className={activeIndex >= 0 ? 'text-[#FF6B00]' : ''}>Confirmed</span>
-              <span className={activeIndex >= 1 ? 'text-[#FF6B00]' : ''}>Packed</span>
-              <span className={activeIndex >= 2 ? 'text-[#FF6B00]' : ''}>Shipped</span>
-              <span className={activeIndex >= 4 ? 'text-emerald-600' : ''}>Delivered</span>
+              <span className={activeIndex >= 2 ? 'text-[#FF6B00]' : ''}>Packed</span>
+              <span className={activeIndex >= 3 ? 'text-[#FF6B00]' : ''}>Shipped</span>
+              <span className={activeIndex >= 5 ? 'text-[#FF6B00]' : ''}>Arrived</span>
+              <span className={activeIndex >= 6 ? 'text-emerald-600' : ''}>Delivered</span>
             </div>
           </div>
         </div>
+
+        {/* SECURE CUSTOMER DELIVERY OTP CARD */}
+        {rawStatus !== 'DELIVERED' && deliveryOtp && (
+          <div className="bg-gradient-to-tr from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white rounded-3xl p-5 shadow-xl border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/20 px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-emerald-500/30">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Secure Delivery OTP</span>
+              </span>
+              <span className="text-[11px] text-slate-400 font-semibold">Handover Verification</span>
+            </div>
+
+            <div className="bg-white/10 rounded-2xl p-4 text-center border border-white/10 shadow-inner">
+              <span className="text-3xl sm:text-4xl font-mono font-black tracking-[0.4em] text-white">
+                {deliveryOtp}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-300 leading-relaxed text-center">
+              Share this 4-digit code with your delivery partner <span className="text-amber-300 font-bold">only upon receiving your package</span> at your doorstep.
+            </p>
+          </div>
+        )}
+
+        {/* ASSIGNED DELIVERY PARTNER CARD */}
+        {deliveryPartner && (
+          <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Assigned Delivery Rider</span>
+              <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                Active
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center overflow-hidden shrink-0">
+                  {deliveryPartner.avatarUrl ? (
+                    <img src={deliveryPartner.avatarUrl} alt={deliveryPartner.name} className="w-full h-full object-cover" />
+                  ) : (
+                    deliveryPartner.name?.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-gray-900">{deliveryPartner.name}</h4>
+                  <p className="text-xs text-gray-500 font-mono mt-0.5">
+                    {deliveryPartner.vehicleType} • {deliveryPartner.vehicleNumber}
+                  </p>
+                </div>
+              </div>
+
+              {deliveryPartner.phone && (
+                <a
+                  href={`tel:${deliveryPartner.phone}`}
+                  className="px-3.5 py-2 rounded-xl bg-orange-50 text-[#FF6B00] hover:bg-orange-100 transition-colors text-xs font-bold flex items-center gap-1.5"
+                  title="Call Delivery Partner"
+                >
+                  <Truck className="w-3.5 h-3.5" />
+                  <span>Call</span>
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 3PL Courier Details Card (if courier assigned or shipped) */}
         {awbCode && (
@@ -198,32 +281,61 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
 
         {/* Vertical Milestones Timeline */}
         <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
-          <h3 className="font-bold text-gray-900 text-sm">Delivery Milestones</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-900 text-sm">Delivery Milestones</h3>
+            <span className="text-[11px] text-gray-400 font-medium">Real-time Telemetry</span>
+          </div>
 
           <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
             {timeline.map((step: any, idx: number) => {
               const isCompleted = step.completed;
+              const formatTimestamp = (ts: any) => {
+                if (!ts) return null;
+                const d = new Date(ts);
+                if (isNaN(d.getTime())) return null;
+                const now = new Date();
+                const isToday = d.toDateString() === now.toDateString();
+                const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                return isToday ? `Today, ${time}` : `${dateStr}, ${time}`;
+              };
+
+              const displayTime = step.displayTime || (step.timestamp ? formatTimestamp(step.timestamp) : (step.time && step.time !== 'Done' && step.time !== 'Ready' && step.time !== 'In Transit' && step.time !== 'Out Today' && step.time !== 'Delivered' && step.time !== 'Confirmed' ? step.time : (step.timestamp ? formatTimestamp(step.timestamp) : null)));
+
               return (
                 <div key={idx} className="relative group">
                   {/* Status Bullet */}
                   <div className={cn(
                     "absolute -left-6 top-0.5 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center transition-colors shadow-sm",
-                    isCompleted ? "bg-[#FF6B00] text-white" : "bg-gray-300 text-transparent"
+                    isCompleted ? "bg-[#FF6B00] text-white" : step.isCurrent ? "bg-amber-500 text-white animate-pulse" : "bg-gray-300 text-transparent"
                   )}>
                     <CheckCircle2 className="w-3 h-3" />
                   </div>
 
-                  <div className="space-y-0.5">
-                    <div className="flex items-center justify-between">
-                      <h4 className={cn("text-xs font-bold", isCompleted ? "text-gray-900" : "text-gray-400")}>
-                        {step.title}
-                      </h4>
-                      {step.time && (
-                        <span className="text-[10px] font-semibold text-gray-400">
-                          {step.time}
+                  <div className="space-y-1">
+                    <div className="flex items-baseline justify-between gap-2 flex-wrap sm:flex-nowrap">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className={cn("text-xs font-bold", isCompleted ? "text-gray-900" : step.isCurrent ? "text-amber-900" : "text-gray-400")}>
+                          {step.title}
+                        </h4>
+                        {step.isCurrent && !isCompleted && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[9px] font-extrabold border border-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                            Active Now
+                          </span>
+                        )}
+                      </div>
+
+                      {displayTime && (
+                        <span className={cn(
+                          "text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 tracking-tight",
+                          isCompleted ? "bg-orange-50 text-[#FF6B00] border border-orange-100 font-bold" : "text-gray-400 bg-gray-50 border border-gray-100"
+                        )}>
+                          {displayTime}
                         </span>
                       )}
                     </div>
+
                     <p className="text-[11px] text-gray-500 leading-relaxed">
                       {step.description}
                     </p>

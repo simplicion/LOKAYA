@@ -17,11 +17,13 @@ import { wishlistRoutes } from '../modules/wishlist/interfaces/wishlist.routes';
 import { adminRouter } from '../modules/admin/interfaces/admin.routes';
 import { supportRoutes } from '../modules/support/interfaces/support.routes';
 import { metaRoutes } from '../modules/common/meta.routes';
+import { deliveryRouter as deliveryRoutes } from '../modules/delivery/interfaces/delivery.routes';
 import { initSocket } from './socket';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { errorHandler } from '../shared/middleware/errorHandler';
+import { warmupDatabase } from '@workspace/db';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -57,6 +59,9 @@ export function startApiServer() {
 
   // Init socket.io
   initSocket(httpServer);
+
+  // Pre-warm database pool
+  warmupDatabase().catch((e) => console.warn('[DB Warmup]:', e.message));
 
   // Allow credentials for cookies
   const configuredOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(s => s.trim()) : [];
@@ -102,6 +107,7 @@ export function startApiServer() {
   app.use('/api/v1/wishlist', wishlistRoutes);
   app.use('/api/v1/support', supportRoutes);
   app.use('/api/v1/admin', adminRouter);
+  app.use('/api/v1/delivery', deliveryRoutes);
   app.use('/api/v1/meta', metaRoutes);
 
   app.get('/health', (req, res) => {
@@ -120,4 +126,5 @@ export function startApiServer() {
   });
 }
 
-// trigger nodemon restart
+// trigger nodemon restart 2
+

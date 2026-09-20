@@ -69,9 +69,11 @@ export default function EditProductClient({ params }: { params: { id: string } }
   const [sku, setSku] = useState('');
   const [mrp, setMrp] = useState<number | ''>('');
   const [price, setPrice] = useState<number | ''>('');
+  const [costPrice, setCostPrice] = useState<number | ''>('');
   const [stock, setStock] = useState<number | ''>('');
   const [isAvailableForDelivery, setIsAvailableForDelivery] = useState(true);
   const [isAvailableForPickup, setIsAvailableForPickup] = useState(true);
+  const [isDeliveryIncluded, setIsDeliveryIncluded] = useState(false);
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
 
   // Initialize from productData
@@ -85,9 +87,11 @@ export default function EditProductClient({ params }: { params: { id: string } }
       setSku(productData.sku || generateStandardSku());
       setMrp(productData.mrp ?? '');
       setPrice(productData.sellingPrice ?? '');
+      setCostPrice(productData.costPrice ?? '');
       setStock(productData.stockCount ?? '');
       setIsAvailableForDelivery(productData.isAvailableForDelivery ?? true);
       setIsAvailableForPickup(productData.isAvailableForPickup ?? true);
+      setIsDeliveryIncluded(productData.isDeliveryIncluded ?? false);
 
       // Handle media list
       let initialMedia: MediaItem[] = [];
@@ -198,12 +202,15 @@ export default function EditProductClient({ params }: { params: { id: string } }
     setMediaList(filtered);
   };
 
-  // Discount calculation
+  // Discount and Profit Margin calculation
   const numericMrp = Number(mrp) || 0;
   const numericPrice = Number(price) || 0;
+  const numericCostPrice = costPrice !== '' ? Number(costPrice) : undefined;
   const discountPercent = numericMrp > 0 && numericPrice > 0 && numericMrp > numericPrice
     ? Math.round(((numericMrp - numericPrice) / numericMrp) * 100)
     : 0;
+  const estProfitMargin = numericCostPrice !== undefined ? Math.max(0, numericPrice - numericCostPrice) : (numericPrice > 0 ? numericPrice * 0.20 : 0);
+  const platformFeeFromMargin = Math.round(estProfitMargin * 0.05 * 100) / 100;
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -232,10 +239,12 @@ export default function EditProductClient({ params }: { params: { id: string } }
         sku: sku.trim() || undefined,
         mrp: numericMrp,
         sellingPrice: numericPrice,
+        costPrice: costPrice !== '' ? Number(costPrice) : undefined,
         stockCount: Number(stock) || 0,
         imageUrl: primaryMedia?.url || null,
         isAvailableForDelivery,
         isAvailableForPickup,
+        isDeliveryIncluded,
         media: mediaList.map((m, idx) => ({
           url: m.url,
           type: m.type || 'IMAGE',
@@ -587,18 +596,7 @@ export default function EditProductClient({ params }: { params: { id: string } }
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">MRP ({currencySymbol})</label>
-              <input 
-                type="number" 
-                value={mrp}
-                onChange={(e) => setMrp(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="2000"
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
-              />
-            </div>
-
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
                 Selling Price ({currencySymbol}) <span className="text-red-500">*</span>
@@ -611,7 +609,49 @@ export default function EditProductClient({ params }: { params: { id: string } }
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#FF5A36] focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
               />
             </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Cost Price ({currencySymbol})
+              </label>
+              <input 
+                type="number" 
+                value={costPrice}
+                onChange={(e) => setCostPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="1000"
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">For 5% profit margin fee</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">MRP ({currencySymbol})</label>
+              <input 
+                type="number" 
+                value={mrp}
+                onChange={(e) => setMrp(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="2000"
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
+              />
+            </div>
           </div>
+
+          {/* Profit Margin & Platform Commission Tooltip Card */}
+          {numericPrice > 0 && (
+            <div className="p-3 bg-orange-50/70 border border-orange-200 rounded-xl flex items-center justify-between text-xs">
+              <div>
+                <span className="font-bold text-gray-800">Est. Merchant Margin: </span>
+                <span className="font-extrabold text-emerald-600">
+                  {currencySymbol}{estProfitMargin.toFixed(2)}
+                </span>
+                {costPrice === '' && <span className="text-[10px] text-gray-500 ml-1">(assumed 20%)</span>}
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-semibold text-gray-500">Platform Cut (5% Margin): </span>
+                <span className="font-bold text-[#FF5A36]">{currencySymbol}{platformFeeFromMargin.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
 
           {/* Stock Count */}
           <div>
@@ -667,6 +707,22 @@ export default function EditProductClient({ params }: { params: { id: string } }
                 <span className="text-[10px] opacity-80">Counter collection</span>
               </div>
             </button>
+          </div>
+
+          {/* Free Delivery Toggle */}
+          <div className="pt-2 border-t border-gray-100">
+            <label className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-200 cursor-pointer">
+              <div>
+                <p className="font-bold text-xs text-gray-900">Free Delivery by Store</p>
+                <p className="text-[11px] text-gray-500">Store covers the shipping cost for the customer</p>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={isDeliveryIncluded}
+                onChange={(e) => setIsDeliveryIncluded(e.target.checked)}
+                className="w-4 h-4 accent-[#FF5A36] rounded cursor-pointer" 
+              />
+            </label>
           </div>
         </div>
 

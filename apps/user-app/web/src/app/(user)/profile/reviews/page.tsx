@@ -29,7 +29,7 @@ export default function MyReviewsPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-[#FAF9F6] pb-24">
+    <div className="flex flex-col min-h-[100dvh] bg-[#FAF9F6] pb-24 max-w-md mx-auto relative shadow-2xl">
       {/* Header */}
       <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-4 py-3.5 border-b border-[#E5E2DC] flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2.5">
@@ -74,6 +74,11 @@ export default function MyReviewsPage() {
               const store = product?.store || r.store;
               const prodImg = product?.imageUrl ? getMediaUrl(product.imageUrl) : null;
 
+              const rawPrice = product?.sellingPrice ?? product?.price;
+              const numPrice = typeof rawPrice === 'number' 
+                ? rawPrice 
+                : parseFloat(String(rawPrice || '0').replace(/[^0-9.-]+/g, ''));
+
               return (
                 <div key={r.id} className="bg-white rounded-3xl p-5 border border-[#E5E2DC] shadow-xs space-y-3.5">
                   {/* Product Header */}
@@ -107,9 +112,9 @@ export default function MyReviewsPage() {
                         </p>
                       )}
 
-                      {product?.price && (
+                      {numPrice > 0 && (
                         <div className="font-bold text-xs text-[#171717] mt-1">
-                          {formatPrice(product.price)}
+                          {formatPrice(numPrice)}
                         </div>
                       )}
                     </div>

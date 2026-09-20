@@ -3,6 +3,17 @@ import { AppError } from '../../../shared/errors/AppError';
 
 export class SellerService {
   async onboardStore(userId: string, data: any) {
+    // Role Exclusivity Check: Single Operational Role Rule
+    const existingDeliveryPartner = await prisma.deliveryPartner.findUnique({
+      where: { userId }
+    });
+    if (existingDeliveryPartner) {
+      throw new AppError(
+        'You are already registered as a Delivery Partner. Under Lokaya single-role policy, please use a separate account to create a Seller store.',
+        400
+      );
+    }
+
     // Check if user already has a pending or verified store
     const existingStoreUser = await prisma.storeUser.findFirst({
       where: { userId },

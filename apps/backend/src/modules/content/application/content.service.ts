@@ -3,6 +3,7 @@ import { AppError } from '../../../shared/errors/AppError';
 import { S3Service } from '../infrastructure/s3.service';
 import { processMediaJob } from '../../media/application/media-worker.service';
 import { redisClient } from '../../../shared/services/redis.service';
+import { MemoryCacheService } from '../../../shared/services/memory-cache.service';
 
 export class ContentService {
   
@@ -49,6 +50,9 @@ export class ContentService {
 
   static async invalidateFeedCaches(prefix: string) {
     try {
+      MemoryCacheService.invalidatePrefix('posts:');
+      MemoryCacheService.invalidatePrefix('reels:');
+      MemoryCacheService.invalidatePrefix('stories:');
       const keys = await redisClient.keys(prefix);
       if (keys.length > 0) {
         await redisClient.del(...keys);
@@ -239,7 +243,15 @@ export class ContentService {
   }
 
   static async getPosts(page = 1, limit = 10, viewerId?: string) {
-    // Check Redis cache for public requests (sub-millisecond retrieval under high concurrency)
+    if (!viewerId) {
+      return await MemoryCacheService.getOrSet(`posts:page:${page}:limit:${limit}`, async () => {
+        return await this.fetchPosts(page, limit);
+      }, 60);
+    }
+    return await this.fetchPosts(page, limit, viewerId);
+  }
+
+  private static async fetchPosts(page = 1, limit = 10, viewerId?: string) {
     const cacheKey = !viewerId ? `cache:posts:page:${page}:limit:${limit}` : null;
     if (cacheKey) {
       try {
@@ -502,6 +514,15 @@ export class ContentService {
   }
 
   static async getReels(page = 1, limit = 10, viewerId?: string) {
+    if (!viewerId) {
+      return await MemoryCacheService.getOrSet(`reels:page:${page}:limit:${limit}`, async () => {
+        return await this.fetchReels(page, limit);
+      }, 60);
+    }
+    return await this.fetchReels(page, limit, viewerId);
+  }
+
+  private static async fetchReels(page = 1, limit = 10, viewerId?: string) {
     const cacheKey = !viewerId ? `cache:reels:page:${page}:limit:${limit}` : null;
     if (cacheKey) {
       try {

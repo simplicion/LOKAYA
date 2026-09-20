@@ -14,13 +14,25 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.prisma = void 0;
+exports.warmupDatabase = exports.prisma = void 0;
 const client_1 = require("./prisma/client");
 const globalForPrisma = globalThis;
+const isProd = process.env.NODE_ENV === 'production';
 exports.prisma = globalForPrisma.prisma ??
     new client_1.PrismaClient({
-        log: ['query', 'error', 'warn'],
+        log: isProd ? ['error', 'warn'] : ['error', 'warn'],
     });
-if (process.env.NODE_ENV !== 'production')
+if (!isProd)
     globalForPrisma.prisma = exports.prisma;
+
+async function warmupDatabase() {
+    try {
+        await exports.prisma.$connect();
+        console.log('[Database] Connection pool warmed up and ready.');
+    } catch (err) {
+        console.warn('[Database] Warmup notice:', err.message);
+    }
+}
+exports.warmupDatabase = warmupDatabase;
+
 __exportStar(require("./prisma/client"), exports);

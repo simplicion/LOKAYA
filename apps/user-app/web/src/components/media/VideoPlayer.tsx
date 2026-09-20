@@ -86,9 +86,9 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
           backBufferLength: 4,
           maxBufferLength: 8,
           maxMaxBufferLength: 14,
-          startFragPrefetch: true,
+          startFragPrefetch: false,
           progressive: true,
-          autoStartLoad: true,
+          autoStartLoad: isActive,
         });
 
         hlsRef.current = hls;
@@ -146,10 +146,16 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
     if (!video) return;
 
     if (isActive) {
+      if (hlsRef.current) {
+        hlsRef.current.startLoad();
+      }
       if (video.paused && autoPlay) {
         video.play().catch(() => {});
       }
     } else {
+      if (hlsRef.current) {
+        hlsRef.current.stopLoad();
+      }
       if (!video.paused) {
         video.pause();
       }

@@ -94,6 +94,7 @@ router.get('/products', async (req: Request, res: Response, next: NextFunction) 
       sort: sort as string,
       limit: limit ? parseInt(limit as string) : 50
     });
+    res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
     res.status(200).json(products);
   } catch (error) {
     next(error);
@@ -105,6 +106,9 @@ router.get('/store/:storeId/products', async (req: Request, res: Response, next:
   try {
     const isOwner = req.query.isOwner === 'true';
     const products = await CatalogService.getProductsByStore(req.params.storeId, isOwner);
+    if (!isOwner) {
+      res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
+    }
     res.status(200).json(products);
   } catch (error) {
     next(error);
@@ -147,6 +151,7 @@ router.get('/products/batch', async (req: Request, res: Response, next: NextFunc
 router.get('/products/:productId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const product = await CatalogService.getProductById(req.params.productId);
+    res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
     res.status(200).json(product);
   } catch (error) {
     next(error);

@@ -29,11 +29,13 @@ const productFormSchema = z.object({
   sku: z.string().optional(),
   mrp: z.coerce.number().min(0).optional(),
   sellingPrice: z.coerce.number().min(0).optional(),
+  costPrice: z.coerce.number().min(0).optional(),
   stockCount: z.coerce.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
   hasVariants: z.boolean().optional(),
   isAvailableForDelivery: z.boolean().optional(),
   isAvailableForPickup: z.boolean().optional(),
+  isDeliveryIncluded: z.boolean().optional(),
   variants: z.array(variantSchema).optional(),
   media: z.array(z.object({
     url: z.string().min(1, 'Media URL is required'),
@@ -512,9 +514,9 @@ export default function ManualAddProductPage() {
 
             {!watch('hasVariants') ? (
               <>
-                <div className="flex gap-4">
-                  <div className="flex-1 space-y-1.5">
-                    <label className="text-sm font-semibold text-gray-700">Selling Price ({currencySymbol})</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700">Selling Price ({currencySymbol}) *</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
                       <input 
@@ -526,7 +528,22 @@ export default function ManualAddProductPage() {
                     </div>
                     {errors.sellingPrice && <span className="text-xs text-red-500">{errors.sellingPrice.message}</span>}
                   </div>
-                  <div className="flex-1 space-y-1.5">
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700">Cost Price ({currencySymbol})</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
+                      <input 
+                        {...register('costPrice')}
+                        type="number" 
+                        placeholder="0.00"
+                        className="w-full pl-8 p-3.5 bg-white border border-[#E5E2DC] rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-sm" 
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-400">Used for 5% margin commission</p>
+                  </div>
+
+                  <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-gray-700">MRP ({currencySymbol})</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
@@ -608,9 +625,28 @@ export default function ManualAddProductPage() {
               </div>
             )}
             
-            <div className="pt-2 border-t border-[#E5E2DC] mt-4">
-              <h3 className="font-semibold text-brand-navy mb-3">Fulfillment Options</h3>
-              <label className="flex items-center justify-between bg-white p-4 rounded-xl border border-[#E5E2DC] mb-3">
+            <div className="pt-2 border-t border-[#E5E2DC] mt-4 space-y-3">
+              <h3 className="font-semibold text-brand-navy">Fulfillment Options</h3>
+
+              {/* Free Delivery Toggle */}
+              <label className="flex items-center justify-between bg-white p-4 rounded-xl border border-[#E5E2DC]">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-sm text-gray-900">Free Delivery Included</p>
+                    <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                      Free Shipping
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">Offer free shipping to buyers (delivery fee fulfilled by store)</p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  {...register('isDeliveryIncluded')}
+                  className="w-5 h-5 accent-brand-orange" 
+                />
+              </label>
+
+              <label className="flex items-center justify-between bg-white p-4 rounded-xl border border-[#E5E2DC]">
                 <div>
                   <p className="font-semibold text-sm text-gray-900">Available for Delivery</p>
                   <p className="text-xs text-gray-500">Customers can order this online</p>
@@ -621,6 +657,7 @@ export default function ManualAddProductPage() {
                   className="w-5 h-5 accent-brand-orange" 
                 />
               </label>
+
               <label className="flex items-center justify-between bg-white p-4 rounded-xl border border-[#E5E2DC]">
                 <div>
                   <p className="font-semibold text-sm text-gray-900">Available for Store Pickup</p>

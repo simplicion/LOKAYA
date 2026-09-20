@@ -82,13 +82,23 @@ export default function OrdersPage() {
             ))}
           </div>
 
-          <button
-            onClick={() => router.push('/seller/orders/manual')}
-            className="px-3.5 py-1.5 rounded-full bg-[#171717] hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-sm transition-transform active:scale-95"
-          >
-            <PlusCircle className="w-3.5 h-3.5 text-[#FF5A36]" />
-            <span>Book Manual Order</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => router.push('/seller/dispatch')}
+              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#FF5A36] to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+            >
+              <Truck className="w-3.5 h-3.5" />
+              <span>Batch Dispatch Hub</span>
+            </button>
+
+            <button
+              onClick={() => router.push('/seller/orders/manual')}
+              className="px-3.5 py-1.5 rounded-full bg-[#171717] hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+            >
+              <PlusCircle className="w-3.5 h-3.5 text-[#FF5A36]" />
+              <span>POS Order</span>
+            </button>
+          </div>
         </div>
       </div>
 

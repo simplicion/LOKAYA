@@ -358,12 +358,6 @@ export default function CartPage() {
   const totalAmount = Math.max(0, subtotal - couponDiscount + deliveryCharges);
   const totalSaved = discountAmount + couponDiscount + (isFreeDelivery ? 49 : 0);
 
-  // Popular Promo Codes for 1-Tap Apply
-  const curatedCoupons = [
-    { code: 'FIRST50', title: '50% OFF', desc: 'First time buyer special' },
-    { code: 'ARTISAN20', title: `${formatPrice(200)} FLAT OFF`, desc: `On orders above ${formatPrice(999)}` },
-    { code: 'FESTIVE10', title: '10% OFF', desc: 'Instant sitewide savings' },
-  ];
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FAF9F6] pb-32">
@@ -597,33 +591,6 @@ export default function CartPage() {
                     {isApplyingCoupon ? '...' : 'Apply'}
                   </button>
                 </form>
-
-                {/* Curated 1-Tap Promo Chips */}
-                <div className="space-y-1.5 pt-1">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                    Available Offers
-                  </span>
-                  <div className="grid grid-cols-1 gap-1.5">
-                    {curatedCoupons.map((c) => (
-                      <div 
-                        key={c.code}
-                        className="flex items-center justify-between p-2.5 bg-[#FAF9F6] border border-[#E5E2DC] rounded-xl text-xs hover:border-[#FF5A36]/40 transition-colors"
-                      >
-                        <div>
-                          <span className="font-mono font-extrabold text-[#171717] text-[11px] block">{c.code}</span>
-                          <span className="text-[10px] text-[#6B6B6B]">{c.desc}</span>
-                        </div>
-                        <button
-                          onClick={() => handleApplyCoupon(c.code)}
-                          disabled={isApplyingCoupon}
-                          className="text-[#FF5A36] font-extrabold text-xs hover:underline shrink-0"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
           </div>

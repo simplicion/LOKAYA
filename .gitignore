@@ -11,3 +11,5 @@ build/
 .next/
 *.log
 packages/db/prisma/client/
+scratch/
+scripts/ssm-params.json

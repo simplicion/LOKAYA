@@ -50,9 +50,87 @@ async function executeRemote(commands) {
 
 async function main() {
   await executeRemote([
-    'sudo nginx -t',
-    'LANG=C sudo systemctl is-active nginx',
-    'curl -i -H "Host: api.lokaya.shop" http://127.0.0.1/health'
+    // 1. Generate self-signed cert for EC2 origin
+    'sudo mkdir -p /etc/nginx/ssl',
+    'sudo openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout /etc/nginx/ssl/selfsigned.key -out /etc/nginx/ssl/selfsigned.crt -subj "/CN=lokaya.shop"',
+    // 2. Configure Nginx for both 80 and 443
+    `cat << 'NGINX_CONF' | sudo tee /etc/nginx/sites-available/lokaya
+# User Application: lokaya.shop & www.lokaya.shop
+server {
+    listen 80;
+    listen 443 ssl;
+    server_name lokaya.shop www.lokaya.shop;
+
+    ssl_certificate /etc/nginx/ssl/selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3101;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# Admin Portal: admin.lokaya.shop
+server {
+    listen 80;
+    listen 443 ssl;
+    server_name admin.lokaya.shop;
+
+    ssl_certificate /etc/nginx/ssl/selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3102;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# Backend API: api.lokaya.shop
+server {
+    listen 80;
+    listen 443 ssl;
+    server_name api.lokaya.shop;
+
+    ssl_certificate /etc/nginx/ssl/selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
+
+    client_max_body_size 100M;
+
+    location / {
+        proxy_pass http://127.0.0.1:4002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+}
+NGINX_CONF`,
+    'sudo systemctl daemon-reload && sudo systemctl restart nginx',
+    'sleep 2',
+    'curl -k -i -H "Host: lokaya.shop" https://127.0.0.1/ | head -n 15',
+    'curl -k -i -H "Host: admin.lokaya.shop" https://127.0.0.1/ | head -n 15',
+    'curl -k -i -H "Host: api.lokaya.shop" https://127.0.0.1/health'
   ]);
 }
 

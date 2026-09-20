@@ -16,8 +16,6 @@ export function MobileTopNav() {
   const user = useSelector((state: RootState) => state.auth.user);
   const cart = useSelector((state: RootState) => state.cart);
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
-  const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
-
   // Hide TopNav on these routes (they have their own headers or are full screen)
   const hideOnRoutes = [
     '/checkout',
@@ -36,6 +34,9 @@ export function MobileTopNav() {
     '/home/order'
   ];
   const shouldHide = hideOnRoutes.some(route => pathname === route || pathname?.startsWith(route));
+
+  // Only query store when top navigation is actually visible to prevent leaking queries into checkout/cart
+  const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user || shouldHide });
 
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);

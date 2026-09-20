@@ -1,5 +1,6 @@
 import { prisma } from '@workspace/db';
 import { AppError } from '../../../shared/errors/AppError';
+import { MemoryCacheService } from '../../../shared/services/memory-cache.service';
 import crypto from 'crypto';
 
 export class CatalogService {
@@ -14,7 +15,7 @@ export class CatalogService {
       throw new AppError('Store not found', 404);
     }
 
-    return await prisma.category.create({
+    const category = await prisma.category.create({
       data: {
         storeId: data.storeId,
         name: data.name,
@@ -24,6 +25,8 @@ export class CatalogService {
         isActive: data.isActive !== undefined ? Boolean(data.isActive) : true
       }
     });
+    MemoryCacheService.invalidatePrefix('store:categories:');
+    return category;
   }
 
   static async updateCategory(id: string, data: any) {
@@ -32,10 +35,12 @@ export class CatalogService {
       throw new AppError('Category not found', 404);
     }
 
-    return await prisma.category.update({
+    const updated = await prisma.category.update({
       where: { id },
       data
     });
+    MemoryCacheService.invalidatePrefix('store:categories:');
+    return updated;
   }
 
   static async deleteCategory(id: string) {
@@ -54,14 +59,17 @@ export class CatalogService {
     }
 
     await prisma.category.delete({ where: { id } });
+    MemoryCacheService.invalidatePrefix('store:categories:');
     return { success: true };
   }
 
   static async getCategoriesByStore(storeId: string) {
-    return await prisma.category.findMany({
-      where: { storeId },
-      orderBy: { displayOrder: 'asc' }
-    });
+    return await MemoryCacheService.getOrSet(`store:categories:${storeId}`, async () => {
+      return await prisma.category.findMany({
+        where: { storeId },
+        orderBy: { displayOrder: 'asc' }
+      });
+    }, 600);
   }
 
   // ==========================================
@@ -140,6 +148,8 @@ export class CatalogService {
       hasVariants: Boolean(data.hasVariants),
       isAvailableForDelivery: data.isAvailableForDelivery ?? true,
       isAvailableForPickup: data.isAvailableForPickup ?? true,
+      isDeliveryIncluded: data.isDeliveryIncluded !== undefined ? Boolean(data.isDeliveryIncluded) : false,
+      costPrice: data.costPrice !== undefined ? Number(data.costPrice) : 0,
       processingTime: data.processingTime || null,
       // Verification Center
       isVerified: false,
@@ -194,6 +204,9 @@ export class CatalogService {
       }
     }
 
+    MemoryCacheService.invalidatePrefix(`store:products:${data.storeId}`);
+    MemoryCacheService.invalidatePrefix('catalog:products:');
+
     return await prisma.product.findUnique({
       where: { id: product.id },
       include: { variants: true, media: true, categoryModel: true }
@@ -245,6 +258,8 @@ export class CatalogService {
       ...(rawUpdateData.stockCount !== undefined ? { stockCount: Number(rawUpdateData.stockCount) } : {}),
       ...(rawUpdateData.isAvailableForDelivery !== undefined ? { isAvailableForDelivery: Boolean(rawUpdateData.isAvailableForDelivery) } : {}),
       ...(rawUpdateData.isAvailableForPickup !== undefined ? { isAvailableForPickup: Boolean(rawUpdateData.isAvailableForPickup) } : {}),
+      ...(rawUpdateData.isDeliveryIncluded !== undefined ? { isDeliveryIncluded: Boolean(rawUpdateData.isDeliveryIncluded) } : {}),
+      ...(rawUpdateData.costPrice !== undefined ? { costPrice: Number(rawUpdateData.costPrice) } : {}),
       // Any seller edit resets verification to PENDING
       isVerified: false,
       verificationStatus: 'PENDING',
@@ -325,6 +340,10 @@ export class CatalogService {
       }
     }
 
+    MemoryCacheService.invalidateKey(`product:${id}`);
+    MemoryCacheService.invalidatePrefix(`store:products:${product.storeId}`);
+    MemoryCacheService.invalidatePrefix('catalog:products:');
+
     return await prisma.product.findUnique({
       where: { id },
       include: { variants: true, media: true, categoryModel: true }
@@ -332,19 +351,42 @@ export class CatalogService {
   }
 
   static async getProductsByStore(storeId: string, isOwner: boolean = false) {
-    const where: any = { storeId, status: { not: 'ARCHIVED' } };
-    if (!isOwner) {
-      where.OR = [
-        { isVerified: true },
-        { verificationStatus: 'APPROVED' }
-      ];
-    }
+    const cacheKey = `store:products:${storeId}:${isOwner}`;
+    return await MemoryCacheService.getOrSet(cacheKey, async () => {
+      const where: any = { storeId, status: { not: 'ARCHIVED' } };
+      if (!isOwner) {
+        where.OR = [
+          { isVerified: true },
+          { verificationStatus: 'APPROVED' }
+        ];
+      }
 
-    return await prisma.product.findMany({
-      where,
-      include: { variants: true, media: true, categoryModel: true },
-      orderBy: { createdAt: 'desc' }
-    });
+      const products = await prisma.product.findMany({
+        where,
+        include: {
+          variants: true,
+          media: true,
+          categoryModel: true,
+          reviews: {
+            select: { rating: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      return products.map((prod: any) => {
+        const avgRating = prod.reviews?.length > 0
+          ? Number((prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length).toFixed(1))
+          : null;
+
+        return {
+          ...prod,
+          rating: avgRating,
+          reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
+          reviewsCount: prod.reviews?.length || 0,
+        };
+      });
+    }, 180);
   }
 
   static async getProductByQr(qrUuid: string) {
@@ -373,41 +415,69 @@ export class CatalogService {
   }
 
   static async getProductById(id: string) {
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        store: true,
-        variants: true,
-        media: {
-          orderBy: { displayOrder: 'asc' }
-        },
-        categoryModel: true,
-        reviews: {
-          take: 10,
-          orderBy: { createdAt: 'desc' }
-        },
-        orderItems: {
-          take: 10,
-          orderBy: { id: 'desc' },
-          include: {
-            order: {
-              select: { id: true, createdAt: true, buyer: { select: { name: true } } }
-            }
-          }
-        }
-      }
-    });
-
-    if (!product) {
+    const cached = MemoryCacheService.get<any>(`product:${id}`);
+    if (cached?.__notFound) {
       throw new AppError('Product not found', 404);
     }
 
-    return product;
+    return await MemoryCacheService.getOrSet(`product:${id}`, async () => {
+      const product = await prisma.product.findUnique({
+        where: { id },
+        include: {
+          store: true,
+          variants: true,
+          media: {
+            orderBy: { displayOrder: 'asc' }
+          },
+          categoryModel: true,
+          reviews: {
+            take: 50,
+            orderBy: { createdAt: 'desc' },
+            include: {
+              user: {
+                select: { id: true, name: true, avatarUrl: true }
+              }
+            }
+          }
+        }
+      });
+
+      if (!product) {
+        MemoryCacheService.set(`product:${id}`, { __notFound: true }, 60);
+        throw new AppError('Product not found', 404);
+      }
+
+      const reviews = (product as any).reviews || [];
+      const reviewsCount = reviews.length;
+      const avgRating = reviewsCount > 0
+        ? Number((reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / reviewsCount).toFixed(1))
+        : 0;
+
+      const ratingDistribution = {
+        5: reviews.filter((r: any) => r.rating === 5).length,
+        4: reviews.filter((r: any) => r.rating === 4).length,
+        3: reviews.filter((r: any) => r.rating === 3).length,
+        2: reviews.filter((r: any) => r.rating === 2).length,
+        1: reviews.filter((r: any) => r.rating === 1).length,
+      };
+
+      return {
+        ...product,
+        rating: avgRating > 0 ? avgRating : 0,
+        avgRating: avgRating > 0 ? avgRating : 0,
+        reviewsCount,
+        ratingDistribution
+      };
+    }, 300);
   }
 
   static async deleteProduct(id: string) {
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) throw new AppError('Product not found', 404);
+
+    MemoryCacheService.invalidateKey(`product:${id}`);
+    MemoryCacheService.invalidatePrefix(`store:products:${product.storeId}`);
+    MemoryCacheService.invalidatePrefix('catalog:products:');
 
     // Soft delete
     return await prisma.product.update({
@@ -420,93 +490,96 @@ export class CatalogService {
   }
 
   static async getAllProducts(query?: { category?: string; search?: string; sort?: string; limit?: number }) {
-    const where: any = {
-      isActive: true,
-      status: { not: 'ARCHIVED' },
-      OR: [
-        { isVerified: true },
-        { verificationStatus: 'APPROVED' }
-      ]
-    };
+    const cacheKey = `catalog:products:${query?.category || 'all'}:${query?.search || ''}:${query?.sort || 'default'}:${query?.limit || 50}`;
+    return await MemoryCacheService.getOrSet(cacheKey, async () => {
+      const where: any = {
+        isActive: true,
+        status: { not: 'ARCHIVED' },
+        OR: [
+          { isVerified: true },
+          { verificationStatus: 'APPROVED' }
+        ]
+      };
 
-    if (query?.category && query.category !== 'all') {
-      where.OR = [
-        { category: { contains: query.category, mode: 'insensitive' } },
-        { categoryModel: { name: { contains: query.category, mode: 'insensitive' } } }
-      ];
-    }
+      if (query?.category && query.category !== 'all') {
+        where.OR = [
+          { category: { contains: query.category, mode: 'insensitive' } },
+          { categoryModel: { name: { contains: query.category, mode: 'insensitive' } } }
+        ];
+      }
 
-    if (query?.search && query.search.trim().length > 0) {
-      const searchTerms = query.search.trim();
-      where.OR = [
-        { name: { contains: searchTerms, mode: 'insensitive' } },
-        { description: { contains: searchTerms, mode: 'insensitive' } },
-        { brand: { contains: searchTerms, mode: 'insensitive' } }
-      ];
-    }
+      if (query?.search && query.search.trim().length > 0) {
+        const searchTerms = query.search.trim();
+        where.OR = [
+          { name: { contains: searchTerms, mode: 'insensitive' } },
+          { description: { contains: searchTerms, mode: 'insensitive' } },
+          { brand: { contains: searchTerms, mode: 'insensitive' } }
+        ];
+      }
 
-    let orderBy: any = { createdAt: 'desc' };
-    if (query?.sort === 'price_asc') orderBy = { sellingPrice: 'asc' };
-    if (query?.sort === 'price_desc') orderBy = { sellingPrice: 'desc' };
+      let orderBy: any = { createdAt: 'desc' };
+      if (query?.sort === 'price_asc') orderBy = { sellingPrice: 'asc' };
+      if (query?.sort === 'price_desc') orderBy = { sellingPrice: 'desc' };
 
-    const products = await prisma.product.findMany({
-      where,
-      include: {
-        store: {
-          select: {
-            id: true,
-            name: true,
-            status: true,
-            logoUrl: true
+      const products = await prisma.product.findMany({
+        where,
+        include: {
+          store: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              logoUrl: true
+            }
+          },
+          media: {
+            orderBy: { displayOrder: 'asc' }
+          },
+          reviews: {
+            select: { rating: true }
           }
         },
-        media: {
-          orderBy: { displayOrder: 'asc' }
-        },
-        reviews: {
-          select: { rating: true }
-        }
-      },
-      orderBy,
-      take: query?.limit ? Number(query.limit) : 50
-    });
+        orderBy,
+        take: query?.limit ? Number(query.limit) : 50
+      });
 
-    return products.map((prod: any) => {
-      const avgRating = prod.reviews?.length > 0
-        ? prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length
-        : 0;
+      return products.map((prod: any) => {
+        const avgRating = prod.reviews?.length > 0
+          ? prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length
+          : 0;
 
-      const primaryImage = prod.media?.[0]?.url || prod.imageUrl || '';
-      const price = prod.sellingPrice ?? 0;
-      const mrp = prod.mrp && prod.mrp > price ? prod.mrp : undefined;
-      const discountLabel = mrp ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
+        const primaryImage = prod.media?.[0]?.url || prod.imageUrl || '';
+        const price = prod.sellingPrice ?? 0;
+        const mrp = prod.mrp && prod.mrp > price ? prod.mrp : undefined;
+        const discountLabel = mrp ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
 
-      return {
-        id: prod.id,
-        title: prod.name,
-        name: prod.name,
-        description: prod.description,
-        image: primaryImage,
-        primaryImage,
-        images: prod.media?.map((m: any) => m.url) || (prod.imageUrl ? [prod.imageUrl] : []),
-        price: price.toLocaleString('en-IN'),
-        sellingPrice: price,
-        originalPrice: mrp ? mrp.toLocaleString('en-IN') : undefined,
-        mrp: mrp,
-        discount: discountLabel,
-        discountLabel: discountLabel,
-        store: {
-          id: prod.store?.id || '',
-          name: prod.store?.name || 'Lokaya Store',
-          isVerified: prod.store?.status === 'VERIFIED',
-          logoUrl: prod.store?.logoUrl
-        },
-        rating: avgRating > 0 ? avgRating.toFixed(1) : null,
-        reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
-        reviewsCount: prod.reviews?.length || 0,
-        category: prod.category
-      };
-    });
+        return {
+          id: prod.id,
+          title: prod.name,
+          name: prod.name,
+          description: prod.description,
+          image: primaryImage,
+          primaryImage,
+          images: prod.media?.map((m: any) => m.url) || (prod.imageUrl ? [prod.imageUrl] : []),
+          price: price.toLocaleString('en-IN'),
+          sellingPrice: price,
+          originalPrice: mrp ? mrp.toLocaleString('en-IN') : undefined,
+          mrp: mrp,
+          discount: discountLabel,
+          discountLabel: discountLabel,
+          store: {
+            id: prod.store?.id || '',
+            name: prod.store?.name || 'Lokaya Store',
+            isVerified: prod.store?.status === 'VERIFIED',
+            logoUrl: prod.store?.logoUrl
+          },
+          rating: avgRating > 0 ? avgRating.toFixed(1) : null,
+          reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
+          reviewsCount: prod.reviews?.length || 0,
+          category: prod.category
+        };
+      });
+    }, 120);
   }
 
   static async getProductsByIds(ids: string[]) {
@@ -628,7 +701,7 @@ export class CatalogService {
       });
     }
 
-    return await prisma.review.create({
+    const createdReview = await prisma.review.create({
       data: {
         userId,
         productId,
@@ -643,6 +716,9 @@ export class CatalogService {
         store: true
       }
     });
+
+    MemoryCacheService.invalidateKey(`product:${productId}`);
+    return createdReview;
   }
 
   static async getUserReviews(userId: string) {
@@ -669,9 +745,9 @@ export class CatalogService {
       product: r.product ? {
         id: r.product.id,
         name: r.product.name,
-        imageUrl: r.product.media?.[0]?.url || r.product.imageUrl || '',
-        sellingPrice: r.product.sellingPrice,
-        price: r.product.sellingPrice ? r.product.sellingPrice.toLocaleString('en-IN') : '0',
+        imageUrl: r.product.media?.find((m: any) => m.isPrimary)?.url || r.product.media?.find((m: any) => m.type === 'IMAGE')?.url || r.product.media?.[0]?.url || r.product.imageUrl || '',
+        sellingPrice: r.product.sellingPrice || 0,
+        price: r.product.sellingPrice || 0,
         store: r.product.store ? {
           id: r.product.store.id,
           name: r.product.store.name,
@@ -702,6 +778,10 @@ export class CatalogService {
     await prisma.review.delete({
       where: { id: reviewId }
     });
+
+    if (review.productId) {
+      MemoryCacheService.invalidateKey(`product:${review.productId}`);
+    }
 
     return { success: true, message: 'Review deleted successfully' };
   }

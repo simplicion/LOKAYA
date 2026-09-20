@@ -2,7 +2,7 @@
 
 import React, { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Headphones, Loader2, Users, Truck, CreditCard, Banknote, Tag } from 'lucide-react';
+import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Headphones, Loader2, Users, Truck, CreditCard, Banknote, Tag, Bike } from 'lucide-react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
@@ -11,7 +11,9 @@ import {
   useGetStoreProductsQuery, 
   useGetStoreCategoriesQuery,
   useGetStoreFollowStatusQuery,
-  useFollowStoreMutation
+  useFollowStoreMutation,
+  useGetDeliveryProfileQuery,
+  useSendStorePartnerRequestMutation
 } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -41,6 +43,17 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const { data: categories = [], isLoading: isCategoriesLoading } = useGetStoreCategoriesQuery(storeId, {
     skip: !storeId
   });
+  const { data: deliveryProfile } = useGetDeliveryProfileQuery();
+  const [sendPartnerRequest, { isLoading: isPartnering }] = useSendStorePartnerRequestMutation();
+
+  const handlePartnerRequest = async () => {
+    try {
+      await sendPartnerRequest({ storeId }).unwrap();
+      toast.success('Partner request sent to store owner!');
+    } catch (err: any) {
+      toast.error(err?.data?.message || 'Failed to send partner request');
+    }
+  };
 
   const activeFollowing = isFollowing !== null ? isFollowing : (followData?.following ?? false);
   const currentFollowersCount = Math.max(0, (followData?.followersCount ?? storeSummary?.followersCount ?? 0) + followersDelta);
@@ -270,20 +283,35 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
               </div>
             </div>
 
-            {/* Follow / Following Action Button */}
-            <button
-              onClick={handleToggleFollow}
-              disabled={isTogglingFollow}
-              className={cn(
-                "px-4 py-2 rounded-full text-xs font-bold transition-all active:scale-95 shrink-0 flex items-center gap-1.5 shadow-xs cursor-pointer",
-                activeFollowing
-                  ? "bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200"
-                  : "bg-[#FF5A36] text-white hover:bg-[#e04d2d] shadow-orange-500/20"
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Partner as Rider Button */}
+              {deliveryProfile && (
+                <button
+                  onClick={handlePartnerRequest}
+                  disabled={isPartnering}
+                  className="px-3.5 py-2 rounded-full text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition-all active:scale-95 flex items-center gap-1.5 shadow-xs"
+                  title="Send Delivery Partner Request to Store"
+                >
+                  {isPartnering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bike className="w-3.5 h-3.5 text-[#FF6B00]" />}
+                  <span>Partner as Rider</span>
+                </button>
               )}
-            >
-              {isTogglingFollow && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {activeFollowing ? 'Following' : 'Follow'}
-            </button>
+
+              {/* Follow / Following Action Button */}
+              <button
+                onClick={handleToggleFollow}
+                disabled={isTogglingFollow}
+                className={cn(
+                  "px-4 py-2 rounded-full text-xs font-bold transition-all active:scale-95 shrink-0 flex items-center gap-1.5 shadow-xs cursor-pointer",
+                  activeFollowing
+                    ? "bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200"
+                    : "bg-[#FF5A36] text-white hover:bg-[#e04d2d] shadow-orange-500/20"
+                )}
+              >
+                {isTogglingFollow && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {activeFollowing ? 'Following' : 'Follow'}
+              </button>
+            </div>
           </div>
         </div>
 

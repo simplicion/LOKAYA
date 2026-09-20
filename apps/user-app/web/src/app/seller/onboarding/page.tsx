@@ -20,17 +20,29 @@ import {
   Camera, 
   RefreshCw,
   Coins,
-  Sparkles
+  Sparkles,
+  Bike,
+  AlertCircle,
+  ArrowRight
 } from 'lucide-react';
-import { useOnboardStoreMutation, useGetPresignedUrlMutation, useUploadMediaMutation } from '@/lib/api';
-import { useSelector } from 'react-redux';
+import { 
+  useOnboardStoreMutation, 
+  useGetPresignedUrlMutation, 
+  useUploadMediaMutation,
+  useGetDeliveryProfileQuery 
+} from '@/lib/api';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
+import { logout } from '@/lib/features/authSlice';
+import { clearCart } from '@/lib/features/cartSlice';
 import { LocationService, LocationContext } from '@/lib/services/location.service';
 import { StoreLocationPicker } from '@/components/seller/StoreLocationPicker';
 
 export default function SellerOnboardingPage() {
   const router = useRouter();
+  const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
+  const { data: deliveryProfile, isLoading: isDeliveryProfileLoading } = useGetDeliveryProfileQuery(undefined, { skip: !user });
 
   // Live Location & Dynamic Country State
   const [locationContext, setLocationContext] = useState<LocationContext | null>(null);
@@ -278,6 +290,79 @@ export default function SellerOnboardingPage() {
   };
 
   const isUploadingAny = uploadingOwnerIdFront || uploadingOwnerIdBack || uploadingOwnerPhoto || uploadingBusinessDoc;
+
+  if (isDeliveryProfileLoading) {
+    return (
+      <div className="flex h-[70vh] items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FF5A36]" />
+      </div>
+    );
+  }
+
+  // Single Operational Role Rule: If user is already a Delivery Partner
+  if (deliveryProfile) {
+    const handleLogoutAndRegisterSeller = async () => {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1'}/identity/logout`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+      } catch {}
+      dispatch(logout());
+      dispatch(clearCart());
+      toast.info('Logged out. Please register or sign in with your separate seller account.');
+      router.push('/register');
+    };
+
+    return (
+      <div className="min-h-[75vh] flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto space-y-6">
+        <div className="w-20 h-20 rounded-3xl bg-amber-50 border-2 border-amber-200 text-amber-600 flex items-center justify-center shadow-sm">
+          <Bike className="w-10 h-10 text-[#FF6B00]" />
+        </div>
+
+        <div className="space-y-2">
+          <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-black uppercase tracking-wider rounded-full">
+            Single Operational Role Policy
+          </span>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+            Already a Delivery Partner
+          </h2>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Your account is currently registered as a <span className="font-bold text-slate-900">Lokaya Delivery Partner</span> ({deliveryProfile.vehicleType || 'Rider'} • {deliveryProfile.vehicleNumber || 'Active'}).
+          </p>
+          <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+            Under Lokaya’s account architecture, each account is dedicated to a single operational role (Buyer, Seller, or Delivery Partner) to ensure clear financial settlement, payout accounting, and dispatch integrity.
+          </p>
+        </div>
+
+        <div className="w-full space-y-3 pt-2">
+          <Button
+            onClick={() => router.push('/delivery')}
+            className="w-full h-13 py-3.5 bg-[#0F172A] hover:bg-slate-800 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-sm"
+          >
+            <Bike className="w-4 h-4 text-[#FF6B00]" />
+            <span>Go to Delivery Partner Dashboard</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => router.push('/profile')}
+            className="w-full h-12 rounded-2xl font-bold text-xs text-slate-700 border-slate-300 hover:bg-slate-50"
+          >
+            Return to Profile
+          </Button>
+
+          <button
+            type="button"
+            onClick={handleLogoutAndRegisterSeller}
+            className="w-full text-center text-xs font-bold text-[#FF5A36] hover:underline pt-2"
+          >
+            Switch Account to Open a Seller Store →
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto py-6 md:py-10 px-4 md:px-0">

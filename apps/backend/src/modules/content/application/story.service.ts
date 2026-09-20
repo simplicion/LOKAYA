@@ -3,6 +3,7 @@ import { AppError } from '../../../shared/errors/AppError';
 import { processMediaJob } from '../../media/application/media-worker.service';
 import { ContentService } from './content.service';
 import { redisClient } from '../../../shared/services/redis.service';
+import { MemoryCacheService } from '../../../shared/services/memory-cache.service';
 
 export class StoryService {
   /**
@@ -102,6 +103,7 @@ export class StoryService {
     }
 
     // Invalidate cached stories feed
+    MemoryCacheService.invalidatePrefix('stories:');
     await ContentService.invalidateFeedCaches('cache:stories:*');
 
     return story;
@@ -111,6 +113,15 @@ export class StoryService {
    * Get active stories grouped by store for the Home feed tray.
    */
   static async getStoriesFeed(viewerId?: string) {
+    if (!viewerId) {
+      return await MemoryCacheService.getOrSet('stories:feed', async () => {
+        return await this.fetchStoriesFeed();
+      }, 60);
+    }
+    return await this.fetchStoriesFeed(viewerId);
+  }
+
+  private static async fetchStoriesFeed(viewerId?: string) {
     const cacheKey = !viewerId ? 'cache:stories:feed' : null;
     if (cacheKey) {
       try {
@@ -468,6 +479,7 @@ export class StoryService {
     });
 
     // Invalidate cached stories feed
+    MemoryCacheService.invalidatePrefix('stories:');
     await ContentService.invalidateFeedCaches('cache:stories:*');
 
     return { success: true };

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
@@ -14,14 +14,27 @@ import {
   Sparkles, 
   ShoppingBag, 
   ShoppingCart, 
+  ChevronLeft,
   ChevronRight,
+  Play,
+  Volume2,
+  VolumeX,
   PackageCheck,
   Package,
   RotateCcw,
   Loader2,
-  Tag
+  Tag,
+  Star,
+  ThumbsUp,
+  MessageSquare,
+  PenLine,
+  X
 } from 'lucide-react';
-import { useGetProductByIdQuery, useToggleWishlistMutation, useAddToCartMutation } from '@/lib/api';
+import { 
+  useGetProductByIdQuery, 
+  useToggleWishlistMutation, 
+  useAddToCartMutation
+} from '@/lib/api';
 import { addToCart } from '@/lib/features/cartSlice';
 import { getMediaUrl, cn } from '@/lib/utils';
 import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
@@ -30,19 +43,30 @@ import { useCurrency } from '@/context/CurrencyContext';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { recordRecentlyViewed } from '@/lib/services/recentlyViewed';
+import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
+import { ReviewBottomSheet } from '@/components/ui/ReviewBottomSheet';
 
-export default function ProductViewClient({ productId }: { productId: string }) {
+export default function ProductViewClient({ productId, initialData }: { productId: string; initialData?: any }) {
   const router = useRouter();
   const dispatch = useDispatch();
   const { formatPrice } = useCurrency();
   const user = useSelector((state: any) => state.auth.user);
-  const { data: product, isLoading, isError } = useGetProductByIdQuery(productId);
+  const { data: serverProduct, isLoading: isQueryLoading, isError, refetch: refetchProduct } = useGetProductByIdQuery(productId);
+  const product = serverProduct || initialData;
+  const isLoading = isQueryLoading && !product;
   const [toggleWishlist, { isLoading: isTogglingWishlist }] = useToggleWishlistMutation();
   const [addToCartAPI] = useAddToCartMutation();
 
+  const sliderRef = useRef<HTMLDivElement>(null);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [isWishlisted, setIsWishlisted] = useState(false);
+
+  // Review bottom sheet & filter state
+  const [isReviewBottomSheetOpen, setIsReviewBottomSheetOpen] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | number>('all');
+  const [helpfulReviews, setHelpfulReviews] = useState<Record<string, number>>({});
 
   // Automatically record product in recently viewed history
   useEffect(() => {
@@ -51,20 +75,71 @@ export default function ProductViewClient({ productId }: { productId: string }) 
     }
   }, [product?.id]);
 
-  // Computed media list
-  const galleryImages = useMemo(() => {
+  // Computed media list with video and image type identification
+  const galleryMedia = useMemo<{ url: string; type: 'IMAGE' | 'VIDEO' }[]>(() => {
     if (!product) return [];
-    const mediaUrls: string[] = [];
+    const items: { url: string; type: 'IMAGE' | 'VIDEO' }[] = [];
+    const seenUrls = new Set<string>();
+
+    const isVideoUrl = (u: string, t?: string) => {
+      if (t === 'VIDEO') return true;
+      const clean = (u || '').toLowerCase();
+      return clean.includes('.mp4') || clean.includes('.mov') || clean.includes('.webm') || clean.includes('.m3u8');
+    };
+
     if (product.media && product.media.length > 0) {
-      product.media.forEach((m: any) => {
-        if (m.url) mediaUrls.push(getMediaUrl(m.url));
+      // Sort with primary first, then by displayOrder
+      const sortedMedia = [...product.media].sort((a: any, b: any) => {
+        if (a.isPrimary && !b.isPrimary) return -1;
+        if (!a.isPrimary && b.isPrimary) return 1;
+        return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+      });
+
+      sortedMedia.forEach((m: any) => {
+        if (m.url && !seenUrls.has(m.url)) {
+          seenUrls.add(m.url);
+          items.push({
+            url: getMediaUrl(m.url),
+            type: isVideoUrl(m.url, m.type) ? 'VIDEO' : 'IMAGE',
+          });
+        }
       });
     }
-    if (product.imageUrl && !mediaUrls.includes(getMediaUrl(product.imageUrl))) {
-      mediaUrls.unshift(getMediaUrl(product.imageUrl));
+
+    if (product.imageUrl && !seenUrls.has(product.imageUrl)) {
+      seenUrls.add(product.imageUrl);
+      items.unshift({
+        url: getMediaUrl(product.imageUrl),
+        type: isVideoUrl(product.imageUrl) ? 'VIDEO' : 'IMAGE',
+      });
     }
-    return mediaUrls;
+
+    return items;
   }, [product]);
+
+  const galleryImages = useMemo(() => galleryMedia.map(m => m.url), [galleryMedia]);
+
+  const handleScroll = () => {
+    if (!sliderRef.current) return;
+    const scrollLeft = sliderRef.current.scrollLeft;
+    const width = sliderRef.current.offsetWidth;
+    if (width > 0) {
+      const newIndex = Math.round(scrollLeft / width);
+      if (newIndex !== activeMediaIndex && newIndex >= 0 && newIndex < galleryMedia.length) {
+        setActiveMediaIndex(newIndex);
+      }
+    }
+  };
+
+  const scrollToMedia = (idx: number) => {
+    if (!sliderRef.current) return;
+    const width = sliderRef.current.offsetWidth;
+    sliderRef.current.scrollTo({
+      left: idx * width,
+      behavior: 'smooth'
+    });
+    setActiveMediaIndex(idx);
+  };
 
   // Selected variant computation
   const variants = product?.variants || [];
@@ -181,13 +256,72 @@ export default function ProductViewClient({ productId }: { productId: string }) 
     }
   };
 
-  if (isLoading) {
+  // Reviews and Ratings Computations
+  const reviewsList = useMemo(() => {
+    return (product as any)?.reviews || [];
+  }, [product?.reviews]);
+
+  const totalReviewsCount = (product as any)?.reviewsCount ?? reviewsList.length;
+
+  const averageRating = useMemo(() => {
+    if ((product as any)?.rating !== undefined && (product as any)?.rating !== null && Number((product as any).rating) > 0) {
+      return Number((product as any).rating);
+    }
+    if (reviewsList.length > 0) {
+      const sum = reviewsList.reduce((acc: number, cur: any) => acc + (Number(cur.rating) || 0), 0);
+      return Number((sum / reviewsList.length).toFixed(1));
+    }
+    return 5.0;
+  }, [product?.rating, reviewsList]);
+
+  const ratingDistribution = useMemo(() => {
+    if ((product as any)?.ratingDistribution) {
+      return (product as any).ratingDistribution;
+    }
+    const dist: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reviewsList.forEach((r: any) => {
+      const star = Math.min(5, Math.max(1, Math.round(r.rating || 5)));
+      dist[star] = (dist[star] || 0) + 1;
+    });
+    return dist;
+  }, [product?.ratingDistribution, reviewsList]);
+
+  const filteredReviews = useMemo(() => {
+    if (selectedFilter === 'all') return reviewsList;
+    return reviewsList.filter((r: any) => Math.round(r.rating) === selectedFilter);
+  }, [reviewsList, selectedFilter]);
+
+  const handleToggleHelpful = (reviewId: string) => {
+    setHelpfulReviews(prev => ({
+      ...prev,
+      [reviewId]: (prev[reviewId] || 0) + 1
+    }));
+    toast.success('Marked as helpful! Thank you.');
+  };
+
+  const renderStars = (ratingVal: number, size = "w-3.5 h-3.5") => {
     return (
-      <div className="min-h-[100dvh] bg-white flex flex-col items-center justify-center p-6 gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF5A36]" />
-        <span className="text-xs font-semibold text-gray-500 tracking-wide uppercase">Loading Product...</span>
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => {
+          const isFilled = star <= Math.round(ratingVal);
+          return (
+            <Star
+              key={star}
+              className={cn(
+                size,
+                isFilled
+                  ? "fill-amber-400 text-amber-500"
+                  : "fill-gray-200 text-gray-300"
+              )}
+            />
+          );
+        })}
       </div>
     );
+  };
+
+  if (isLoading) {
+    return <AdaptiveSkeleton variant="product-detail" />;
   }
 
   if (isError || !product) {
@@ -223,7 +357,7 @@ export default function ProductViewClient({ productId }: { productId: string }) 
   const categoryName = product.categoryModel?.name || product.category || 'General';
 
   return (
-    <div className="min-h-screen bg-white pb-24 flex flex-col max-w-lg mx-auto relative shadow-2xl">
+    <div className="min-h-screen bg-white pb-36 flex flex-col max-w-lg mx-auto relative shadow-2xl">
       {/* 1. Image Gallery */}
       <div className="relative aspect-[3/4] w-full bg-[#F5F4F0] overflow-hidden">
         {/* Floating Header Actions */}
@@ -256,13 +390,53 @@ export default function ProductViewClient({ productId }: { productId: string }) 
           </div>
         </div>
 
-        {/* Main Image */}
-        {galleryImages[activeMediaIndex] ? (
-          <img 
-            src={galleryImages[activeMediaIndex]} 
-            alt={product.name} 
-            className="w-full h-full object-cover select-none"
-          />
+        {/* Swipeable / Scrollable Slide Carousel Container */}
+        {galleryMedia.length > 0 ? (
+          <div 
+            ref={sliderRef}
+            onScroll={handleScroll}
+            className="flex w-full h-full overflow-x-auto snap-x snap-mandatory no-scrollbar touch-pan-x select-none scroll-smooth"
+            style={{ scrollSnapType: 'x mandatory' }}
+          >
+            {galleryMedia.map((media, idx) => (
+              <div 
+                key={idx} 
+                className="w-full h-full shrink-0 snap-center snap-always relative flex items-center justify-center bg-[#F5F4F0]"
+              >
+                {media.type === 'VIDEO' ? (
+                  <div className="relative w-full h-full bg-black flex items-center justify-center">
+                    <video 
+                      src={media.url} 
+                      playsInline 
+                      muted={isMuted}
+                      autoPlay={idx === activeMediaIndex}
+                      loop
+                      className="w-full h-full object-contain"
+                    />
+                    {/* Sound / Mute toggle */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsMuted(!isMuted);
+                      }}
+                      className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white p-2.5 rounded-full z-20 shadow-md hover:bg-black/80 active:scale-95 transition-transform"
+                      aria-label={isMuted ? "Unmute video" : "Mute video"}
+                    >
+                      {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                    </button>
+                  </div>
+                ) : (
+                  <img 
+                    src={media.url} 
+                    alt={`${product.name} slide ${idx + 1}`} 
+                    className="w-full h-full object-cover select-none"
+                    loading={idx === 0 ? "eager" : "lazy"}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 text-gray-400 gap-2">
             <Package className="w-16 h-16 stroke-[1.2]" />
@@ -270,27 +444,99 @@ export default function ProductViewClient({ productId }: { productId: string }) 
           </div>
         )}
 
-        {/* Pagination Pill */}
-        {galleryImages.length > 1 && (
-          <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-[11px] font-bold z-10 shadow-sm">
-            {activeMediaIndex + 1} / {galleryImages.length}
-          </div>
+        {/* Floating Left / Right Arrow Buttons */}
+        {galleryMedia.length > 1 && (
+          <>
+            {activeMediaIndex > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  scrollToMedia(activeMediaIndex - 1);
+                }}
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/85 hover:bg-white backdrop-blur-md text-gray-800 flex items-center justify-center shadow-lg z-20 active:scale-90 transition-all cursor-pointer"
+                aria-label="Previous Slide"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            {activeMediaIndex < galleryMedia.length - 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  scrollToMedia(activeMediaIndex + 1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/85 hover:bg-white backdrop-blur-md text-gray-800 flex items-center justify-center shadow-lg z-20 active:scale-90 transition-all cursor-pointer"
+                aria-label="Next Slide"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
+          </>
+        )}
+
+        {/* Pagination Indicators */}
+        {galleryMedia.length > 1 && (
+          <>
+            {/* Number Pill at Bottom Left */}
+            <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-[11px] font-bold z-10 shadow-sm pointer-events-none">
+              {activeMediaIndex + 1} / {galleryMedia.length}
+            </div>
+
+            {/* Indicator Dots at Bottom Center */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 bg-black/30 backdrop-blur-xs px-2.5 py-1.5 rounded-full pointer-events-none">
+              {galleryMedia.map((_, i) => (
+                <div 
+                  key={i} 
+                  className={cn(
+                    "h-1.5 rounded-full transition-all duration-300",
+                    activeMediaIndex === i ? "w-4 bg-white" : "w-1.5 bg-white/50"
+                  )}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 
       {/* Thumbnails Row */}
-      {galleryImages.length > 1 && (
-        <div className="flex gap-2 p-3 bg-white border-b border-gray-100 overflow-x-auto no-scrollbar">
-          {galleryImages.map((img, idx) => (
+      {galleryMedia.length > 1 && (
+        <div className="flex gap-2.5 p-3 bg-white border-b border-gray-100 overflow-x-auto no-scrollbar">
+          {galleryMedia.map((item, idx) => (
             <button
               key={idx}
-              onClick={() => setActiveMediaIndex(idx)}
+              type="button"
+              onClick={() => scrollToMedia(idx)}
               className={cn(
-                "relative w-16 h-20 shrink-0 rounded-xl overflow-hidden border-2 transition-all shadow-sm",
-                activeMediaIndex === idx ? "border-[#FF5A36] scale-105" : "border-gray-200 opacity-70"
+                "relative w-16 h-20 shrink-0 rounded-xl overflow-hidden border-2 transition-all shadow-xs cursor-pointer",
+                activeMediaIndex === idx 
+                  ? "border-[#FF5A36] ring-2 ring-[#FF5A36]/30 scale-105" 
+                  : "border-gray-200 opacity-60 hover:opacity-100"
               )}
             >
-              <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+              {item.type === 'VIDEO' ? (
+                <div className="relative w-full h-full bg-gray-900 flex items-center justify-center">
+                  <video 
+                    src={item.url} 
+                    muted 
+                    playsInline 
+                    preload="metadata" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center shadow-xs">
+                      <Play className="w-3 h-3 text-[#FF5A36] fill-[#FF5A36] ml-0.5" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <img 
+                  src={item.url} 
+                  alt={`Thumbnail ${idx + 1}`} 
+                  className="w-full h-full object-cover" 
+                />
+              )}
             </button>
           ))}
         </div>
@@ -347,6 +593,36 @@ export default function ProductViewClient({ productId }: { productId: string }) 
         <h1 className="text-xl md:text-2xl font-black text-[#171717] leading-tight">
           {product.name}
         </h1>
+
+        {/* Customer Rating Summary Badge */}
+        <div className="flex items-center gap-2 flex-wrap pt-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('customer-reviews-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50/90 hover:bg-amber-100 border border-amber-200/80 transition-all cursor-pointer group shadow-2xs active:scale-98"
+          >
+            <div className="flex items-center gap-1 text-amber-500">
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+              <span className="font-black text-xs text-gray-900 leading-none">
+                {averageRating.toFixed(1)}
+              </span>
+            </div>
+            <span className="text-[11px] text-gray-500 font-medium leading-none">
+              ({totalReviewsCount} {totalReviewsCount === 1 ? 'review' : 'reviews'})
+            </span>
+            <span className="text-[10px] font-bold text-amber-700 group-hover:underline ml-0.5 flex items-center">
+              See reviews &darr;
+            </span>
+          </button>
+
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+            <CheckCircle className="w-3 h-3 text-emerald-600" />
+            Verified Ratings
+          </span>
+        </div>
 
         {/* Pricing & Stock Status */}
         <div className="flex items-baseline gap-2.5 pt-1 flex-wrap">
@@ -477,7 +753,192 @@ export default function ProductViewClient({ productId }: { productId: string }) 
         </div>
       </div>
 
-      {/* 8. Sticky Bottom Action Bar */}
+      {/* 8. Customer Reviews & Ratings Section */}
+      <div id="customer-reviews-section" className="p-4 border-b border-gray-100 space-y-5 bg-white scroll-mt-4">
+        {/* Section Title & Write Review Button */}
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base md:text-lg font-black text-gray-900 tracking-tight">Customer Reviews</h2>
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                {totalReviewsCount}
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-0.5">Real verified ratings & comments</p>
+          </div>
+          
+          <Button
+            size="sm"
+            onClick={() => setIsReviewBottomSheetOpen(true)}
+            className="rounded-xl bg-[#FF5A36] hover:bg-[#E04B28] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 h-9 px-3.5 transition-transform active:scale-95 cursor-pointer"
+          >
+            <PenLine className="w-3.5 h-3.5" />
+            <span>Write a Review</span>
+          </Button>
+        </div>
+
+        {/* Rating Overview Scorecard */}
+        <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-gray-100/90 flex flex-col sm:flex-row gap-4 items-center">
+          {/* Big Score Card */}
+          <div className="flex flex-col items-center justify-center sm:pr-5 sm:border-r border-gray-200/80 min-w-[130px] text-center">
+            <span className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight leading-none">
+              {averageRating.toFixed(1)}
+            </span>
+            <div className="mt-2 flex items-center gap-0.5">
+              {renderStars(averageRating, "w-4 h-4")}
+            </div>
+            <span className="text-[11px] text-gray-500 font-medium mt-1.5">
+              Based on {totalReviewsCount} {totalReviewsCount === 1 ? 'review' : 'reviews'}
+            </span>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full mt-1.5 border border-emerald-200/60">
+              100% Recommended
+            </span>
+          </div>
+
+          {/* Star Breakdown Bars */}
+          <div className="flex-1 w-full space-y-2">
+            {[5, 4, 3, 2, 1].map((star) => {
+              const count = (ratingDistribution as any)?.[star] || 0;
+              const percent = totalReviewsCount > 0 ? Math.round((count / totalReviewsCount) * 100) : 0;
+              return (
+                <div key={star} className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-1 w-8 text-gray-700 font-semibold shrink-0">
+                    <span>{star}</span>
+                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                  </div>
+                  <div className="flex-1 h-2 bg-gray-200/70 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-400 rounded-full transition-all duration-500"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-gray-400 w-8 text-right font-medium shrink-0">
+                    {count}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Filter Chips */}
+        {reviewsList.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
+            <button
+              onClick={() => setSelectedFilter('all')}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap shrink-0 border cursor-pointer",
+                selectedFilter === 'all'
+                  ? "bg-gray-900 text-white border-gray-900"
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+              )}
+            >
+              All ({reviewsList.length})
+            </button>
+            {[5, 4, 3, 2, 1].map((star) => {
+              const count = (ratingDistribution as any)?.[star] || 0;
+              if (count === 0 && selectedFilter !== star) return null;
+              return (
+                <button
+                  key={star}
+                  onClick={() => setSelectedFilter(selectedFilter === star ? 'all' : star)}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap shrink-0 border cursor-pointer",
+                    selectedFilter === star
+                      ? "bg-amber-500 text-white border-amber-500 shadow-xs"
+                      : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                  )}
+                >
+                  <span>{star}</span>
+                  <Star className={cn("w-3 h-3", selectedFilter === star ? "fill-white text-white" : "fill-amber-400 text-amber-400")} />
+                  <span>({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Reviews List */}
+        <div className="space-y-3 pt-1">
+          {filteredReviews.length > 0 ? (
+            filteredReviews.map((rev: any) => {
+              const helpfulCount = (helpfulReviews[rev.id] || 0);
+              const authorName = rev.user?.name || 'Verified Customer';
+              const authorAvatar = rev.user?.avatarUrl;
+              const formattedDate = rev.createdAt 
+                ? new Date(rev.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'Recently';
+
+              return (
+                <div 
+                  key={rev.id} 
+                  className="p-4 rounded-2xl border border-gray-100 bg-[#FAFAFA] space-y-2.5 shadow-2xs hover:border-gray-200 transition-colors"
+                >
+                  {/* Reviewer Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-tr from-orange-400 to-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                        {authorAvatar ? (
+                          <img src={getMediaUrl(authorAvatar)} alt={authorName} className="w-full h-full object-cover" />
+                        ) : (
+                          authorName.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-gray-900 leading-none">{authorName}</span>
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60">
+                            <CheckCircle className="w-2.5 h-2.5 text-emerald-600" />
+                            Verified Buyer
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-medium">{formattedDate}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {renderStars(rev.rating, "w-3 h-3")}
+                    </div>
+                  </div>
+
+                  {/* Review Text */}
+                  {rev.comment && (
+                    <p className="text-xs text-gray-700 leading-relaxed pl-0.5">
+                      {rev.comment}
+                    </p>
+                  )}
+
+                  {/* Helpful Action */}
+                  <div className="flex items-center justify-between pt-1.5 border-t border-gray-100/80 text-[11px] text-gray-500">
+                    <span className="text-[10px] text-gray-400">Direct Store Purchase</span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleHelpful(rev.id)}
+                      className={cn(
+                        "flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer active:scale-95",
+                        helpfulCount > 0
+                          ? "text-emerald-700 bg-emerald-50 border border-emerald-200/50"
+                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                      )}
+                    >
+                      <ThumbsUp className="w-3 h-3" />
+                      <span>Helpful {helpfulCount > 0 ? `(${helpfulCount})` : ''}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200 space-y-2">
+              <MessageSquare className="w-8 h-8 text-gray-400 mx-auto stroke-[1.5]" />
+              <p className="text-xs font-bold text-gray-700">No reviews found for this filter</p>
+              <p className="text-[11px] text-gray-500">Try selecting 'All' or be the first to leave a review!</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 9. Sticky Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between z-50 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
         <div className="flex flex-col pr-3">
           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total Price</span>
@@ -516,6 +977,22 @@ export default function ProductViewClient({ productId }: { productId: string }) 
           </Button>
         </div>
       </div>
+
+      {/* Review Bottom Sheet Drawer */}
+      {product && (
+        <ReviewBottomSheet
+          isOpen={isReviewBottomSheetOpen}
+          onClose={() => setIsReviewBottomSheetOpen(false)}
+          productId={product.id}
+          productName={product.name}
+          productImage={galleryMedia[0]?.url || product.imageUrl}
+          storeId={product.storeId}
+          storeName={product.store?.name}
+          onReviewSubmitted={() => {
+            if (refetchProduct) refetchProduct();
+          }}
+        />
+      )}
     </div>
   );
 }

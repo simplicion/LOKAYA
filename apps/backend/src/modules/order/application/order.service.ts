@@ -69,11 +69,16 @@ export class OrderService {
 
         totalAmount += (priceToCharge * item.quantity);
 
+        const itemCostPrice = (product as any).costPrice || 0;
+        const itemIsDeliveryIncluded = (product as any).isDeliveryIncluded || false;
+
         const preparedItem = {
           productId: item.productId,
           variantId: item.variantId,
           quantity: item.quantity,
           priceAt: priceToCharge,
+          costPrice: itemCostPrice,
+          isDeliveryIncluded: itemIsDeliveryIncluded,
           productName: product.name,
           sku: skuToUse,
           storeId: itemStoreId
@@ -120,8 +125,12 @@ export class OrderService {
         }
       }
 
+      // 1.5% Buyer Platform Convenience Fee
+      const platformFee = Math.round(totalAmount * 0.015 * 100) / 100;
+
       // 2. Create the parent order
-      const finalAmount = Math.max(0, Math.round((totalAmount - couponDiscount + (extra?.shippingFee || 0)) * 100) / 100);
+      const finalAmount = Math.max(0, Math.round((totalAmount - couponDiscount + platformFee + (extra?.shippingFee || 0)) * 100) / 100);
+      const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
       const newOrder = await tx.order.create({
         data: {
           buyerId,
@@ -131,16 +140,24 @@ export class OrderService {
           deliveryAddress: extra?.deliveryAddress || null,
           paymentMethod: extra?.paymentMethod || 'ONLINE',
           shippingFee: extra?.shippingFee || 0,
+          platformFee,
+          deliveryOtp
         }
       });
 
       // 3. Create child SubOrders for each merchant store & link OrderItems
       for (const [sId, sItems] of Array.from(storeItemsMap.entries())) {
         const storeSubtotal = sItems.reduce((acc: number, i: any) => acc + (i.priceAt * i.quantity), 0);
-        // 8% Platform Take-Rate Commission
-        const commissionAmount = Math.round(storeSubtotal * 0.08 * 100) / 100;
-        // 92% Net Seller Payout Amount
-        const sellerPayoutAmount = Math.round((storeSubtotal - commissionAmount) * 100) / 100;
+        
+        // 5% Platform Commission on Seller Profit Margin: 5% * (Selling Price - Cost Price)
+        const totalStoreProfitMargin = sItems.reduce((acc: number, i: any) => {
+          const unitCost = i.costPrice > 0 ? i.costPrice : (i.priceAt * 0.80); // Default assumed 20% margin if costPrice unlisted
+          const unitMargin = Math.max(0, i.priceAt - unitCost);
+          return acc + (unitMargin * i.quantity);
+        }, 0);
+
+        const platformMarginCommission = Math.round(totalStoreProfitMargin * 0.05 * 100) / 100;
+        const sellerPayoutAmount = Math.round((storeSubtotal - platformMarginCommission) * 100) / 100;
 
         const subOrder = await tx.subOrder.create({
           data: {
@@ -148,8 +165,10 @@ export class OrderService {
             storeId: sId,
             status: 'PENDING',
             subtotal: storeSubtotal,
-            commissionAmount,
-            sellerPayoutAmount
+            commissionAmount: platformMarginCommission,
+            platformMarginCommission,
+            sellerPayoutAmount,
+            shippingCollected: extra?.shippingFee || 0
           }
         });
 
@@ -255,28 +274,68 @@ export class OrderService {
         ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : new Date(order.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 
+      let resolvedPaymentMethod = 'Prepaid (Online)';
+      if (order.payment?.provider === 'RAZORPAY') {
+        resolvedPaymentMethod = 'Prepaid (Razorpay)';
+      } else if (order.paymentMethod === 'COD' || order.paymentMethod?.toLowerCase() === 'cod') {
+        resolvedPaymentMethod = 'Cash on Delivery (COD)';
+      } else if (order.paymentMethod) {
+        resolvedPaymentMethod = order.paymentMethod;
+      }
+
       return {
         id: order.id,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
         date: timeLabel,
+        timeLabel,
         totalAmount: order.totalAmount,
         shippingFee: order.shippingFee,
-        paymentMethod: order.payment?.provider || order.paymentMethod || 'Online',
+        paymentMethod: resolvedPaymentMethod,
+        rawPaymentMethod: order.paymentMethod,
+        paymentStatus: order.payment?.status || (order.paymentMethod === 'COD' ? 'PAY_ON_DELIVERY' : 'PENDING'),
+        payment: order.payment,
         status: order.status,
-        estimatedDelivery: order.estimatedDelivery || '3 - 5 business days',
-        storeName: order.store?.name,
+        deliveryAddress: order.deliveryAddress,
+        estimatedDelivery: order.estimatedDelivery || (order.deliveryAddress ? 'Within 3 - 5 business days' : 'Ready for Pickup'),
+        store: order.store ? {
+          id: order.store.id,
+          name: order.store.name,
+          logoUrl: order.store.logoUrl,
+          city: (order.store as any).city || null
+        } : null,
+        storeName: order.store?.name || 'Artisan Merchant Store',
         courierName: order.courierName,
         awbCode: order.awbCode,
         trackingUrl: order.trackingUrl,
         itemsCount: order.items.reduce((s, i) => s + i.quantity, 0),
-        items: order.items.map(item => ({
-          id: item.id,
-          productId: item.productId,
-          title: item.productName,
-          price: item.priceAt,
-          quantity: item.quantity,
-          image: item.product?.media?.[0]?.url || item.product?.imageUrl || '',
-          variantName: item.variant?.name || null
-        }))
+        items: order.items.map(item => {
+          const primaryMedia = item.product?.media?.find((m: any) => m.isPrimary)?.url;
+          const firstImageMedia = item.product?.media?.find((m: any) => m.type === 'IMAGE')?.url;
+          const firstMedia = item.product?.media?.[0]?.url;
+          const imgUrl = primaryMedia || firstImageMedia || firstMedia || item.product?.imageUrl || '';
+          const title = item.productName || item.product?.name || 'Product Item';
+          return {
+            id: item.id,
+            productId: item.productId,
+            productName: title,
+            title: title,
+            name: title,
+            price: item.priceAt,
+            priceAt: item.priceAt,
+            quantity: item.quantity,
+            image: imgUrl,
+            imageUrl: imgUrl,
+            variantName: item.variant?.name || null,
+            variant: item.variant,
+            product: item.product ? {
+              id: item.product.id,
+              name: item.product.name,
+              imageUrl: item.product.imageUrl || imgUrl,
+              media: item.product.media
+            } : null
+          };
+        })
       };
     });
   }
@@ -355,7 +414,12 @@ export class OrderService {
           },
           store: true,
           payment: true,
-          pickupOtp: true
+          pickupOtp: true,
+          deliveryPartner: {
+            include: {
+              user: { select: { id: true, name: true, phone: true, avatarUrl: true } }
+            }
+          }
         }
       })
     ]);
@@ -371,6 +435,7 @@ export class OrderService {
       let uiStatus = 'New';
       if (order.status === OrderStatus.PROCESSING) uiStatus = 'Preparing';
       else if (order.status === OrderStatus.PACKED) uiStatus = 'Ready';
+      else if (order.status === OrderStatus.SHIPPED || order.status === OrderStatus.OUT_FOR_DELIVERY) uiStatus = 'Shipped';
       else if (order.status === OrderStatus.DELIVERED) uiStatus = 'Completed';
       else if (order.status === OrderStatus.CANCELLED) uiStatus = 'Cancelled';
 
@@ -425,6 +490,16 @@ export class OrderService {
         timeLabel,
         createdAt: order.createdAt,
         deliveryAddress: order.deliveryAddress,
+        deliveryOtp: order.deliveryOtp,
+        fulfillmentType: order.fulfillmentType,
+        deliveryPartner: order.deliveryPartner ? {
+          id: order.deliveryPartner.id,
+          name: order.deliveryPartner.user.name,
+          phone: order.deliveryPartner.user.phone,
+          vehicleType: order.deliveryPartner.vehicleType,
+          vehicleNumber: order.deliveryPartner.vehicleNumber,
+          avatarUrl: order.deliveryPartner.user.avatarUrl
+        } : null,
         paymentMethod: resolvedPaymentMethod,
         rawPaymentMethod: order.paymentMethod,
         pickupTime: isToday ? `Today, ${timeLabel}` : timeLabel,
@@ -465,7 +540,12 @@ export class OrderService {
         buyer: {
           select: { id: true, name: true, phone: true, avatarUrl: true, email: true, isSystemAdmin: true }
         },
-        pickupOtp: true
+        pickupOtp: true,
+        deliveryPartner: {
+          include: {
+            user: { select: { id: true, name: true, phone: true, avatarUrl: true } }
+          }
+        }
       }
     });
 
@@ -488,6 +568,7 @@ export class OrderService {
     let uiStatus = 'New';
     if (order.status === OrderStatus.PROCESSING) uiStatus = 'Preparing';
     else if (order.status === OrderStatus.PACKED) uiStatus = 'Ready';
+    else if (order.status === OrderStatus.SHIPPED || order.status === OrderStatus.OUT_FOR_DELIVERY) uiStatus = 'Shipped';
     else if (order.status === OrderStatus.DELIVERED) uiStatus = 'Completed';
     else if (order.status === OrderStatus.CANCELLED) uiStatus = 'Cancelled';
 
@@ -521,7 +602,20 @@ export class OrderService {
       timeLabel,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+      pickedUpAt: order.pickedUpAt,
+      outForDeliveryAt: order.outForDeliveryAt,
+      deliveredAt: order.deliveredAt,
       deliveryAddress: order.deliveryAddress,
+      deliveryOtp: order.deliveryOtp,
+      fulfillmentType: order.fulfillmentType,
+      deliveryPartner: order.deliveryPartner ? {
+        id: order.deliveryPartner.id,
+        name: order.deliveryPartner.user.name,
+        phone: order.deliveryPartner.user.phone,
+        vehicleType: order.deliveryPartner.vehicleType,
+        vehicleNumber: order.deliveryPartner.vehicleNumber,
+        avatarUrl: order.deliveryPartner.user.avatarUrl
+      } : null,
       estimatedDelivery: order.estimatedDelivery || (order.deliveryAddress ? 'Within 2 - 4 hours (Express Local)' : 'Ready for Pickup'),
       awbCode: order.awbCode,
       courierName: order.courierName,
@@ -581,6 +675,24 @@ export class OrderService {
     else if (status === 'Ready') resolvedStatus = OrderStatus.PACKED;
     else if (status === 'Completed') resolvedStatus = OrderStatus.DELIVERED;
     else if (status === 'Cancelled') resolvedStatus = OrderStatus.CANCELLED;
+
+    // Edge case resilience: If order is cancelled, free any assigned delivery partner
+    if (resolvedStatus === OrderStatus.CANCELLED && order.deliveryPartnerId) {
+      await prisma.$transaction([
+        prisma.deliveryAssignment.updateMany({
+          where: { orderId: order.id, status: { notIn: ['DELIVERED', 'CANCELLED'] as any } },
+          data: { status: 'CANCELLED' as any }
+        }),
+        prisma.deliveryPartner.update({
+          where: { id: order.deliveryPartnerId },
+          data: { isBusy: false }
+        }),
+        prisma.order.update({
+          where: { id: order.id },
+          data: { deliveryPartnerId: null }
+        })
+      ]);
+    }
 
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
@@ -723,7 +835,7 @@ export class OrderService {
   }
 
   /**
-   * Fetch customer tracking timeline and courier telemetry.
+   * Fetch customer tracking timeline and courier telemetry with 8-stage synchronized milestones.
    */
   static async getOrderTracking(orderId: string) {
     const order = await prisma.order.findUnique({
@@ -731,7 +843,17 @@ export class OrderService {
       include: {
         items: true,
         store: true,
-        payment: true
+        payment: true,
+        deliveryPartner: {
+          include: {
+            user: { select: { id: true, name: true, phone: true, avatarUrl: true } }
+          }
+        },
+        deliveryAssignments: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        },
+        pickupOtp: true
       }
     });
 
@@ -739,65 +861,162 @@ export class OrderService {
 
     const createdAt = order.createdAt;
     const updatedAt = order.updatedAt;
+    const deliveryOtp = order.deliveryOtp || '4829';
+    const latestAssignment = order.deliveryAssignments?.[0];
+    const riderName = order.deliveryPartner?.user.name || 'Partner Rider';
 
-    // Build timeline milestones
-    const timeline = [
+    const isAssigned = Boolean(order.deliveryPartnerId || latestAssignment);
+    const isAccepted = latestAssignment?.status === 'ACCEPTED' || ['ARRIVED_AT_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER', 'DELIVERED'].includes(latestAssignment?.status as string);
+    const isDispatched = [OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any) || ['PICKED_UP', 'OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER', 'DELIVERED'].includes(latestAssignment?.status as string);
+    const isOutForDelivery = [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any) || ['OUT_FOR_DELIVERY', 'ARRIVED_AT_CUSTOMER', 'DELIVERED'].includes(latestAssignment?.status as string);
+    const isArrivedAtDestination = ['ARRIVED_AT_CUSTOMER', 'DELIVERED'].includes(latestAssignment?.status as string) || order.status === OrderStatus.DELIVERED;
+    const isDelivered = order.status === OrderStatus.DELIVERED || latestAssignment?.status === 'DELIVERED';
+
+    // Format timestamps with human-readable dates and times
+    const formatStepTime = (dt: Date | null | undefined, isComplete: boolean) => {
+      if (!dt || !isComplete) return { timestamp: null, time: null, formattedDate: null, displayTime: null };
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return { timestamp: null, time: null, formattedDate: null, displayTime: null };
+      
+      const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return {
+        timestamp: d.toISOString(),
+        time,
+        formattedDate,
+        displayTime: `${formattedDate}, ${time}`
+      };
+    };
+
+    // Raw milestone events with exact dates
+    const rawMilestones = [
       {
         status: 'ORDER_PLACED',
         title: 'Order Placed',
-        description: 'Your order has been received by Lokaya.',
+        description: 'Your order has been placed successfully on Lokaya.',
         completed: true,
-        timestamp: createdAt
+        dt: createdAt
       },
       {
         status: 'CONFIRMED',
         title: 'Order Confirmed',
-        description: order.payment?.status === 'SUCCESS' ? 'Prepaid payment verified via Razorpay.' : 'Cash on Delivery confirmed.',
+        description: order.payment?.status === 'SUCCESS' ? 'Prepaid payment verified via Razorpay.' : 'Cash on Delivery verified.',
         completed: order.status !== OrderStatus.PENDING,
-        timestamp: createdAt
+        dt: order.payment?.createdAt || createdAt
       },
       {
         status: 'PACKED',
         title: 'Packed & Ready',
-        description: `Packed at ${order.store?.name || 'Merchant Store'}.`,
-        completed: [OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any),
-        timestamp: [OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any) ? updatedAt : null
+        description: `Items packed and sealed at ${order.store?.name || 'Merchant Store'}.`,
+        completed: [OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any) || isAssigned,
+        dt: [OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any) ? updatedAt : null
+      },
+      {
+        status: 'ASSIGNED',
+        title: order.deliveryPartner ? `Assigned to ${riderName}` : 'Awaiting Rider Assignment',
+        description: order.deliveryPartner 
+          ? `Order assigned to ${riderName} (${order.deliveryPartner.vehicleType} - ${order.deliveryPartner.vehicleNumber}).`
+          : 'Store is assigning order to local delivery partner.',
+        completed: isAssigned,
+        dt: latestAssignment?.assignedAt || (isAssigned ? updatedAt : null)
+      },
+      {
+        status: 'HEADING_TO_STORE',
+        title: 'Rider Heading to Store',
+        description: isAccepted 
+          ? `${riderName} accepted the order and is driving to ${order.store?.name || 'the store'}.`
+          : 'Waiting for rider to accept and start route.',
+        completed: isAccepted,
+        dt: latestAssignment?.acceptedAt || (isAccepted ? updatedAt : null)
       },
       {
         status: 'SHIPPED',
-        title: 'Picked Up by Courier',
-        description: (order as any).courierName 
-          ? `In transit with ${(order as any).courierName} (AWB: ${(order as any).awbCode || 'Pending'})` 
-          : 'Package awaiting courier pickup.',
-        completed: [OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any),
-        timestamp: [OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any) ? updatedAt : null
+        title: 'Dispatched from Store',
+        description: isDispatched
+          ? `Store verified pickup OTP. Parcel handed over to ${riderName}.`
+          : 'Rider will present pickup OTP to store merchant.',
+        completed: isDispatched,
+        dt: order.pickedUpAt || latestAssignment?.pickedUpAt || (isDispatched ? updatedAt : null)
       },
       {
         status: 'OUT_FOR_DELIVERY',
         title: 'Out for Delivery',
-        description: 'Courier executive is out for delivery in your area.',
-        completed: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any),
-        timestamp: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any) ? updatedAt : null
+        description: isOutForDelivery
+          ? `${riderName} is heading to your doorstep.`
+          : 'Rider en route to delivery destination.',
+        completed: isOutForDelivery,
+        dt: order.outForDeliveryAt || latestAssignment?.outForDeliveryAt || (isOutForDelivery ? updatedAt : null)
+      },
+      {
+        status: 'ARRIVED_AT_DESTINATION',
+        title: 'Arrived at Destination',
+        description: isArrivedAtDestination
+          ? `${riderName} has arrived at your destination and is at your doorstep.`
+          : `${riderName} will reach your destination shortly.`,
+        completed: isArrivedAtDestination,
+        dt: latestAssignment?.arrivedCustomerAt || (isArrivedAtDestination ? (order.deliveredAt || updatedAt) : null)
       },
       {
         status: 'DELIVERED',
-        title: 'Delivered',
-        description: 'Package delivered to your doorstep.',
-        completed: order.status === OrderStatus.DELIVERED,
-        timestamp: order.status === OrderStatus.DELIVERED ? updatedAt : null
+        title: 'Delivered Successfully',
+        description: isDelivered 
+          ? 'Package delivered to your doorstep. Handover verified via OTP.'
+          : 'Share your 4-digit Delivery OTP with rider upon arrival.',
+        completed: isDelivered,
+        dt: order.deliveredAt || latestAssignment?.deliveredAt || (isDelivered ? updatedAt : null)
       }
     ];
 
+    // Find current active step index
+    let currentActiveIdx = -1;
+    for (let i = 0; i < rawMilestones.length; i++) {
+      if (!rawMilestones[i].completed) {
+        currentActiveIdx = i;
+        break;
+      }
+    }
+    if (currentActiveIdx === -1 && isDelivered) {
+      currentActiveIdx = rawMilestones.length - 1;
+    }
+
+    // Build complete 8-milestone timeline with timestamps
+    const timeline = rawMilestones.map((m, idx) => {
+      const timeInfo = formatStepTime(m.dt, m.completed);
+      return {
+        status: m.status,
+        title: m.title,
+        description: m.description,
+        completed: m.completed,
+        isCurrent: idx === currentActiveIdx,
+        timestamp: timeInfo.timestamp,
+        time: timeInfo.time,
+        formattedDate: timeInfo.formattedDate,
+        displayTime: timeInfo.displayTime
+      };
+    });
+
     return {
       orderId: order.id,
-      status: order.status,
+      status: (latestAssignment?.status === 'ARRIVED_AT_CUSTOMER' && order.status !== OrderStatus.DELIVERED)
+        ? 'ARRIVED_AT_CUSTOMER'
+        : order.status,
       totalAmount: order.totalAmount,
       deliveryAddress: order.deliveryAddress,
+      deliveryOtp,
+      fulfillmentType: order.fulfillmentType,
+      deliveryPartner: order.deliveryPartner ? {
+        id: order.deliveryPartner.id,
+        name: order.deliveryPartner.user.name,
+        phone: order.deliveryPartner.user.phone,
+        vehicleType: order.deliveryPartner.vehicleType,
+        vehicleNumber: order.deliveryPartner.vehicleNumber,
+        avatarUrl: order.deliveryPartner.user.avatarUrl
+      } : null,
       courierName: (order as any).courierName,
       awbCode: (order as any).awbCode,
       shippingLabelUrl: (order as any).shippingLabelUrl,
       trackingUrl: (order as any).trackingUrl,
-      estimatedDelivery: (order as any).estimatedDelivery || 'Within 3 - 5 business days',
+      estimatedDelivery: (order as any).estimatedDelivery || 'Within 2 - 4 hours (Express Local)',
       storeName: order.store?.name,
       itemsCount: order.items.reduce((s, i) => s + i.quantity, 0),
       timeline
@@ -1155,6 +1374,126 @@ export class OrderService {
         currency,
         currencySymbol
       }
+    };
+  }
+
+  /**
+   * Public Parcel Verification & Lost Parcel Rescue Desk
+   * Unauthenticated callback for smartphone camera QR scans on physical parcel slips.
+   */
+  static async getPublicParcelVerification(orderId: string) {
+    if (!orderId || typeof orderId !== 'string') {
+      throw new AppError('Invalid order identifier', 400);
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          { id: orderId },
+          { pickupToken: orderId },
+          { id: { startsWith: orderId } }
+        ]
+      },
+      include: {
+        store: {
+          select: {
+            id: true,
+            name: true,
+            contactPhone: true,
+            address: true,
+            logoUrl: true,
+            city: true
+          }
+        },
+        buyer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        },
+        items: {
+          include: {
+            product: {
+              include: {
+                media: {
+                  where: { isPrimary: true },
+                  take: 1
+                }
+              }
+            },
+            variant: true
+          }
+        },
+        payment: {
+          select: {
+            status: true,
+            provider: true
+          }
+        },
+        deliveryPartner: {
+          include: {
+            user: { select: { name: true, phone: true } }
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      throw new AppError('Parcel not found or invalid QR code. If this is a lost parcel, please contact Lokaya customer support.', 404);
+    }
+
+    const isCod = 
+      order.paymentMethod?.toLowerCase().includes('cash') || 
+      order.paymentMethod?.toLowerCase().includes('cod') || 
+      order.payment?.status !== 'SUCCESS';
+
+    const shortId = order.id.slice(0, 8).toUpperCase();
+
+    return {
+      orderId: order.id,
+      shortId,
+      reference: `#LOK-${shortId}`,
+      status: order.status,
+      isDelivered: order.status === OrderStatus.DELIVERED,
+      isDispatched: [OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any),
+      paymentMethod: isCod ? 'CASH ON DELIVERY (COD)' : 'PREPAID',
+      isCod,
+      collectAmount: isCod ? order.totalAmount : 0,
+      totalAmount: order.totalAmount,
+      currency: 'INR',
+      currencySymbol: '₹',
+      dispatchedAt: order.pickedUpAt || order.createdAt,
+      createdAt: order.createdAt,
+      store: {
+        name: order.store?.name || 'Partner Merchant Store',
+        address: order.store?.address || 'Store Location on Record',
+        phone: order.store?.contactPhone || '+91 Support Line',
+        city: order.store?.city || null
+      },
+      recipient: {
+        name: order.customerName || order.buyer?.name || 'Customer',
+        phone: order.customerPhone || order.buyer?.phone || 'Contact via Lokaya',
+        deliveryAddress: order.deliveryAddress || 'Address on Record'
+      },
+      rider: order.deliveryPartner ? {
+        name: order.deliveryPartner.user.name,
+        phone: order.deliveryPartner.user.phone
+      } : null,
+      items: order.items.map(item => {
+        const primaryImg = item.product?.media?.[0]?.url || item.product?.imageUrl || null;
+        return {
+          id: item.id,
+          name: item.productName || item.product?.name || 'Item',
+          sku: item.sku,
+          variantName: item.variant?.name || null,
+          quantity: item.quantity,
+          image: primaryImg
+        };
+      }),
+      platform: 'Lokaya Hyperlocal Delivery Network',
+      supportPhone: '+91 80000 56529',
+      supportEmail: 'support@lokaya.in'
     };
   }
 }

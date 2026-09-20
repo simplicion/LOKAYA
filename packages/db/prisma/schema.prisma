@@ -94,6 +94,7 @@ model User {
   stores       StoreUser[]
   orders       Order[]
   carts        Cart[]
+  deliveryPartner DeliveryPartner?
   
   // Social
   posts        Post[]
@@ -172,6 +173,8 @@ model Store {
   notifications SellerNotification[]
   stories       Story[]
   highlights    Highlight[]
+  deliveryPartners StoreDeliveryPartner[]
+  deliveryBatches DeliveryBatch[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -213,6 +216,8 @@ model Product {
   hasVariants   Boolean  @default(false)
   isAvailableForDelivery Boolean @default(true)
   isAvailableForPickup   Boolean @default(true)
+  isDeliveryIncluded     Boolean @default(false)
+  costPrice              Float?  @default(0)
   processingTime String?
 
   // Verification Center Fields
@@ -237,6 +242,10 @@ model Product {
   isActive      Boolean  @default(true) // Legacy status flag
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([storeId])
+  @@index([categoryId])
+  @@index([isActive, status, createdAt])
 }
 
 model ProductMedia {
@@ -251,6 +260,8 @@ model ProductMedia {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([productId, displayOrder])
 }
 
 model ProductVariant {
@@ -276,6 +287,8 @@ model ProductVariant {
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([productId, status])
 }
 
 model Category {
@@ -293,6 +306,8 @@ model Category {
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@index([storeId, displayOrder])
 }
 
 model CategoryAttribute {
@@ -432,6 +447,7 @@ model Order {
   status              OrderStatus @default(PENDING)
   totalAmount         Float
   shippingFee         Float       @default(0)
+  platformFee         Float       @default(0)
   paymentMethod       String?     @default("ONLINE")
   pickupToken         String?     @unique
   deliveryAddress     String?
@@ -458,23 +474,38 @@ model Order {
   store         Store       @relation(fields: [storeId], references: [id])
   items         OrderItem[]
   subOrders     SubOrder[]
+  batchItems    DeliveryBatchItem[]
   payment       Payment?
   pickupOtp     OrderPickupOtp?
   transactions  SellerTransaction[]
+
+  // Hyperlocal Delivery Lifecycle & Verification
+  deliveryOtp         String?
+  fulfillmentType     FulfillmentType?
+  deliveryPartnerId   String?
+  deliveryPartner     DeliveryPartner?     @relation("OrderDeliveryPartner", fields: [deliveryPartnerId], references: [id])
+  deliveryAssignments DeliveryAssignment[]
+  pickedUpAt          DateTime?
+  outForDeliveryAt    DateTime?
+  deliveredAt         DateTime?
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
 
 model SubOrder {
-  id                  String      @id @default(uuid())
-  orderId             String
-  storeId             String
-  status              OrderStatus @default(PENDING)
-  subtotal            Float
-  commissionAmount    Float       @default(0)
-  sellerPayoutAmount  Float       @default(0)
-  invoiceNumber       String?
+  id                         String      @id @default(uuid())
+  orderId                    String
+  storeId                    String
+  status                     OrderStatus @default(PENDING)
+  subtotal                   Float
+  commissionAmount           Float       @default(0)
+  platformMarginCommission   Float       @default(0)
+  sellerPayoutAmount         Float       @default(0)
+  shippingCollected          Float       @default(0)
+  shippingPaidToRider        Float       @default(0)
+  shippingMerchantProfit     Float       @default(0)
+  invoiceNumber              String?
   
   // Shiprocket 3PL Tracking
   shiprocketOrderId   String?
@@ -487,6 +518,7 @@ model SubOrder {
   order               Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   store               Store       @relation(fields: [storeId], references: [id])
   items               OrderItem[]
+  batchItems          DeliveryBatchItem[]
 
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
@@ -512,6 +544,9 @@ model OrderItem {
   subOrder      SubOrder?       @relation(fields: [subOrderId], references: [id])
   product       Product         @relation(fields: [productId], references: [id])
   variant       ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([productId])
+  @@index([orderId])
 }
 
 model Payment {
@@ -551,6 +586,9 @@ model MediaAsset {
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([postId])
+  @@index([reelId])
 }
 
 model Post {
@@ -568,6 +606,8 @@ model Post {
   
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  @@index([authorId, createdAt])
 }
 
 model Reel {
@@ -585,6 +625,8 @@ model Reel {
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  @@index([authorId, createdAt])
 }
 
 model ProductLink {
@@ -625,6 +667,8 @@ model Like {
   createdAt DateTime @default(now())
   
   @@unique([userId, postId, reelId])
+  @@index([postId, userId])
+  @@index([reelId, userId])
 }
 
 model Comment {
@@ -640,6 +684,9 @@ model Comment {
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([postId, createdAt])
+  @@index([reelId, createdAt])
 }
 
 // Review & Reputation
@@ -657,6 +704,10 @@ model Review {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([productId, createdAt])
+  @@index([storeId, createdAt])
+  @@index([userId])
 }
 
 model Report {
@@ -959,4 +1010,215 @@ model SupportTicket {
   @@index([userId])
   @@index([status])
 }
+
+// ----------------------------------------------------
+// Hyperlocal Delivery Ecosystem Models
+// ----------------------------------------------------
+
+enum DeliveryPartnerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum VehicleType {
+  BICYCLE
+  MOTORCYCLE
+  SCOOTER
+  EV
+  CAR
+  VAN
+  WALKER
+}
+
+enum PartnerRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum DeliveryAssignmentStatus {
+  ASSIGNED
+  ACCEPTED
+  ARRIVED_AT_STORE
+  PICKED_UP
+  OUT_FOR_DELIVERY
+  ARRIVED_AT_CUSTOMER
+  DELIVERED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum FulfillmentType {
+  LOKAYA_AUTO
+  LOKAYA_PARTNER
+  SELF_DELIVERY
+}
+
+model DeliveryPartner {
+  id                    String                @id @default(uuid())
+  userId                String                @unique
+  status                DeliveryPartnerStatus @default(PENDING)
+  isOnline              Boolean               @default(false)
+  isBusy                Boolean               @default(false)
+  
+  // Real-time location
+  currentLatitude       Float?
+  currentLongitude      Float?
+  locationArea          String?
+  lastLocationUpdate    DateTime?
+
+  // Vehicle Details
+  vehicleType           VehicleType           @default(MOTORCYCLE)
+  vehicleNumber         String
+  vehiclePhotoUrl       String
+  vehicleDocumentUrl    String
+
+  // Dynamic Custom Pricing
+  perKmRate             Float                 @default(8.0)
+  baseFare              Float                 @default(40.0)
+  isCustomPricingEnabled Boolean              @default(true)
+  operatingCountry      String                @default("IN")
+
+  // Identity & KYC (4 mandatory documents total)
+  selfieUrl             String
+  identityDocumentType  String                @default("GOVERNMENT_ID")
+  identityDocumentUrl   String
+  rejectionReason       String?
+
+  // Metrics & Stats
+  totalDeliveries       Int                   @default(0)
+  rating                Float                 @default(5.0)
+  totalEarnings         Float                 @default(0)
+
+  // Relations
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments           DeliveryAssignment[]
+  partnerStores         StoreDeliveryPartner[]
+  fulfilledOrders       Order[]               @relation("OrderDeliveryPartner")
+  deliveryBatches       DeliveryBatch[]
+
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([status, isOnline, isBusy])
+  @@index([currentLatitude, currentLongitude])
+}
+
+model StoreDeliveryPartner {
+  id                String               @id @default(uuid())
+  storeId           String
+  deliveryPartnerId String
+  status            PartnerRequestStatus @default(PENDING)
+  notes             String?
+  
+  store             Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  deliveryPartner   DeliveryPartner      @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([storeId, deliveryPartnerId])
+  @@index([storeId, status])
+  @@index([deliveryPartnerId, status])
+}
+
+model DeliveryAssignment {
+  id                String                   @id @default(uuid())
+  orderId           String
+  deliveryPartnerId String
+  status            DeliveryAssignmentStatus @default(ASSIGNED)
+  
+  assignedAt        DateTime                 @default(now())
+  acceptedAt        DateTime?
+  arrivedStoreAt    DateTime?
+  pickedUpAt        DateTime?
+  outForDeliveryAt  DateTime?
+  arrivedCustomerAt DateTime?
+  deliveredAt       DateTime?
+  deliveryFee       Float                    @default(0)
+
+  order             Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deliveryPartner   DeliveryPartner          @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@index([orderId])
+  @@index([deliveryPartnerId, status])
+}
+
+model CountryFuelBenchmark {
+  countryCode            String   @id
+  countryName            String
+  currency               String
+  currencySymbol         String   @default("₹")
+  fuelPricePerLiter      Float
+  standardBikeMileage    Float    @default(50.0)
+  standardScooterMileage Float    @default(40.0)
+  baseLaborAllowance     Float    @default(1.0)
+  lastUpdated            DateTime @default(now())
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+enum BatchDispatchStatus {
+  PENDING
+  ACCEPTED
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+model DeliveryBatch {
+  id                     String              @id @default(uuid())
+  storeId                String
+  store                  Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  deliveryPartnerId      String?
+  deliveryPartner        DeliveryPartner?    @relation(fields: [deliveryPartnerId], references: [id])
+  status                 BatchDispatchStatus @default(PENDING)
+  totalDrops             Int                 @default(1)
+  completedDrops         Int                 @default(0)
+  totalShippingCollected Float               @default(0)
+  totalRiderPayout       Float               @default(0)
+  totalMerchantProfit    Float               @default(0)
+  
+  items                  DeliveryBatchItem[]
+  
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@index([storeId])
+  @@index([deliveryPartnerId, status])
+  @@index([status])
+}
+
+model DeliveryBatchItem {
+  id                 String        @id @default(uuid())
+  batchId            String
+  batch              DeliveryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  orderId            String
+  order              Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  subOrderId         String?
+  subOrder           SubOrder?     @relation(fields: [subOrderId], references: [id])
+  dropSequence       Int           @default(1)
+  shippingCollected  Float         @default(0)
+  riderShare         Float         @default(0)
+  merchantShare      Float         @default(0)
+  isFirstDrop        Boolean       @default(false)
+  isCompleted        Boolean       @default(false)
+  completedAt        DateTime?
+  customerOtp        String?
+  
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([batchId])
+  @@index([orderId])
+}
+
+
 

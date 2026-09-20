@@ -58,9 +58,23 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
   const isDelivered = rawStatus === 'DELIVERED';
   const isCancellable = ['PENDING', 'CONFIRMED', 'PROCESSING', 'PACKED'].includes(rawStatus);
 
-  const orderDateStr = order.createdAt 
-    ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-    : 'Recent Order';
+  const formatDateTime = (dateStr?: string | Date | null) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const orderDateStr = formatDateTime(order.createdAt) || 'Recent Order';
+  const deliveredDateStr = formatDateTime(order.deliveredAt);
+  const pickedUpDateStr = formatDateTime(order.pickedUpAt);
 
   const estimatedDelivery = order.estimatedDelivery || '3 - 5 business days';
 
@@ -99,12 +113,15 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
             <div className="flex-1 min-w-0">
               <h3 className="font-bold text-gray-900 text-xs">
                 {isDelivered ? 'Delivered Successfully' : 
+                 rawStatus === 'ARRIVED_AT_CUSTOMER' || rawStatus === 'ARRIVED_AT_DESTINATION' ? 'Rider Arrived at Destination' :
                  rawStatus === 'SHIPPED' ? (order.awbCode ? `In Transit (${order.courierName || 'Shiprocket Express'})` : 'In Transit (Dispatched)') :
                  rawStatus === 'OUT_FOR_DELIVERY' ? 'Out for Delivery Today' :
                  'Order Confirmed & Processing'}
               </h3>
               <p className="text-[11px] text-gray-600 mt-0.5">
-                {isDelivered ? 'Package delivered to your address.' : `Expected delivery: ${estimatedDelivery}`}
+                {isDelivered 
+                  ? (deliveredDateStr ? `Package delivered on ${deliveredDateStr}.` : 'Package delivered to your address.') 
+                  : (pickedUpDateStr ? `Dispatched at ${pickedUpDateStr} • Expected: ${estimatedDelivery}` : `Expected delivery: ${estimatedDelivery}`)}
               </p>
               
               <Button 
@@ -116,6 +133,20 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
               </Button>
             </div>
           </div>
+
+          {/* Secure Handover OTP Banner */}
+          {!isDelivered && (order.deliveryOtp || order.pickupOtp) && (
+            <div className="bg-[#0F172A] text-white rounded-xl p-3 flex items-center justify-between border border-slate-800 shadow-sm">
+              <div className="flex items-center gap-2 text-xs font-bold">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Delivery OTP:</span>
+                <span className="font-mono text-sm tracking-widest text-emerald-300 font-black">
+                  {order.deliveryOtp || order.pickupOtp}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400">Share with Rider at Doorstep</span>
+            </div>
+          )}
 
           {/* Courier Telemetry if assigned */}
           {order.awbCode && (
@@ -266,8 +297,8 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
 
           <Button 
             variant="outline" 
-            onClick={() => router.push('/support')}
-            className="h-10 rounded-xl border-gray-200 font-bold text-gray-800 text-xs flex items-center justify-center gap-1.5"
+            onClick={() => router.push(`/support?orderId=${order.id}&tab=raise`)}
+            className="h-10 rounded-xl border-gray-200 font-bold text-gray-800 text-xs flex items-center justify-center gap-1.5 hover:bg-orange-50 hover:border-orange-200 hover:text-[#FF6B00] transition-colors"
           >
             <HeadphonesIcon className="w-3.5 h-3.5" />
             Help

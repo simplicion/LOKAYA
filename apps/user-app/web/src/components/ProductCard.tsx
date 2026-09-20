@@ -77,8 +77,17 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
     : (typeof product.mrp === 'number' ? product.mrp : (product.originalPrice ? parseFloat(String(product.originalPrice).replace(/,/g, '')) : undefined));
 
   const discount = product.discount || product.discountLabel || (originalPriceValue && originalPriceValue > priceValue ? `${Math.round(((originalPriceValue - priceValue) / originalPriceValue) * 100)}% off` : undefined);
-  const rating = product.rating ? String(product.rating) : null;
-  const reviewsCount = product.reviews ? String(product.reviews).replace(/[()]/g, '') : null;
+  let rating = product.rating ? String(product.rating) : null;
+  let reviewsCount = (product as any).reviewsCount !== undefined
+    ? String((product as any).reviewsCount)
+    : (Array.isArray(product.reviews) ? String(product.reviews.length) : (product.reviews ? String(product.reviews).replace(/[()]/g, '') : null));
+
+  if (!rating && Array.isArray(product.reviews) && product.reviews.length > 0) {
+    const avg = product.reviews.reduce((sum: number, r: any) => sum + (Number(r.rating) || 0), 0) / product.reviews.length;
+    if (avg > 0) {
+      rating = avg.toFixed(1);
+    }
+  }
 
   // Stock calculations & edge-case guards (supporting variants fallback)
   let stockCount = (product as any).stockCount !== undefined && (product as any).stockCount !== null && (product as any).stockCount !== ''
@@ -223,7 +232,7 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
         {rating && (
           <div className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-xs border border-gray-200/80 rounded-md px-1.5 py-0.5 flex items-center gap-1 shadow-2xs z-10 pointer-events-none">
             <span className="font-bold text-gray-900 text-[11px] leading-none">{rating}</span>
-            <Star className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
+            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-500" />
             {reviewsCount && (
               <span className="text-[10px] text-gray-500 font-medium leading-none">({reviewsCount})</span>
             )}

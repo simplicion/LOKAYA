@@ -10,7 +10,8 @@ import {
   useGetPresignedUrlMutation, 
   useUpdateProfileMutation, 
   useGetMyStoreQuery,
-  useUploadMediaMutation 
+  useUploadMediaMutation,
+  useGetDeliveryProfileQuery
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { 
@@ -36,7 +37,10 @@ import {
   RotateCcw,
   Users,
   Loader2,
-  User as UserIcon
+  Bike,
+  User as UserIcon,
+  Briefcase,
+  Sparkles
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -53,6 +57,7 @@ export function RegularProfile() {
   const [getPresignedUrl] = useGetPresignedUrlMutation();
   const [updateProfile] = useUpdateProfileMutation();
   const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
+  const { data: deliveryProfile } = useGetDeliveryProfileQuery(undefined, { skip: !user });
 
   const handleLogout = async () => {
     try {
@@ -182,33 +187,11 @@ export function RegularProfile() {
           </div>
         </div>
 
-        {/* Seller Promo */}
-        <div className="bg-[#F2EFE9] rounded-3xl p-5 border border-[#E5E2DC] flex flex-col justify-between">
-          <div className="flex justify-between items-start mb-6">
-            <div className="pr-4">
-              <h3 className="font-bold text-[#FF5A36] text-lg mb-1">
-                {myStore ? 'Seller Dashboard' : 'Become a Seller!'}
-              </h3>
-              <p className="text-sm text-[#6B6B6B] font-medium mb-4">
-                {myStore ? 'Manage your store, products, orders and more.' : 'Open your store today and start selling to millions of customers.'}
-              </p>
-            </div>
-            {/* 3D Store Illustration Placeholder */}
-            <div className="w-24 h-24 bg-orange-100 rounded-2xl flex items-center justify-center flex-shrink-0 relative overflow-hidden">
-               <Store className="w-12 h-12 text-[#FF5A36] opacity-50" />
-               {/* Decorative elements to mimic 3D */}
-               <div className="absolute top-0 w-full h-4 bg-orange-200"></div>
-               <div className="absolute bottom-2 w-16 h-8 bg-orange-300 rounded mx-auto left-0 right-0"></div>
-            </div>
-          </div>
-
-          {!myStore ? (
-            <Link href="/seller/onboarding" className="block bg-[#FF5A36] text-white text-center rounded-2xl p-4 font-bold shadow-sm hover:bg-[#e04d2d] transition-colors">
-              Set Up Your Shop Now
-            </Link>
-          ) : (
+        {/* Active Store Dashboard (Only shown if user has a registered store) */}
+        {myStore && (
+          <div className="bg-[#F2EFE9] rounded-3xl p-5 border border-[#E5E2DC]">
             <Link href="/seller" className="block bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-[#171717] rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
                     {myStore.logoUrl ? <img src={myStore.logoUrl} alt="Store logo" className="w-full h-full object-cover" /> : myStore.name?.substring(0, 2).toUpperCase()}
@@ -216,18 +199,54 @@ export function RegularProfile() {
                   <div>
                     <h4 className="font-bold text-[#171717] text-sm">{myStore.name}</h4>
                     <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-xs font-bold text-[#FF5A36]">{myStore.status}</span>
+                      <span className="text-xs font-bold text-[#FF5A36]">{myStore.status} Store</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center text-[#FF5A36]">
-                  <span className="text-xs font-bold">Dashboard</span>
+                  <span className="text-xs font-bold">Seller Dashboard</span>
                   <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </Link>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Active Delivery Portal (Only shown if user is an approved/pending rider) */}
+        {deliveryProfile && (
+          <div className="bg-white rounded-3xl p-5 shadow-sm border border-[#E5E2DC]">
+            <Link 
+              href="/delivery" 
+              className="block bg-slate-50 border border-slate-200 rounded-2xl p-4 hover:border-orange-300 transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-slate-900 rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
+                    {deliveryProfile.selfieUrl ? (
+                      <img src={deliveryProfile.selfieUrl} alt="Rider" className="w-full h-full object-cover" />
+                    ) : (
+                      <Bike className="w-5 h-5 text-[#FF6B00]" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[#171717] text-sm">
+                      {deliveryProfile.vehicleType} Rider
+                    </h4>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-xs font-bold text-emerald-600">
+                        {deliveryProfile.status === 'APPROVED' ? 'Active Rider' : 'Pending Verification'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center text-[#FF5A36]">
+                  <span className="text-xs font-bold">Open Portal</span>
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </div>
+            </Link>
+          </div>
+        )}
 
         {/* My Orders Card */}
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-[#E5E2DC]">
@@ -272,6 +291,7 @@ export function RegularProfile() {
         <div className="bg-white rounded-3xl shadow-sm border border-[#E5E2DC] overflow-hidden mb-4">
           <h3 className="font-bold text-[#171717] p-5 pb-2">Quick Links</h3>
           <div className="flex flex-col">
+            <QuickLinkItem icon={Briefcase} label="Business with Lokaya" badge="Partner Hub" href="/business" />
             <QuickLinkItem icon={MapPin} label="My Addresses" href="/checkout/address" />
             <QuickLinkItem icon={CreditCard} label="Payment Methods" href="/checkout/payment" />
             <QuickLinkItem icon={Star} label="My Reviews" href="/profile/reviews" />
@@ -280,6 +300,28 @@ export function RegularProfile() {
             <QuickLinkItem icon={Store} label="Followed Stores" href="/profile/followed-stores" borderBottom={false} />
           </div>
         </div>
+
+        {/* Business with Lokaya Banner */}
+        <Link 
+          href="/business" 
+          className="block bg-gradient-to-r from-orange-500 via-[#FF5A36] to-amber-500 rounded-3xl p-5 text-white shadow-sm hover:shadow-md transition-all group mb-4"
+        >
+          <div className="flex items-center justify-between">
+            <div className="space-y-1 pr-4">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-extrabold backdrop-blur-xs">
+                <Sparkles className="w-3 h-3" />
+                <span>Partner Programs</span>
+              </div>
+              <h4 className="font-black text-base">Grow with Lokaya</h4>
+              <p className="text-xs text-white/90">
+                Become a verified merchant seller or earn with our delivery fleet.
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0 group-hover:translate-x-1 transition-transform">
+              <ChevronRight className="w-5 h-5 text-white" />
+            </div>
+          </div>
+        </Link>
 
         {/* Footer Links Card */}
         <div className="bg-white rounded-3xl shadow-sm border border-[#E5E2DC] overflow-hidden mb-6">
@@ -307,12 +349,29 @@ export function RegularProfile() {
   );
 }
 
-function QuickLinkItem({ icon: Icon, label, href, borderBottom = true }: { icon: any, label: string, href?: string, borderBottom?: boolean }) {
+function QuickLinkItem({ 
+  icon: Icon, 
+  label, 
+  href, 
+  badge,
+  borderBottom = true 
+}: { 
+  icon: any; 
+  label: string; 
+  href?: string; 
+  badge?: string;
+  borderBottom?: boolean; 
+}) {
   const content = (
     <div className={`flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors ${borderBottom ? 'border-b border-gray-100' : ''}`}>
       <div className="flex items-center gap-4">
         <Icon className="w-5 h-5 text-[#171717]" strokeWidth={1.5} />
         <span className="font-bold text-[#171717] text-sm">{label}</span>
+        {badge && (
+          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-orange-100 text-[#FF5A36] tracking-wider">
+            {badge}
+          </span>
+        )}
       </div>
       <ChevronRight className="w-5 h-5 text-gray-400" />
     </div>
@@ -323,3 +382,4 @@ function QuickLinkItem({ icon: Icon, label, href, borderBottom = true }: { icon:
   }
   return content;
 }
+

@@ -14,7 +14,8 @@ import {
 import { 
   Package, TrendingUp, PlusCircle, Settings, BarChart3, 
   ChevronRight, Store, ChevronDown, Bell, Loader2, Clock, 
-  CheckCircle2, AlertTriangle, RefreshCw, FileText, ArrowRight, ShieldCheck
+  CheckCircle2, AlertTriangle, RefreshCw, FileText, ArrowRight, ShieldCheck,
+  Bike, Truck, Users, ShoppingBag, Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
@@ -166,6 +167,49 @@ export default function SellerDashboardPage() {
     activeProducts: statsData?.activeProducts ?? (products?.length || 0),
     lowStockItems: statsData?.lowStockItems ?? 0
   };
+
+  const operationalHubs = [
+    {
+      icon: Bike,
+      label: 'Delivery Fleet',
+      desc: 'Partner requests & roster',
+      href: '/seller/delivery-partners',
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
+      borderColor: 'border-emerald-100',
+      badge: 'Fleet'
+    },
+    {
+      icon: Truck,
+      label: 'Bulk Dispatch',
+      desc: '50/50 multi-drop batches',
+      href: '/seller/dispatch',
+      color: 'text-[#FF5A36]',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-100',
+      badge: 'Batch'
+    },
+    {
+      icon: Users,
+      label: 'Top Customers',
+      desc: 'VIP spenders & repeat buyers',
+      href: '/seller/analytics/customers',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-100',
+      badge: 'CRM'
+    },
+    {
+      icon: ShoppingBag,
+      label: 'POS Counter Sale',
+      desc: 'Walk-in billing & receipt',
+      href: '/seller/orders/manual',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-100',
+      badge: 'POS'
+    }
+  ];
 
   const recentOrders = liveRecentOrders.map(order => ({
     rawId: order.id,
@@ -359,6 +403,47 @@ export default function SellerDashboardPage() {
             </Button>
           </div>
         )}
+
+        {/* Store Operations Hub */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-base font-bold text-[#171717] flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#FF5A36]" />
+              Store Operations
+            </h2>
+            <span className="text-[11px] font-semibold text-gray-400">Quick Hubs</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {operationalHubs.map((hub) => {
+              const HubIcon = hub.icon;
+              return (
+                <Link
+                  key={hub.label}
+                  href={hub.href}
+                  className={`p-3.5 rounded-2xl border ${hub.borderColor} bg-white hover:bg-gray-50/80 transition-all flex flex-col justify-between shadow-xs group active:scale-[0.98]`}
+                >
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className={`w-9 h-9 rounded-xl ${hub.bgColor} ${hub.color} flex items-center justify-center transition-transform group-hover:scale-105`}>
+                      <HubIcon className="w-4 h-4" />
+                    </div>
+                    <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 tracking-wider">
+                      {hub.badge}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xs text-[#171717] group-hover:text-[#FF5A36] transition-colors truncate">
+                      {hub.label}
+                    </h3>
+                    <p className="text-[10px] text-[#6B6B6B] truncate mt-0.5">
+                      {hub.desc}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Recent Orders Section */}
         <div className="mb-6">

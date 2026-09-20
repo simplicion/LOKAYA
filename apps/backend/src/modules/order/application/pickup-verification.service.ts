@@ -84,32 +84,44 @@ export class PickupVerificationService {
 
     let isMatch = false;
 
-    // Check OTP match (exact 4 digits, or universal test fallback '1234' in dev mode)
-    if (inputOtp && (inputOtp.trim() === tokenRecord.otpCode || (process.env.NODE_ENV !== 'production' && inputOtp.trim() === '1234'))) {
-      isMatch = true;
+    // Check OTP match (matches order deliveryOtp, tokenRecord otpCode, or universal test fallback '1234' in dev mode)
+    if (inputOtp) {
+      const cleanInput = inputOtp.trim();
+      if (
+        (order.deliveryOtp && cleanInput === order.deliveryOtp.trim()) ||
+        (tokenRecord && cleanInput === tokenRecord.otpCode.trim()) ||
+        (process.env.NODE_ENV !== 'production' && cleanInput === '1234')
+      ) {
+        isMatch = true;
+      }
     }
 
     // Check QR Token match (or orderId included in payload)
-    if (inputQr && (inputQr.trim() === tokenRecord.qrToken || inputQr.trim() === orderId || inputQr.includes(orderId))) {
+    if (inputQr && (tokenRecord?.qrToken === inputQr.trim() || inputQr.trim() === orderId || inputQr.includes(orderId))) {
       isMatch = true;
     }
 
     if (!isMatch) {
-      throw new AppError('Invalid OTP code or QR badge. Please request customer for current code.', 400);
+      throw new AppError('Invalid OTP code. Please request customer for current 4-digit code.', 400);
     }
 
     // Transactional fulfillment: Order status -> DELIVERED, token used -> true, financial credit -> ledger
     const fulfilledOrder = await prisma.$transaction(async (tx) => {
-      // 1. Mark token as used
-      await tx.orderPickupOtp.update({
-        where: { orderId },
-        data: { isUsed: true }
-      });
+      // 1. Mark token as used if present
+      if (tokenRecord) {
+        await tx.orderPickupOtp.update({
+          where: { orderId },
+          data: { isUsed: true }
+        });
+      }
 
       // 2. Mark order as DELIVERED
       const updated = await tx.order.update({
         where: { id: orderId },
-        data: { status: OrderStatus.DELIVERED },
+        data: { 
+          status: OrderStatus.DELIVERED,
+          deliveredAt: new Date()
+        },
         include: {
           items: true,
           buyer: true,
@@ -117,7 +129,19 @@ export class PickupVerificationService {
         }
       });
 
-      // 3. Post CREDIT entry to Seller Transaction Ledger
+      // 3. If a delivery partner was assigned, mark assignment completed and free rider
+      if (order.deliveryPartnerId) {
+        await tx.deliveryAssignment.updateMany({
+          where: { orderId, deliveryPartnerId: order.deliveryPartnerId },
+          data: { status: 'DELIVERED' as any, deliveredAt: new Date() }
+        });
+        await tx.deliveryPartner.update({
+          where: { id: order.deliveryPartnerId },
+          data: { isBusy: false }
+        });
+      }
+
+      // 4. Post CREDIT entry to Seller Transaction Ledger
       await tx.sellerTransaction.create({
         data: {
           storeId: order.storeId,
@@ -125,11 +149,11 @@ export class PickupVerificationService {
           title: `Order #${orderId.slice(0, 8)} Pickup Completed`,
           amount: order.totalAmount,
           type: TransactionType.CREDIT,
-          description: `Customer pickup verified successfully via OTP/QR`
+          description: `Customer pickup verified successfully via OTP`
         }
       });
 
-      // 4. Create in-app seller notification
+      // 5. Create in-app seller notification
       await tx.sellerNotification.create({
         data: {
           storeId: order.storeId,

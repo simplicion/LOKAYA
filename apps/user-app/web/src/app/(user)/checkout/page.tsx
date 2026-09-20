@@ -6,7 +6,28 @@ import Link from 'next/link';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
 import Image from 'next/image';
-import Script from 'next/script';
+
+// On-demand Razorpay SDK loader to prevent upfront 21MB / 263-request network flooding
+function loadRazorpaySDK(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve(false);
+    if ((window as any).Razorpay) return resolve(true);
+
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => resolve(false));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 import { 
   ChevronLeft, 
   MapPin, 
@@ -229,12 +250,77 @@ function CheckoutContent() {
     toast.success('Your order has been adjusted to available stock');
   };
 
+  // Multi-Store Fulfillment Packages Breakdown & Blended Distance Calculation
+  const storePackages = React.useMemo(() => {
+    const map = new Map<string, { storeId: string; storeName: string; store: any; items: any[]; isFreeDelivery: boolean; distanceKm: number; deliveryFee: number }>();
+    for (const item of orderItems) {
+      const sId = item.storeId || item.store?.id || 'default_store';
+      if (!map.has(sId)) {
+        // Estimated store-to-customer distance (defaults to ~5km if GPS not present)
+        const estDistance = item.store?.latitude && user?.latitude
+          ? Math.max(1.5, Math.round(Math.sqrt(Math.pow(item.store.latitude - user.latitude, 2) + Math.pow(item.store.longitude - user.longitude, 2)) * 111 * 10) / 10)
+          : 5.0;
+
+        map.set(sId, {
+          storeId: sId,
+          storeName: item.storeName || item.store?.name || 'Local Merchant Store',
+          store: item.store,
+          items: [],
+          isFreeDelivery: false,
+          distanceKm: estDistance,
+          deliveryFee: 50
+        });
+      }
+      const pkg = map.get(sId)!;
+      pkg.items.push(item);
+      if (item.isDeliveryIncluded || item.product?.isDeliveryIncluded) {
+        pkg.isFreeDelivery = true;
+      }
+    }
+
+    return Array.from(map.values());
+  }, [orderItems, user]);
+
+  // Multi-Store Blended Delivery Fee Calculation (Average Distance Model)
+  const { deliveryFee, blendedDistanceKm, multiStoreSavings } = React.useMemo(() => {
+    const payableStores = storePackages.filter(p => !p.isFreeDelivery);
+    if (payableStores.length === 0) {
+      return { deliveryFee: 0, blendedDistanceKm: 0, multiStoreSavings: 0 };
+    }
+
+    // Calculate blended average distance
+    const totalDist = payableStores.reduce((sum, p) => sum + p.distanceKm, 0);
+    const avgDist = Math.round((totalDist / payableStores.length) * 10) / 10;
+
+    // Single blended 2-way round trip delivery fee
+    let singleBlendedFee = 50;
+    if (avgDist > 10) {
+      singleBlendedFee = 90; // Regional courier slab
+    } else {
+      singleBlendedFee = Math.max(50, Math.round(2 * avgDist * 8));
+    }
+
+    // If standalone was charged per store
+    const standaloneSum = payableStores.reduce((sum, p) => {
+      const single = p.distanceKm > 10 ? 90 : Math.max(50, Math.round(2 * p.distanceKm * 8));
+      return sum + single;
+    }, 0);
+
+    const savings = Math.max(0, standaloneSum - singleBlendedFee);
+
+    return {
+      deliveryFee: singleBlendedFee,
+      blendedDistanceKm: avgDist,
+      multiStoreSavings: savings
+    };
+  }, [storePackages]);
+
   // Pricing calculations
   const itemsSubtotal = orderItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
-  const deliveryFee = deliverySpeed === 'EXPRESS' ? 49 : 0;
+  const platformFee = Math.round(itemsSubtotal * 0.015 * 100) / 100; // 1.5% Platform Convenience Fee
   const prepaidDiscount = paymentMethod === 'ONLINE' ? Math.min(Math.round(itemsSubtotal * 0.05), 100) : 0;
   const codFee = paymentMethod === 'COD' ? 49 : 0;
-  const grandTotal = Math.max(0, itemsSubtotal + deliveryFee - prepaidDiscount + codFee);
+  const grandTotal = Math.max(0, Math.round((itemsSubtotal + deliveryFee + platformFee - prepaidDiscount + codFee) * 100) / 100);
 
   // Address creation handler
   const handleSaveAddress = async (e: React.FormEvent) => {
@@ -308,6 +394,16 @@ function CheckoutContent() {
 
       // 3. Handle Payment Method
       if (paymentMethod === 'ONLINE') {
+        toast.loading('Initializing payment gateway...', { id: 'payment-init' });
+        const isLoaded = await loadRazorpaySDK();
+        toast.dismiss('payment-init');
+
+        if (!isLoaded || typeof window === 'undefined' || !(window as any).Razorpay) {
+          toast.error('Unable to load payment gateway. Please try again or choose Cash on Delivery.');
+          setIsProcessing(false);
+          return;
+        }
+
         // Create Razorpay Order
         const sessionRes = await createPaymentOrder({
           orderId: createdOrder.id,
@@ -358,13 +454,8 @@ function CheckoutContent() {
           }
         };
 
-        if (typeof window !== 'undefined' && (window as any).Razorpay) {
-          const rzpInstance = new (window as any).Razorpay(options);
-          rzpInstance.open();
-        } else {
-          toast.error('Razorpay SDK not loaded. Please refresh and try again.');
-          setIsProcessing(false);
-        }
+        const rzpInstance = new (window as any).Razorpay(options);
+        rzpInstance.open();
       } else {
         // COD Order
         toast.success('Order placed with Cash on Delivery!');
@@ -411,12 +502,6 @@ function CheckoutContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      {/* Razorpay External Script */}
-      <Script 
-        src="https://checkout.razorpay.com/v1/checkout.js" 
-        strategy="lazyOnload" 
-      />
-
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -674,57 +759,104 @@ function CheckoutContent() {
           </div>
         </section>
 
-        {/* Step 4: Order Items Preview */}
-        <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm">
-          <h2 className="font-bold text-gray-900 text-sm mb-3">Order Items ({orderItems.length})</h2>
-          <div className="divide-y divide-gray-100">
-            {orderItems.map((item: any, idx: number) => {
-              const isItemOOS = item.stockCount !== undefined && item.stockCount <= 0;
-              const isItemOver = item.stockCount !== undefined && item.stockCount > 0 && item.quantity > item.stockCount;
-              return (
-                <div key={idx} className={`py-3 flex items-center gap-3 ${isItemOOS ? 'opacity-85' : ''}`}>
-                  <div className="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden relative flex-shrink-0 border border-gray-200">
-                    {item.image ? (
-                      <Image 
-                        src={item.image} 
-                        alt={item.name} 
-                        fill 
-                        className={`object-cover ${isItemOOS ? 'grayscale' : ''}`}
-                        sizes="56px" 
-                      />
-                    ) : (
-                      <ShoppingBag className="w-6 h-6 m-auto text-gray-400" />
-                    )}
-                    {isItemOOS && (
-                      <div className="absolute inset-0 bg-[#171717]/75 backdrop-blur-[1px] flex items-center justify-center">
-                        <span className="text-[8px] font-black text-white uppercase tracking-tighter">OOS</span>
-                      </div>
-                    )}
+        {/* Step 4: Store Fulfillment Packages Preview */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-gray-900 text-sm">
+              Fulfillment Packages ({storePackages.length})
+            </h2>
+            <span className="text-[11px] text-gray-500 font-medium">
+              {orderItems.length} total items
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {storePackages.map((pkg, pIdx) => (
+              <div key={pIdx} className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200/80 shadow-sm space-y-3">
+                {/* Store Header & Guarantees */}
+                <div className="flex items-center justify-between pb-2.5 border-b border-gray-100 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-orange-50 text-[#FF5A36] flex items-center justify-center font-bold text-xs">
+                      {pIdx + 1}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-xs text-gray-900">{pkg.storeName}</h3>
+                      <p className="text-[10px] text-gray-500">{pkg.items.length} {pkg.items.length === 1 ? 'item' : 'items'}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-xs text-gray-900 truncate">{item.name}</h4>
-                    {item.variantName && (
-                      <p className="text-[10px] text-gray-500 font-medium">{item.variantName}</p>
-                    )}
-                    <p className="text-[11px] text-gray-500 font-medium">Qty: {item.quantity}</p>
-                    {isItemOOS ? (
-                      <span className="inline-block mt-0.5 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-[#171717] text-white tracking-wider border border-white/20">
-                        OUT OF STOCK
-                      </span>
-                    ) : isItemOver ? (
-                      <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                        Only {item.stockCount} in stock
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-xs text-gray-900">
-                      {formatPrice(item.price * item.quantity)}
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <Truck className="w-3 h-3 text-emerald-600" />
+                      2-3 Days Delivery
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
+                      <ShieldCheck className="w-3 h-3 text-blue-600" />
+                      7-Day Replacement
                     </span>
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Package Items */}
+                <div className="divide-y divide-gray-100">
+                  {pkg.items.map((item: any, idx: number) => {
+                    const isItemOOS = item.stockCount !== undefined && item.stockCount <= 0;
+                    const isItemOver = item.stockCount !== undefined && item.stockCount > 0 && item.quantity > item.stockCount;
+                    return (
+                      <div key={idx} className={`py-2.5 flex items-center gap-3 ${isItemOOS ? 'opacity-85' : ''}`}>
+                        <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden relative flex-shrink-0 border border-gray-200">
+                          {item.image ? (
+                            <Image 
+                              src={item.image} 
+                              alt={item.name} 
+                              fill 
+                              className={`object-cover ${isItemOOS ? 'grayscale' : ''}`}
+                              sizes="48px" 
+                            />
+                          ) : (
+                            <ShoppingBag className="w-5 h-5 m-auto text-gray-400" />
+                          )}
+                          {isItemOOS && (
+                            <div className="absolute inset-0 bg-[#171717]/75 backdrop-blur-[1px] flex items-center justify-center">
+                              <span className="text-[8px] font-black text-white uppercase tracking-tighter">OOS</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-xs text-gray-900 truncate">{item.name}</h4>
+                          {item.variantName && (
+                            <p className="text-[10px] text-gray-500 font-medium">{item.variantName}</p>
+                          )}
+                          <p className="text-[11px] text-gray-500 font-medium">Qty: {item.quantity}</p>
+                          {isItemOOS ? (
+                            <span className="inline-block mt-0.5 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-[#171717] text-white tracking-wider border border-white/20">
+                              OUT OF STOCK
+                            </span>
+                          ) : isItemOver ? (
+                            <span className="inline-block mt-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                              Only {item.stockCount} in stock
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="text-right">
+                          <span className="font-bold text-xs text-gray-900">
+                            {formatPrice(item.price * item.quantity)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Package Shipping Line */}
+                <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Package Delivery</span>
+                  <span className={`font-bold ${pkg.deliveryFee === 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
+                    {pkg.deliveryFee === 0 ? 'FREE (Included)' : `+${formatPrice(pkg.deliveryFee)}`}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -738,10 +870,29 @@ function CheckoutContent() {
           </div>
 
           <div className="flex justify-between text-gray-600">
-            <span>Delivery Fee</span>
+            <div>
+              <span>Delivery Fee ({storePackages.length} {storePackages.length === 1 ? 'Store Package' : 'Store Packages'})</span>
+              {storePackages.length > 1 && blendedDistanceKm > 0 && (
+                <span className="block text-[10px] text-emerald-600 font-medium">
+                  Blended Avg Distance: {blendedDistanceKm} km
+                </span>
+              )}
+            </div>
             <span className={`font-semibold ${deliveryFee === 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
               {deliveryFee === 0 ? 'FREE' : `+${formatPrice(deliveryFee)}`}
             </span>
+          </div>
+
+          {multiStoreSavings > 0 && (
+            <div className="flex justify-between text-emerald-700 bg-emerald-50/80 px-2.5 py-1.5 rounded-xl border border-emerald-200 text-[11px] font-bold">
+              <span>Multi-Store Combined Shipping Savings</span>
+              <span>-{formatPrice(multiStoreSavings)}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between text-gray-600">
+            <span>Platform Convenience Fee (1.5%)</span>
+            <span className="font-semibold text-gray-900">+{formatPrice(platformFee)}</span>
           </div>
 
           {prepaidDiscount > 0 && (
@@ -760,7 +911,7 @@ function CheckoutContent() {
 
           <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-sm font-black text-gray-900">
             <span>Grand Total</span>
-            <span className="text-base text-[#FF6B00]">{formatPrice(grandTotal)}</span>
+            <span className="text-base text-[#FF5A36]">{formatPrice(grandTotal)}</span>
           </div>
         </section>
 

@@ -31,7 +31,7 @@ export const api = createApi({
   refetchOnFocus: false,
   refetchOnReconnect: true,
   keepUnusedDataFor: 300, // 5 minutes cache retention to eliminate redundant network fetches
-  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'Story', 'Highlight', 'SavedPost', 'FollowedStores', 'SupportTicket', 'Review'],
+  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'Story', 'Highlight', 'SavedPost', 'FollowedStores', 'SupportTicket', 'Review', 'DeliveryPartner', 'DeliveryAssignment', 'StorePartner'],
   endpoints: (builder) => ({
     checkAuth: builder.query<any, void>({
       query: () => '/identity/me',
@@ -163,6 +163,9 @@ export const api = createApi({
     getOrderTracking: builder.query<any, string>({
       query: (orderId) => `/orders/${orderId}/track`,
       providesTags: ['Order'],
+    }),
+    getPublicParcelVerification: builder.query<any, string>({
+      query: (orderId) => `/orders/public/parcel/${orderId}`,
     }),
     createPaymentOrder: builder.mutation<any, any>({
       query: (body) => ({
@@ -898,6 +901,192 @@ export const api = createApi({
       },
       providesTags: ['Store'],
     }),
+
+    // ----------------------------------------------------
+    // DELIVERY PARTNER WORKSPACE ENDPOINTS (PRODUCTION)
+    // ----------------------------------------------------
+
+    getDeliveryProfile: builder.query<any, void>({
+      query: () => '/delivery/me',
+      providesTags: ['DeliveryPartner'],
+    }),
+    onboardDeliveryPartner: builder.mutation<any, any>({
+      query: (body) => ({
+        url: '/delivery/register',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['DeliveryPartner', 'User'],
+    }),
+    toggleDeliveryOnline: builder.mutation<any, boolean>({
+      query: (isOnline) => ({
+        url: '/delivery/toggle-online',
+        method: 'POST',
+        body: { isOnline },
+      }),
+      invalidatesTags: ['DeliveryPartner'],
+    }),
+    updateDeliveryLocation: builder.mutation<any, { latitude: number; longitude: number; locationArea?: string }>({
+      query: (body) => ({
+        url: '/delivery/location',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['DeliveryPartner'],
+    }),
+    getDeliveryIncomingTasks: builder.query<any[], void>({
+      query: () => '/delivery/tasks/incoming',
+      providesTags: ['DeliveryAssignment'],
+    }),
+    getDeliveryActiveTask: builder.query<any, void>({
+      query: () => '/delivery/active-task',
+      providesTags: ['DeliveryAssignment', 'Order'],
+    }),
+    acceptDeliveryTask: builder.mutation<any, string>({
+      query: (assignmentId) => ({
+        url: `/delivery/tasks/${assignmentId}/accept`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['DeliveryAssignment', 'DeliveryPartner', 'Order'],
+    }),
+    updateDeliveryTaskStatus: builder.mutation<any, { assignmentId: string; status: string }>({
+      query: ({ assignmentId, status }) => ({
+        url: `/delivery/tasks/${assignmentId}/status`,
+        method: 'POST',
+        body: { status },
+      }),
+      invalidatesTags: ['DeliveryAssignment', 'DeliveryPartner', 'Order', 'SellerDashboard'],
+    }),
+    verifyStorePickup: builder.mutation<any, { orderId: string; otp: string }>({
+      query: ({ orderId, otp }) => ({
+        url: `/delivery/orders/${orderId}/verify-store-pickup`,
+        method: 'POST',
+        body: { otp },
+      }),
+      invalidatesTags: ['DeliveryAssignment', 'DeliveryPartner', 'Order', 'SellerDashboard', 'SellerFinance'],
+    }),
+    verifyDeliveryOtp: builder.mutation<any, { orderId: string; otp: string }>({
+      query: ({ orderId, otp }) => ({
+        url: `/delivery/orders/${orderId}/verify-otp`,
+        method: 'POST',
+        body: { otp },
+      }),
+      invalidatesTags: ['DeliveryAssignment', 'DeliveryPartner', 'Order', 'SellerDashboard', 'SellerFinance'],
+    }),
+    getNearbyStoresForPartner: builder.query<any[], void>({
+      query: () => '/delivery/partner-stores',
+      providesTags: ['StorePartner', 'Store'],
+    }),
+    sendStorePartnerRequest: builder.mutation<any, { storeId: string; notes?: string }>({
+      query: (body) => ({
+        url: '/delivery/partner-stores/request',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['StorePartner', 'DeliveryPartner'],
+    }),
+    getDeliveryHistory: builder.query<any[], void>({
+      query: () => '/delivery/history',
+      providesTags: ['DeliveryAssignment'],
+    }),
+    getStorePartnerRequests: builder.query<any[], string>({
+      query: (storeId) => `/delivery/store/${storeId}/partner-requests`,
+      providesTags: ['StorePartner'],
+    }),
+    respondStorePartnerRequest: builder.mutation<any, { requestId: string; status: 'ACCEPTED' | 'REJECTED' }>({
+      query: (body) => ({
+        url: '/delivery/store/partner-requests/respond',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['StorePartner', 'DeliveryPartner'],
+    }),
+    getStoreConnectedPartners: builder.query<any[], string>({
+      query: (storeId) => `/delivery/store/${storeId}/connected-partners`,
+      providesTags: ['StorePartner'],
+    }),
+    disconnectStorePartner: builder.mutation<any, { storeId: string; deliveryPartnerId: string }>({
+      query: ({ storeId, deliveryPartnerId }) => ({
+        url: `/delivery/store/${storeId}/partners/${deliveryPartnerId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['StorePartner'],
+    }),
+    dispatchOrderWithFulfillment: builder.mutation<any, { orderId: string; fulfillmentType: string; deliveryPartnerId?: string }>({
+      query: ({ orderId, ...body }) => ({
+        url: `/delivery/store/orders/${orderId}/dispatch-fulfillment`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Order', 'SellerDashboard', 'DeliveryAssignment'],
+    }),
+    updateDeliveryPricing: builder.mutation<any, { perKmRate?: number; baseFare?: number; isCustomPricingEnabled?: boolean }>({
+      query: (body) => ({
+        url: '/delivery/pricing',
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['DeliveryPartner'],
+    }),
+    getPricingBenchmarks: builder.query<any, { lat?: number; lng?: number } | void>({
+      query: (params) => {
+        if (params && params.lat && params.lng) {
+          return `/delivery/pricing/benchmarks?lat=${params.lat}&lng=${params.lng}`;
+        }
+        return '/delivery/pricing/benchmarks';
+      },
+      providesTags: ['DeliveryPartner'],
+    }),
+    getOrderDeliveryEconomics: builder.query<any, string>({
+      query: (orderId) => `/delivery/orders/${orderId}/economics`,
+      providesTags: ['Order', 'DeliveryAssignment'],
+    }),
+    getStoreReadyOrdersForDispatch: builder.query<any, string>({
+      query: (storeId) => `/delivery/store/${storeId}/ready-orders`,
+      providesTags: ['Order', 'DeliveryAssignment'],
+    }),
+    previewBatchEconomics: builder.mutation<any, { storeId: string; orderIds: string[] }>({
+      query: ({ storeId, orderIds }) => ({
+        url: `/delivery/store/${storeId}/batches/preview`,
+        method: 'POST',
+        body: { orderIds },
+      }),
+    }),
+    dispatchBatch: builder.mutation<any, { storeId: string; orderIds: string[]; fulfillmentType?: string; deliveryPartnerId?: string }>({
+      query: ({ storeId, ...body }) => ({
+        url: `/delivery/store/${storeId}/batches/dispatch`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Order', 'DeliveryAssignment'],
+    }),
+    verifyBatchDropOtp: builder.mutation<any, { batchId: string; orderId: string; otp: string }>({
+      query: ({ batchId, ...body }) => ({
+        url: `/delivery/batches/${batchId}/verify-drop`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Order', 'DeliveryAssignment', 'DeliveryPartner'],
+    }),
+    getDeliveryActiveBatch: builder.query<any, void>({
+      query: () => '/delivery/active-batch',
+      providesTags: ['DeliveryAssignment', 'Order', 'DeliveryPartner'],
+    }),
+    updateBatchStatus: builder.mutation<any, { batchId: string; status: string }>({
+      query: ({ batchId, ...body }) => ({
+        url: `/delivery/batches/${batchId}/status`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['DeliveryAssignment', 'Order', 'DeliveryPartner'],
+    }),
+    getMultiStoreBlendedPricing: builder.mutation<any, { storeDistances: Array<{ distanceKm: number; isDeliveryIncluded?: boolean }>; countryCode?: string }>({
+      query: (body) => ({
+        url: '/delivery/pricing/multi-store-blended',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 });
 
@@ -1051,5 +1240,37 @@ export const {
   useCreateProductReviewMutation,
   useGetMyReviewsQuery,
   useDeleteProductReviewMutation,
+
+  // Delivery Partner Hooks
+  useGetDeliveryProfileQuery,
+  useOnboardDeliveryPartnerMutation,
+  useToggleDeliveryOnlineMutation,
+  useUpdateDeliveryLocationMutation,
+  useGetDeliveryIncomingTasksQuery,
+  useGetDeliveryActiveTaskQuery,
+  useGetDeliveryActiveBatchQuery,
+  useUpdateBatchStatusMutation,
+  useGetDeliveryHistoryQuery,
+  useAcceptDeliveryTaskMutation,
+  useUpdateDeliveryTaskStatusMutation,
+  useVerifyStorePickupMutation,
+  useVerifyDeliveryOtpMutation,
+  useGetNearbyStoresForPartnerQuery,
+  useSendStorePartnerRequestMutation,
+  useGetStorePartnerRequestsQuery,
+  useRespondStorePartnerRequestMutation,
+  useGetStoreConnectedPartnersQuery,
+  useDisconnectStorePartnerMutation,
+  useDispatchOrderWithFulfillmentMutation,
+  useUpdateDeliveryPricingMutation,
+  useGetPricingBenchmarksQuery,
+  useGetOrderDeliveryEconomicsQuery,
+  useGetStoreReadyOrdersForDispatchQuery,
+  usePreviewBatchEconomicsMutation,
+  useDispatchBatchMutation,
+  useVerifyBatchDropOtpMutation,
+  useGetMultiStoreBlendedPricingMutation,
+  useGetPublicParcelVerificationQuery,
 } = api;
+
 

@@ -10,6 +10,16 @@ const router: Router = Router();
 // Shiprocket live courier tracking webhook (unauthenticated callback)
 router.post('/webhook/shiprocket', handleShiprocketWebhook);
 
+// Public Lost & Found Parcel Verification (Camera QR scan callback - no auth required)
+router.get('/public/parcel/:orderId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parcel = await OrderService.getPublicParcelVerification(req.params.orderId);
+    res.status(200).json(parcel);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.use(requireAuth); // Remaining order routes require auth
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
