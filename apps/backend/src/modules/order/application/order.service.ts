@@ -2,6 +2,7 @@ import { prisma, OrderStatus, NotificationType } from '@workspace/db';
 import { AppError } from '../../../shared/errors/AppError';
 import { PickupVerificationService } from './pickup-verification.service';
 import { ShiprocketService } from '../infrastructure/shiprocket.service';
+import { CurrencyService } from '../../common/currency.service';
 
 export class OrderService {
   
@@ -630,6 +631,14 @@ export class OrderService {
     });
     if (!isStoreUser) {
       throw new AppError('Unauthorized: You do not manage this store', 403);
+    }
+
+    // Geo-Fulfillment Gate: Shiprocket 3PL is only available for stores registered in India
+    if (!CurrencyService.isIndianEntity(order.store)) {
+      throw new AppError(
+        'Shiprocket 3PL logistics is only available for stores registered in India. For international stores (e.g. Nepal), please fulfill via local delivery or in-store pickup.',
+        400
+      );
     }
 
     // Call Shiprocket Logistics

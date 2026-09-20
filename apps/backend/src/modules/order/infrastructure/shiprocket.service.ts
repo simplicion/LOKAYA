@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { CurrencyService } from '../../common/currency.service';
 
 interface ShiprocketToken {
   token: string;
@@ -114,6 +115,11 @@ export class ShiprocketService {
       contactPhone?: string | null;
     };
   }) {
+    // Shiprocket is strictly restricted to Indian store entities
+    if (!CurrencyService.isIndianEntity(order.store)) {
+      throw new Error('Shiprocket 3PL logistics is only available for stores registered in India.');
+    }
+
     const token = await this.getToken();
     const isPrepaid = order.paymentMethod !== 'COD';
     const pickupNickname = `Store_${order.store.id.slice(0, 8)}`;

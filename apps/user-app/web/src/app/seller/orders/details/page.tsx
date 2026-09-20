@@ -22,7 +22,8 @@ import {
   Check, 
   ShoppingBag,
   CreditCard,
-  Banknote
+  Banknote,
+  Store
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -34,6 +35,7 @@ import {
 import { toast } from 'sonner';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { useCurrency } from '@/context/CurrencyContext';
+import { isIndianStore } from '@/lib/utils';
 
 function OrderDetailsContent() {
   const router = useRouter();
@@ -366,88 +368,125 @@ function OrderDetailsContent() {
           )}
         </div>
 
-        {/* Shiprocket 3PL Logistics Card */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-orange-100 text-[#FF6B00] flex items-center justify-center">
-                <Truck className="w-4 h-4" />
+        {/* Fulfillment / Logistics Card */}
+        {isIndianStore(order.store) ? (
+          /* Shiprocket 3PL Logistics Card (Indian Sellers) */
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#E5E2DC] space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-orange-100 text-[#FF6B00] flex items-center justify-center">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-bold text-gray-900 text-sm">Shiprocket 3PL Logistics</h3>
+                    <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-bold rounded border border-blue-200">India</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500">Automated AWB, pickup booking & courier dispatch</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-gray-900 text-sm">Shiprocket 3PL Logistics</h3>
-                <p className="text-[11px] text-gray-500">Automated AWB & courier dispatch</p>
-              </div>
+
+              {order.awbCode && (
+                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Booked
+                </span>
+              )}
             </div>
 
-            {order.awbCode && (
-              <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Booked
-              </span>
+            {order.awbCode ? (
+              <div className="space-y-2 pt-2 border-t border-gray-100 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 font-medium">Courier Partner</span>
+                  <span className="font-bold text-gray-900">{order.courierName || 'Standard Express'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 font-medium">AWB Tracking Code</span>
+                  <span className="font-mono font-bold text-gray-900">{order.awbCode}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  {order.shippingLabelUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(order.shippingLabelUrl, '_blank')}
+                      className="h-10 rounded-xl text-xs font-bold border-gray-300 text-gray-800 flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download Label
+                    </Button>
+                  )}
+
+                  {order.trackingUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(order.trackingUrl, '_blank')}
+                      className="h-10 rounded-xl text-xs font-bold border-orange-200 text-[#FF6B00] hover:bg-orange-50 flex items-center gap-1.5"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Track AWB
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="pt-2 border-t border-gray-100 space-y-2.5">
+                <p className="text-xs text-gray-500">
+                  Book automated doorstep courier pickup across India with 1 click.
+                </p>
+                <Button
+                  onClick={handleShiprocketDispatch}
+                  disabled={isDispatching}
+                  className="w-full h-11 bg-[#FF6B00] hover:bg-[#ff7a1f] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {isDispatching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Booking Shiprocket Pickup...
+                    </>
+                  ) : (
+                    <>
+                      <PackageCheck className="w-4 h-4" />
+                      Accept & Dispatch via Shiprocket
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
           </div>
-
-          {order.awbCode ? (
-            <div className="space-y-2 pt-2 border-t border-gray-100 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500 font-medium">Courier Partner</span>
-                <span className="font-bold text-gray-900">{order.courierName || 'Standard Express'}</span>
+        ) : (
+          /* Merchant Direct / Regional Fulfillment Card (Non-Indian Stores e.g. Nepal) */
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#E5E2DC] space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                  <Store className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-bold text-gray-900 text-sm">Merchant Direct Fulfillment</h3>
+                    <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 text-[9px] font-bold rounded border border-amber-200">Local Store</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500">Direct merchant dispatch or store pickup</p>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500 font-medium">AWB Tracking Code</span>
-                <span className="font-mono font-bold text-gray-900">{order.awbCode}</span>
-              </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                {order.shippingLabelUrl && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(order.shippingLabelUrl, '_blank')}
-                    className="h-10 rounded-xl text-xs font-bold border-gray-300 text-gray-800 flex items-center gap-1.5"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Download Label
-                  </Button>
-                )}
-
-                {order.trackingUrl && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(order.trackingUrl, '_blank')}
-                    className="h-10 rounded-xl text-xs font-bold border-orange-200 text-[#FF6B00] hover:bg-orange-50 flex items-center gap-1.5"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Track AWB
-                  </Button>
-                )}
-              </div>
+              <span className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold rounded-full">
+                Self Managed
+              </span>
             </div>
-          ) : (
-            <div className="pt-2 border-t border-gray-100 space-y-2">
-              <p className="text-xs text-gray-500">
-                Book automated doorstep courier pickup with 1 click.
+
+            <div className="p-3 bg-gray-50 rounded-xl border border-gray-200/60 text-xs text-gray-600 space-y-1.5">
+              <p className="font-medium">
+                📍 <strong className="text-gray-800">Regional Notice:</strong> Shiprocket automated 3PL is only available for Indian stores.
               </p>
-              <Button
-                onClick={handleShiprocketDispatch}
-                disabled={isDispatching}
-                className="w-full h-11 bg-[#FF6B00] hover:bg-[#ff7a1f] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
-              >
-                {isDispatching ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Booking Shiprocket Pickup...
-                  </>
-                ) : (
-                  <>
-                    <PackageCheck className="w-4 h-4" />
-                    Accept & Dispatch via Shiprocket
-                  </>
-                )}
-              </Button>
+              <p className="text-[11px] text-gray-500">
+                This store is fulfilled directly via your local delivery rider, regional courier, or customer store pickup.
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
       </div>
 

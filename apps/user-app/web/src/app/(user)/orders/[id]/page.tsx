@@ -99,7 +99,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
             <div className="flex-1 min-w-0">
               <h3 className="font-bold text-gray-900 text-xs">
                 {isDelivered ? 'Delivered Successfully' : 
-                 rawStatus === 'SHIPPED' ? 'In Transit via Shiprocket' :
+                 rawStatus === 'SHIPPED' ? (order.awbCode ? `In Transit (${order.courierName || 'Shiprocket Express'})` : 'In Transit (Dispatched)') :
                  rawStatus === 'OUT_FOR_DELIVERY' ? 'Out for Delivery Today' :
                  'Order Confirmed & Processing'}
               </h3>
