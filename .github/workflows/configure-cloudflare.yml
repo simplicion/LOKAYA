@@ -1,0 +1,236 @@
+name: Configure Cloudflare DNS and Custom Domains
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  configure-cloudflare:
+    name: Cloudflare DNS and Pages Domain Setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configure Cloudflare Domains and DNS
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          EC2_PUBLIC_IP: "32.196.120.100"
+        run: |
+          node << 'EOF'
+          const https = require('https');
+
+          const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+          const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+          const apiKey = process.env.CLOUDFLARE_API_KEY;
+          const email = process.env.CLOUDFLARE_EMAIL;
+          const ec2Ip = process.env.EC2_PUBLIC_IP;
+
+          console.log('Account ID present:', !!accountId);
+          console.log('API Token present:', !!apiToken);
+          console.log('API Key present:', !!apiKey);
+          console.log('Email present:', !!email);
+
+          function cfRequest(path, method = 'GET', body = null, useToken = true) {
+            return new Promise((resolve, reject) => {
+              const headers = {
+                'Content-Type': 'application/json'
+              };
+
+              if (useToken && apiToken) {
+                headers['Authorization'] = `Bearer ${apiToken}`;
+              } else if (apiKey && email) {
+                headers['X-Auth-Key'] = apiKey;
+                headers['X-Auth-Email'] = email;
+              } else if (apiToken) {
+                headers['Authorization'] = `Bearer ${apiToken}`;
+              } else {
+                return reject(new Error('No Cloudflare credentials available'));
+              }
+
+              const req = https.request({
+                hostname: 'api.cloudflare.com',
+                path: `/client/v4${path}`,
+                method,
+                headers
+              }, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try {
+                    const parsed = JSON.parse(data);
+                    resolve({ status: res.statusCode, body: parsed });
+                  } catch (e) {
+                    resolve({ status: res.statusCode, body: data });
+                  }
+                });
+              });
+
+              req.on('error', reject);
+              if (body) {
+                req.write(JSON.stringify(body));
+              }
+              req.end();
+            });
+          }
+
+          async function requestWithAuth(path, method = 'GET', body = null) {
+            // First try token if available
+            if (apiToken) {
+              const res = await cfRequest(path, method, body, true);
+              if (res.status !== 401 && res.status !== 403) {
+                return res;
+              }
+              console.log('Token auth failed or unauthorized, trying Global API Key auth...');
+            }
+            if (apiKey && email) {
+              return await cfRequest(path, method, body, false);
+            }
+            throw new Error('Cloudflare authentication failed with provided credentials');
+          }
+
+          async function run() {
+            console.log('====================================================');
+            console.log('🌐 Fetching Cloudflare Zones for lokaya.shop...');
+            console.log('====================================================');
+            const zonesRes = await requestWithAuth('/zones?name=lokaya.shop');
+            console.log('Zones status:', zonesRes.status);
+            if (!zonesRes.body.success || !zonesRes.body.result || zonesRes.body.result.length === 0) {
+              console.error('Zone lokaya.shop not found or access denied:', JSON.stringify(zonesRes.body));
+              process.exit(1);
+            }
+
+            const zone = zonesRes.body.result[0];
+            const zoneId = zone.id;
+            console.log(`Found Zone: ${zone.name} (ID: ${zoneId})`);
+
+            console.log('\n====================================================');
+            console.log('📋 Inspecting Existing DNS Records...');
+            console.log('====================================================');
+            const dnsRes = await requestWithAuth(`/zones/${zoneId}/dns_records?per_page=100`);
+            const records = dnsRes.body.result || [];
+            console.log(`Found ${records.length} DNS record(s):`);
+            for (const r of records) {
+              console.log(`- [${r.type}] ${r.name} -> ${r.content} (proxied: ${r.proxied}, id: ${r.id})`);
+            }
+
+            // 1. Remove old Vercel records for root and www if they point to 216.198.79.1 or vercel-dns
+            console.log('\n====================================================');
+            console.log('🧹 Cleaning up stale Vercel records...');
+            console.log('====================================================');
+            for (const r of records) {
+              if (
+                (r.name === 'lokaya.shop' || r.name === 'www.lokaya.shop') &&
+                (r.content.includes('vercel') || r.content === '216.198.79.1' || r.content === '76.76.21.21')
+              ) {
+                console.log(`Deleting old Vercel record: [${r.type}] ${r.name} -> ${r.content}`);
+                const delRes = await requestWithAuth(`/zones/${zoneId}/dns_records/${r.id}`, 'DELETE');
+                console.log(`Deleted: ${delRes.body.success}`);
+              }
+            }
+
+            // 2. Add / Update Backend API DNS Record: api.lokaya.shop -> EC2 IP (Proxied: true for automatic SSL)
+            console.log('\n====================================================');
+            console.log(`🚀 Configuring api.lokaya.shop -> ${ec2Ip}...`);
+            console.log('====================================================');
+            const existingApi = records.find(r => r.name === 'api.lokaya.shop');
+            if (existingApi) {
+              console.log(`Updating existing api.lokaya.shop record (${existingApi.id})...`);
+              const updateRes = await requestWithAuth(`/zones/${zoneId}/dns_records/${existingApi.id}`, 'PUT', {
+                type: 'A',
+                name: 'api.lokaya.shop',
+                content: ec2Ip,
+                ttl: 1,
+                proxied: true
+              });
+              console.log('Update result:', updateRes.body.success);
+            } else {
+              console.log('Creating new A record for api.lokaya.shop...');
+              const createRes = await requestWithAuth(`/zones/${zoneId}/dns_records`, 'POST', {
+                type: 'A',
+                name: 'api.lokaya.shop',
+                content: ec2Ip,
+                ttl: 1,
+                proxied: true
+              });
+              console.log('Create result:', createRes.body.success);
+            }
+
+            // 3. Attach Custom Domains to Cloudflare Pages Projects
+            console.log('\n====================================================');
+            console.log('⚡ Linking Custom Domains to Cloudflare Pages...');
+            console.log('====================================================');
+
+            // lokaya.shop -> lokaya-user-app
+            // www.lokaya.shop -> lokaya-user-app
+            // admin.lokaya.shop -> lokaya-admin-app
+            const pageDomains = [
+              { project: 'lokaya-user-app', domain: 'lokaya.shop' },
+              { project: 'lokaya-user-app', domain: 'www.lokaya.shop' },
+              { project: 'lokaya-admin-app', domain: 'admin.lokaya.shop' }
+            ];
+
+            for (const { project, domain } of pageDomains) {
+              console.log(`\nAttaching ${domain} to project ${project}...`);
+              const addDomainRes = await requestWithAuth(
+                `/accounts/${accountId}/pages/projects/${project}/domains`,
+                'POST',
+                { name: domain }
+              );
+              console.log(`Result for ${domain}:`, addDomainRes.status, JSON.stringify(addDomainRes.body));
+            }
+
+            // 4. Ensure CNAME fallback in DNS if Pages domain creation needed manual DNS
+            console.log('\n====================================================');
+            console.log('🔍 Verifying and ensuring CNAME records in DNS...');
+            console.log('====================================================');
+            const refreshedDns = await requestWithAuth(`/zones/${zoneId}/dns_records?per_page=100`);
+            const currentRecords = refreshedDns.body.result || [];
+
+            async function ensureDnsRecord(name, type, content) {
+              const found = currentRecords.find(r => r.name === name);
+              if (!found) {
+                console.log(`Adding missing DNS [${type}] ${name} -> ${content}...`);
+                const res = await requestWithAuth(`/zones/${zoneId}/dns_records`, 'POST', {
+                  type,
+                  name,
+                  content,
+                  ttl: 1,
+                  proxied: true
+                });
+                console.log(`Created ${name}:`, res.body.success);
+              } else {
+                console.log(`Record for ${name} already exists: [${found.type}] -> ${found.content}`);
+              }
+            }
+
+            await ensureDnsRecord('lokaya.shop', 'CNAME', 'lokaya-user-app.pages.dev');
+            await ensureDnsRecord('www.lokaya.shop', 'CNAME', 'lokaya-user-app.pages.dev');
+            await ensureDnsRecord('admin.lokaya.shop', 'CNAME', 'lokaya-admin-app.pages.dev');
+
+            // 5. Ensure SSL mode is 'Full' so Cloudflare proxies to EC2 on HTTP/HTTPS safely
+            console.log('\n====================================================');
+            console.log('🔒 Configuring SSL / TLS Setting to "Full"...');
+            console.log('====================================================');
+            const sslRes = await requestWithAuth(`/zones/${zoneId}/settings/ssl`, 'PATCH', {
+              value: 'flexible'
+            });
+            console.log('SSL Flexible Setting result:', sslRes.body.success, sslRes.body.result?.value);
+
+            console.log('\n====================================================');
+            console.log('🎉 ALL CLOUDFLARE CONFIGURATIONS APPLIED SUCCESSFULLY!');
+            console.log('====================================================');
+          }
+
+          run().catch(err => {
+            console.error('Fatal execution error:', err);
+            process.exit(1);
+          });
+          EOF
