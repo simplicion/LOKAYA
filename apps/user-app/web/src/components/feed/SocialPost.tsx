@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Sparkles, CheckCircle2 } from 'lucide-react';
+import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Volume2, Film, Sparkles, CheckCircle2 } from 'lucide-react';
 import { cn, getMediaUrl, formatTimeAgo } from '@/lib/utils';
 import { ProductOverlayCard } from './ProductOverlayCard';
 import { ShareBottomSheet } from '../ui/ShareBottomSheet';
@@ -17,6 +17,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { toast } from 'sonner';
 import { VideoPlayer } from '../media/VideoPlayer';
+import { useFeedSound } from '@/context/FeedSoundContext';
 
 export interface SocialPostProps {
   id: string;
@@ -27,6 +28,8 @@ export interface SocialPostProps {
   isVerified: boolean;
   timeAgo?: string;
   createdAt?: string | Date;
+  isReel?: boolean;
+  contentType?: 'POST' | 'REEL';
   media: {
     type: 'image' | 'video';
     url: string;
@@ -74,10 +77,38 @@ export function SocialPost({
   likedByAvatars,
   product,
   createdAt,
+  isReel = false,
+  contentType = 'POST',
 }: SocialPostProps) {
   const router = useRouter();
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isAuthor = Boolean(currentUser?.id && authorId && currentUser.id === authorId);
+  const isItemReel = Boolean(isReel || contentType === 'REEL' || (media && media.length > 0 && media[0]?.type === 'video'));
+
+  // Global feed sound state (unmute one -> unmutes all across the feed)
+  const { isMuted, toggleMute } = useFeedSound();
+
+  // Scroll visibility observer for automatic video play/pause
+  const mediaContainerRef = useRef<HTMLDivElement>(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    const el = mediaContainerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Autoplay when at least 45% of the post media is in the active viewport
+        setIsInView(entry.isIntersecting && entry.intersectionRatio >= 0.45);
+      },
+      {
+        threshold: [0, 0.25, 0.45, 0.7, 1.0],
+      }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const displayTime = timeAgo && timeAgo !== 'Recently' ? timeAgo : formatTimeAgo(createdAt || timeAgo);
 
@@ -172,6 +203,19 @@ export function SocialPost({
     }
   };
 
+  const openReelsView = () => {
+    const currentMedia = media[currentMediaIndex] || media[0];
+    const vUrl = currentMedia?.url || '';
+    const pUrl = currentMedia?.posterUrl || '';
+    const params = new URLSearchParams();
+    params.set('id', id);
+    if (vUrl) params.set('videoUrl', vUrl);
+    if (pUrl) params.set('posterUrl', pUrl);
+    if (storeName) params.set('storeName', storeName);
+    if (caption) params.set('caption', caption);
+    router.push(`/home/reels?${params.toString()}`);
+  };
+
   const handleMediaClick = () => {
     const currentMedia = media[currentMediaIndex] || media[0];
     const isVideo = currentMedia?.type === 'video';
@@ -186,16 +230,8 @@ export function SocialPost({
     } else {
       if (isVideo) {
         clickTimeoutRef.current = setTimeout(() => {
-          const vUrl = currentMedia?.url || '';
-          const pUrl = currentMedia?.posterUrl || '';
-          const params = new URLSearchParams();
-          params.set('id', id);
-          if (vUrl) params.set('videoUrl', vUrl);
-          if (pUrl) params.set('posterUrl', pUrl);
-          if (storeName) params.set('storeName', storeName);
-          if (caption) params.set('caption', caption);
-          router.push(`/home/reels?${params.toString()}`);
-        }, 160);
+          openReelsView();
+        }, 180);
       }
     }
     lastTapRef.current = now;
@@ -269,7 +305,18 @@ export function SocialPost({
                 <CheckCircle2 className="w-4 h-4 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
               )}
             </div>
-            <span className="text-[#6B6B6B] text-[11px] font-medium mt-0.5">{displayTime}</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[#6B6B6B] text-[11px] font-medium">{displayTime}</span>
+              {isItemReel && (
+                <>
+                  <span className="text-[#A3A3A3] text-[9px]">•</span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#FF5A36] bg-orange-50 border border-orange-200/70 px-1.5 py-0.2 rounded-full">
+                    <Film className="w-2.5 h-2.5" />
+                    Reel
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </Link>
         <button onClick={() => setIsOptionsOpen(true)} className="text-[#171717] p-1 active:bg-gray-100 rounded-full transition-colors">
@@ -280,6 +327,7 @@ export function SocialPost({
       {/* Media Container */}
       {media && media.length > 0 && (
         <div 
+          ref={mediaContainerRef}
           className="relative w-full aspect-[4/5] bg-gray-900 overflow-hidden cursor-pointer"
           onClick={handleMediaClick}
         >
@@ -301,8 +349,8 @@ export function SocialPost({
                     src={m.url}
                     poster={m.posterUrl}
                     autoPlay={true}
-                    isActive={true}
-                    muted={true}
+                    isActive={isInView && currentMediaIndex === idx}
+                    muted={isMuted}
                     loop={true}
                     playsInline={true}
                     className="w-full h-full object-cover"
@@ -324,16 +372,42 @@ export function SocialPost({
                 {/* Video Overlays */}
                 {m.type === 'video' && (
                   <>
-                    <div className="absolute top-4 right-4 bg-black/60 rounded-full p-1.5 backdrop-blur-sm pointer-events-none">
-                      <VolumeX className="w-4 h-4 text-white" />
-                    </div>
+                    {/* Interactive Global Sound Toggle */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMute();
+                      }}
+                      aria-label={isMuted ? "Unmute video" : "Mute video"}
+                      className={cn(
+                        "absolute z-20 p-2.5 rounded-full backdrop-blur-md shadow-lg border border-white/20 transition-all active:scale-90 flex items-center justify-center cursor-pointer",
+                        "bg-black/65 hover:bg-black/85 text-white",
+                        product ? "bottom-24 right-4" : "bottom-4 right-4"
+                      )}
+                    >
+                      {isMuted ? (
+                        <VolumeX className="w-4 h-4 text-white" />
+                      ) : (
+                        <Volume2 className="w-4 h-4 text-white animate-pulse" />
+                      )}
+                    </button>
+
                     {m.duration && (
                       <div className="absolute bottom-[88px] left-4 bg-black/60 rounded-md px-2 py-0.5 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none">
                         {m.duration}
                       </div>
                     )}
-                    <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[10px] font-bold flex items-center gap-1.5 border border-white/10 shadow-sm pointer-events-none">
-                      <Play className="w-3 h-3 fill-white" />
+                    
+                    {/* Watch Reel Quick Pill */}
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openReelsView();
+                      }}
+                      className="absolute top-4 left-4 bg-black/60 hover:bg-black/85 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-[11px] font-bold flex items-center gap-1.5 border border-white/15 shadow-md cursor-pointer active:scale-95 transition-all z-20"
+                    >
+                      <Film className="w-3.5 h-3.5 text-[#FF5A36] fill-[#FF5A36]" />
                       <span>Watch Reel</span>
                     </div>
                   </>

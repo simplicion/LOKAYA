@@ -37,6 +37,8 @@ export default function SocialHomePage() {
         caption: p.caption || '',
         hashtags: p.hashtags || [],
         product: p.product,
+        isReel: Boolean(p.isReel || p.contentType === 'REEL'),
+        contentType: p.contentType,
       }))
     : [];
 

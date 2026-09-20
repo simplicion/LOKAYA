@@ -98,6 +98,8 @@ export default function SinglePostPage({ params }: { params: Promise<{ id: strin
               caption={post.caption || ''}
               hashtags={post.hashtags || []}
               product={post.product}
+              isReel={Boolean(post.isReel || post.contentType === 'REEL')}
+              contentType={post.contentType}
             />
 
             {/* Related Posts Section (Instagram Explore Style) */}

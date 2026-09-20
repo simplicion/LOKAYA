@@ -237,7 +237,9 @@ export class ContentService {
     });
 
     // Invalidate cached reel feeds
+    // Invalidate cached reel and post feeds
     await ContentService.invalidateFeedCaches('cache:reels:*');
+    await ContentService.invalidateFeedCaches('cache:posts:*');
 
     return createdReel;
   }
@@ -262,47 +264,91 @@ export class ContentService {
 
     const skip = (page - 1) * limit;
     
-    const posts = await prisma.post.findMany({
-      skip,
-      take: limit,
-      where: viewerId ? {
-        reports: {
-          none: {
-            userId: viewerId
+    // Concurrently fetch both traditional posts and reels (Instagram-style blended feed)
+    const [posts, reels] = await Promise.all([
+      prisma.post.findMany({
+        skip,
+        take: limit,
+        where: viewerId ? {
+          reports: {
+            none: {
+              userId: viewerId
+            }
           }
-        }
-      } : undefined,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        media: true,
-        author: {
-          select: {
-            id: true,
-            name: true,
-            avatarUrl: true,
-            stores: {
-              include: {
-                store: {
-                  select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
+        } : undefined,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          media: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+              stores: {
+                include: {
+                  store: {
+                    select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
+                  }
                 }
               }
             }
+          },
+          productLinks: {
+            include: {
+              product: {
+                select: { id: true, name: true, imageUrl: true, sellingPrice: true, mrp: true }
+              }
+            }
+          },
+          likes: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+          savedPosts: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+          _count: {
+            select: { likes: true, comments: true }
           }
-        },
-        productLinks: {
-          include: {
-            product: {
-              select: { id: true, name: true, imageUrl: true, sellingPrice: true, mrp: true }
+        }
+      }),
+      prisma.reel.findMany({
+        skip,
+        take: limit,
+        where: viewerId ? {
+          reports: {
+            none: {
+              userId: viewerId
             }
           }
-        },
-        likes: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
-        savedPosts: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
-        _count: {
-          select: { likes: true, comments: true }
+        } : undefined,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          media: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+              stores: {
+                include: {
+                  store: {
+                    select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
+                  }
+                }
+              }
+            }
+          },
+          productLinks: {
+            include: {
+              product: {
+                select: { id: true, name: true, imageUrl: true, sellingPrice: true, mrp: true }
+              }
+            }
+          },
+          likes: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+          savedPosts: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
+          _count: {
+            select: { likes: true, comments: true }
+          }
         }
-      }
-    });
+      })
+    ]);
 
     const formattedPosts = posts.map(post => {
       const store = post.author.stores?.[0]?.store;
@@ -312,6 +358,8 @@ export class ContentService {
 
       return {
         id: post.id,
+        isReel: false,
+        contentType: 'POST',
         authorId: post.author.id,
         caption: post.caption,
         createdAt: post.createdAt,
@@ -346,15 +394,66 @@ export class ContentService {
       };
     });
 
+    const formattedReels = reels.map(reel => {
+      const store = reel.author.stores?.[0]?.store;
+      const primaryProduct = reel.productLinks?.[0]?.product;
+      const mrp = primaryProduct?.mrp;
+      const price = primaryProduct?.sellingPrice;
+
+      return {
+        id: reel.id,
+        isReel: true,
+        contentType: 'REEL',
+        authorId: reel.author.id,
+        caption: reel.caption,
+        createdAt: reel.createdAt,
+        storeId: store?.id || '',
+        storeName: store?.name || reel.author.name,
+        storeAvatar: store?.logoUrl || reel.author.avatarUrl || '',
+        isVerified: Boolean(store?.isVerified || store?.status === 'VERIFIED' || store?.verificationStatus === 'APPROVED'),
+        media: reel.media.map(m => ({
+          id: m.id,
+          type: 'video' as const,
+          url: m.url,
+          posterUrl: m.posterUrl || undefined,
+          status: m.status,
+          duration: m.duration ? `${Math.floor(m.duration / 60)}:${(m.duration % 60).toString().padStart(2, '0')}` : undefined,
+        })),
+        likes: reel._count.likes.toLocaleString(),
+        likesCount: reel._count.likes,
+        comments: reel._count.comments.toString(),
+        commentsCount: reel._count.comments,
+        shares: '0',
+        isLikedByMe: viewerId ? (reel.likes?.length || 0) > 0 : false,
+        isSavedByMe: viewerId ? (reel.savedPosts?.length || 0) > 0 : false,
+        hashtags: [],
+        product: primaryProduct ? {
+          id: primaryProduct.id,
+          name: primaryProduct.name,
+          image: primaryProduct.imageUrl || '',
+          price: price !== undefined && price !== null ? String(price) : '',
+          originalPrice: mrp && mrp > price! ? String(mrp) : undefined,
+          discount: mrp && mrp > price! ? `${Math.round(((mrp - price!) / mrp) * 100)}% OFF` : undefined,
+        } : undefined,
+      };
+    });
+
+    // Merge and sort newest first
+    const allFormatted = [...formattedPosts, ...formattedReels].sort((a, b) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    const paginatedItems = allFormatted.slice(0, limit);
+
     // Store in Redis with 30s TTL
-    if (cacheKey && formattedPosts.length > 0) {
+    if (cacheKey && paginatedItems.length > 0) {
       const k: string = cacheKey;
       try {
-        await redisClient.setex(k, 30, JSON.stringify(formattedPosts));
+        await redisClient.setex(k, 30, JSON.stringify(paginatedItems));
       } catch {}
     }
 
-    return formattedPosts;
+    return paginatedItems;
   }
 
   static async getPostById(postId: string, viewerId?: string) {
@@ -400,6 +499,8 @@ export class ContentService {
 
       return {
         id: post.id,
+        isReel: false,
+        contentType: 'POST',
         authorId: post.author.id,
         caption: post.caption,
         createdAt: post.createdAt,
@@ -476,6 +577,8 @@ export class ContentService {
 
       return {
         id: reel.id,
+        isReel: true,
+        contentType: 'REEL',
         authorId: reel.author.id,
         caption: reel.caption,
         createdAt: reel.createdAt,
@@ -996,7 +1099,11 @@ export class ContentService {
       }
     });
 
-    if (!post) throw new AppError('Post not found', 404);
+    if (!post) {
+      const reel = await prisma.reel.findUnique({ where: { id: postId }, select: { id: true } });
+      if (reel) return this.deleteReel(userId, postId);
+      throw new AppError('Post not found', 404);
+    }
 
     const isAuthor = post.authorId === userId;
     const isStoreOwner = post.author.stores.some(s => s.userId === userId);

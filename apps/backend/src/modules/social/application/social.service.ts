@@ -46,7 +46,11 @@ export class SocialService {
 
   static async toggleLikePost(userId: string, postId: string) {
     const post = await prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
-    if (!post) throw new AppError('Post not found', 404);
+    if (!post) {
+      const reel = await prisma.reel.findUnique({ where: { id: postId }, select: { id: true } });
+      if (reel) return this.toggleLikeReel(userId, postId);
+      throw new AppError('Post not found', 404);
+    }
 
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
     if (!user) throw new AppError('User not found', 404);
@@ -115,7 +119,11 @@ export class SocialService {
 
   static async toggleSavePost(userId: string, postId: string) {
     const post = await prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
-    if (!post) throw new AppError('Post not found', 404);
+    if (!post) {
+      const reel = await prisma.reel.findUnique({ where: { id: postId }, select: { id: true } });
+      if (reel) return this.toggleSaveReel(userId, postId);
+      throw new AppError('Post not found', 404);
+    }
 
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
     if (!user) throw new AppError('User not found', 404);
@@ -164,7 +172,11 @@ export class SocialService {
 
   static async addCommentToPost(userId: string, postId: string, content: string) {
     const post = await prisma.post.findUnique({ where: { id: postId } });
-    if (!post) throw new AppError('Post not found', 404);
+    if (!post) {
+      const reel = await prisma.reel.findUnique({ where: { id: postId } });
+      if (reel) return this.addCommentToReel(userId, postId, content);
+      throw new AppError('Post not found', 404);
+    }
 
     const comment = await prisma.comment.create({
       data: {
@@ -235,7 +247,7 @@ export class SocialService {
   }
 
   static async getPostComments(postId: string) {
-    return await prisma.comment.findMany({
+    const postComments = await prisma.comment.findMany({
       where: { postId },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -255,6 +267,9 @@ export class SocialService {
         }
       }
     });
+
+    if (postComments.length > 0) return postComments;
+    return await this.getReelComments(postId);
   }
 
   static async getReelComments(reelId: string) {
@@ -284,7 +299,7 @@ export class SocialService {
   // ==========================================
 
   static async getPostLikes(postId: string) {
-    return await prisma.like.findMany({
+    const postLikes = await prisma.like.findMany({
       where: { postId },
       include: {
         user: { 
@@ -303,6 +318,9 @@ export class SocialService {
         }
       }
     });
+
+    if (postLikes.length > 0) return postLikes;
+    return await this.getReelLikes(postId);
   }
 
   static async getReelLikes(reelId: string) {

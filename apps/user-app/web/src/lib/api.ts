@@ -361,7 +361,7 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
-      invalidatesTags: ['Reel'],
+      invalidatesTags: ['Reel', 'Post'],
     }),
     getReels: builder.query<any[], { page?: number; limit?: number } | void>({
       query: (params) => {

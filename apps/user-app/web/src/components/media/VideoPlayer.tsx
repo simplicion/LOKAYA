@@ -162,6 +162,14 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
     }
   }, [isActive, autoPlay]);
 
+  // Reactive sound toggle synchronization across global feed
+  useEffect(() => {
+    const video = internalVideoRef.current;
+    if (video) {
+      video.muted = Boolean(muted);
+    }
+  }, [muted]);
+
   return (
     <div className="relative w-full h-full overflow-hidden bg-black flex items-center justify-center" onClick={onClick}>
       {/* Poster Image Background for instant 0ms visual presence */}
