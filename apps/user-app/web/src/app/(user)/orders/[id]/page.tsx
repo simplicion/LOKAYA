@@ -257,11 +257,11 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
 
           <Button 
             variant="outline" 
-            onClick={() => window.print()}
-            className="h-10 rounded-xl border-gray-200 font-bold text-gray-800 text-xs flex items-center justify-center gap-1.5"
+            onClick={() => router.push(`/orders/${order.id}/invoice`)}
+            className="h-10 rounded-xl border-gray-200 font-bold text-gray-800 text-xs flex items-center justify-center gap-1.5 hover:bg-orange-50 hover:border-orange-200 hover:text-[#FF6B00] transition-colors"
           >
-            <Download className="w-3.5 h-3.5" />
-            Invoice
+            <Download className="w-3.5 h-3.5 text-[#FF6B00]" />
+            Tax Invoice
           </Button>
 
           <Button 

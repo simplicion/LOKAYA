@@ -187,23 +187,40 @@ function OrderDetailsContent() {
   return (
     <div className="flex flex-col min-h-[100dvh] bg-[#FAF9F6] pb-36">
       {/* Header */}
-      <div className="flex items-center p-4 bg-white sticky top-0 z-10 border-b border-[#E5E2DC]">
-        <button onClick={() => router.back()} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600">
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <h1 className="flex-1 text-lg font-bold text-center mr-8 text-gray-900">
-          Order Details
-        </h1>
+      <div className="flex items-center justify-between p-4 bg-white sticky top-0 z-10 border-b border-[#E5E2DC]">
+        <div className="flex items-center gap-2">
+          <button onClick={() => router.back()} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-lg font-bold text-gray-900">
+            Order Details
+          </h1>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/seller/orders/invoice?id=${order.id}`)}
+          className="h-9 px-3.5 rounded-xl text-xs font-bold border-[#E5E2DC] text-gray-800 hover:bg-gray-100 flex items-center gap-1.5 shadow-sm"
+        >
+          <Printer className="w-3.5 h-3.5 text-[#FF5A36]" />
+          <span>Tax Invoice</span>
+        </Button>
       </div>
 
       <div className="p-4 space-y-4 flex-1">
         
         {/* Order ID & Status Header */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#E5E2DC] flex items-center justify-between">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#E5E2DC] flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="font-mono font-black text-gray-900 text-lg">
               #{order.id.slice(0, 8).toUpperCase()}
             </span>
+            {order.isManualBooking && (
+              <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 border border-purple-200 text-[10px] font-black rounded-md uppercase tracking-wider">
+                POS Manual
+              </span>
+            )}
             <button
               onClick={handleCopyOrderId}
               className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"

@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { OrderService } from '../application/order.service';
 import { validateRequest } from '../../../shared/middleware/validate';
 import { requireAuth } from '../../../shared/middleware/auth';
-import { createOrderSchema, updateOrderStatusSchema } from '../domain/schemas';
+import { createOrderSchema, createManualOrderSchema, updateOrderStatusSchema } from '../domain/schemas';
 import { handleShiprocketWebhook } from './shiprocket.webhook';
 
 const router: Router = Router();
@@ -16,6 +16,18 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orders = await OrderService.getUserOrders((req as any).user.id);
     res.status(200).json(orders);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/manual', validateRequest(createManualOrderSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await OrderService.createManualOrder(
+      (req as any).user.id,
+      req.body
+    );
+    res.status(201).json(result);
   } catch (error) {
     next(error);
   }
@@ -56,6 +68,15 @@ router.get('/:orderId', async (req: Request, res: Response, next: NextFunction) 
   try {
     const order = await OrderService.getOrder(req.params.orderId, (req as any).user.id);
     res.status(200).json(order);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:orderId/invoice', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const invoice = await OrderService.getOrderInvoice(req.params.orderId, (req as any).user.id);
+    res.status(200).json(invoice);
   } catch (error) {
     next(error);
   }

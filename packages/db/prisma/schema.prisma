@@ -445,6 +445,15 @@ model Order {
   trackingUrl         String?
   estimatedDelivery   String?
   
+  // Manual In-Store POS Booking & Enterprise Invoicing
+  isManualBooking     Boolean     @default(false)
+  customerName        String?
+  customerPhone       String?
+  customerEmail       String?
+  discountAmount      Float?      @default(0)
+  invoiceNumber       String?     @unique
+  notes               String?
+  
   buyer         User        @relation(fields: [buyerId], references: [id])
   store         Store       @relation(fields: [storeId], references: [id])
   items         OrderItem[]
@@ -465,6 +474,7 @@ model SubOrder {
   subtotal            Float
   commissionAmount    Float       @default(0)
   sellerPayoutAmount  Float       @default(0)
+  invoiceNumber       String?
   
   // Shiprocket 3PL Tracking
   shiprocketOrderId   String?

@@ -314,13 +314,16 @@ export class OrderService {
       statusFilter = { in: [OrderStatus.CANCELLED, OrderStatus.RETURNED, OrderStatus.REFUNDED] };
     }
 
-    // Search filter
-    const searchFilter: any = search
+    // Search query
+    const searchFilter = search
       ? {
           OR: [
-            { id: { contains: search, mode: 'insensitive' } },
-            { buyer: { name: { contains: search, mode: 'insensitive' } } },
-            { buyer: { phone: { contains: search, mode: 'insensitive' } } }
+            { id: { contains: search, mode: 'insensitive' as const } },
+            { invoiceNumber: { contains: search, mode: 'insensitive' as const } },
+            { customerName: { contains: search, mode: 'insensitive' as const } },
+            { customerPhone: { contains: search, mode: 'insensitive' as const } },
+            { buyer: { name: { contains: search, mode: 'insensitive' as const } } },
+            { buyer: { phone: { contains: search, mode: 'insensitive' as const } } }
           ]
         }
       : {};
@@ -340,7 +343,7 @@ export class OrderService {
         orderBy: { createdAt: 'desc' },
         include: {
           buyer: {
-            select: { id: true, name: true, phone: true, avatarUrl: true }
+            select: { id: true, name: true, phone: true, avatarUrl: true, email: true }
           },
           items: {
             include: {
@@ -350,6 +353,7 @@ export class OrderService {
               variant: true
             }
           },
+          store: true,
           payment: true,
           pickupOtp: true
         }
@@ -404,15 +408,22 @@ export class OrderService {
 
       return {
         id: order.id,
-        customerName: order.buyer?.name || 'Customer',
-        phone: order.buyer?.phone || '+91 Not provided',
+        customerName: order.customerName || order.buyer?.name || 'Customer',
+        phone: order.customerPhone || order.buyer?.phone || '+91 Not provided',
+        customerPhone: order.customerPhone || order.buyer?.phone || '',
+        customerEmail: order.customerEmail || order.buyer?.email || '',
         itemsCount: order.items.reduce((acc, i) => acc + i.quantity, 0),
         total: order.totalAmount,
         totalAmount: order.totalAmount,
+        discountAmount: order.discountAmount || 0,
+        invoiceNumber: order.invoiceNumber || `INV-${new Date(order.createdAt).toISOString().slice(0, 10).replace(/-/g, '')}-${order.id.slice(0, 6).toUpperCase()}`,
+        isManualBooking: Boolean(order.isManualBooking),
+        notes: order.notes || null,
         shippingFee: order.shippingFee || 0,
         status: uiStatus,
         rawStatus: order.status,
         timeLabel,
+        createdAt: order.createdAt,
         deliveryAddress: order.deliveryAddress,
         paymentMethod: resolvedPaymentMethod,
         rawPaymentMethod: order.paymentMethod,
@@ -493,11 +504,17 @@ export class OrderService {
       id: order.id,
       buyerId: order.buyerId,
       storeId: order.storeId,
-      customerName: order.buyer?.name || 'Customer',
-      phone: order.buyer?.phone || '+91 Not provided',
+      customerName: order.customerName || order.buyer?.name || 'Customer',
+      phone: order.customerPhone || order.buyer?.phone || '+91 Not provided',
+      customerPhone: order.customerPhone || order.buyer?.phone || '',
+      customerEmail: order.customerEmail || order.buyer?.email || '',
       itemsCount: order.items.reduce((acc, i) => acc + i.quantity, 0),
       total: order.totalAmount,
       totalAmount: order.totalAmount,
+      discountAmount: order.discountAmount || 0,
+      invoiceNumber: order.invoiceNumber || `INV-${new Date(order.createdAt).toISOString().slice(0, 10).replace(/-/g, '')}-${order.id.slice(0, 6).toUpperCase()}`,
+      isManualBooking: Boolean(order.isManualBooking),
+      notes: order.notes || null,
       shippingFee: order.shippingFee || 0,
       status: uiStatus,
       rawStatus: order.status,
@@ -786,5 +803,360 @@ export class OrderService {
       timeline
     };
   }
+
+  static async createManualOrder(
+    sellerUserId: string,
+    payload: {
+      storeId: string;
+      customerName?: string | null;
+      customerPhone?: string | null;
+      customerEmail?: string | null;
+      paymentMethod?: string;
+      discountAmount?: number;
+      notes?: string | null;
+      items: Array<{
+        productId: string;
+        variantId?: string | null;
+        quantity: number;
+        customPrice?: number | null;
+      }>;
+    }
+  ) {
+    if (!payload.items || payload.items.length === 0) {
+      throw new AppError('No items provided for manual booking', 400);
+    }
+
+    // 1. Verify seller authorization for store
+    const isStoreUser = await prisma.storeUser.findUnique({
+      where: { userId_storeId: { userId: sellerUserId, storeId: payload.storeId } }
+    });
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: sellerUserId },
+      select: { isSystemAdmin: true }
+    });
+    if (!isStoreUser && !requestingUser?.isSystemAdmin) {
+      throw new AppError('Unauthorized: You can only book manual sales for your own store', 403);
+    }
+
+    // 2. Fetch store metadata
+    const store = await prisma.store.findUnique({ where: { id: payload.storeId } });
+    if (!store) throw new AppError('Store not found', 404);
+
+    const isIndian = CurrencyService.isIndianEntity(store);
+    const currency = isIndian ? 'INR' : 'NPR';
+    const currencySymbol = isIndian ? '₹' : 'रू';
+
+    // 3. Atomically validate products, deduct inventory, and create records
+    const orderResult = await prisma.$transaction(async (tx) => {
+      let subtotal = 0;
+      const preparedItems: Array<{
+        productId: string;
+        variantId?: string | null;
+        quantity: number;
+        priceAt: number;
+        productName: string;
+        sku: string;
+        variantName?: string | null;
+        image?: string | null;
+      }> = [];
+
+      for (const item of payload.items) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          include: { media: true }
+        });
+        if (!product || product.storeId !== payload.storeId) {
+          throw new AppError(`Product "${product?.name || item.productId}" does not belong to this store`, 400);
+        }
+
+        let priceToCharge = item.customPrice != null ? item.customPrice : product.sellingPrice;
+        let skuToUse = product.sku;
+        let variantName: string | null = null;
+
+        if (item.variantId) {
+          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } });
+          if (!variant || variant.productId !== item.productId) {
+            throw new AppError(`Variant ${item.variantId} is invalid for product "${product.name}"`, 400);
+          }
+          if (item.customPrice == null) {
+            priceToCharge = variant.price;
+          }
+          skuToUse = variant.sku;
+          variantName = variant.name;
+
+          const updatedVariant = await tx.productVariant.update({
+            where: { id: variant.id },
+            data: { stockCount: { decrement: item.quantity } }
+          });
+          if (updatedVariant.stockCount < 0) {
+            throw new AppError(`Insufficient stock for "${product.name} - ${variant.name}" (${item.quantity} requested, ${variant.stockCount} available)`, 400);
+          }
+        } else {
+          const updatedProduct = await tx.product.update({
+            where: { id: product.id },
+            data: { stockCount: { decrement: item.quantity } }
+          });
+          if (updatedProduct.stockCount < 0) {
+            throw new AppError(`Insufficient stock for "${product.name}" (${item.quantity} requested, ${product.stockCount} available)`, 400);
+          }
+        }
+
+        // Audit inventory deduction
+        await tx.inventoryLog.create({
+          data: {
+            productId: item.productId,
+            change: -item.quantity,
+            reason: 'MANUAL_ORDER_SALE'
+          }
+        });
+
+        const lineTotal = priceToCharge * item.quantity;
+        subtotal += lineTotal;
+
+        const primaryMedia = product.media?.find((m: any) => m.isPrimary)?.url || product.media?.[0]?.url || product.imageUrl || null;
+
+        preparedItems.push({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          priceAt: priceToCharge,
+          productName: product.name,
+          sku: skuToUse,
+          variantName,
+          image: primaryMedia
+        });
+      }
+
+      const discount = Math.max(0, Number(payload.discountAmount || 0));
+      const totalAmount = Math.max(0, Math.round((subtotal - discount) * 100) / 100);
+
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const invoiceNumber = `INV-${dateStr}-${randomSuffix}`;
+
+      // Create Parent Order
+      const newOrder = await tx.order.create({
+        data: {
+          buyerId: sellerUserId,
+          storeId: payload.storeId,
+          status: 'DELIVERED',
+          totalAmount,
+          shippingFee: 0,
+          paymentMethod: payload.paymentMethod || 'CASH',
+          deliveryAddress: 'Walk-in Customer / In-Store Sale',
+          isManualBooking: true,
+          customerName: payload.customerName?.trim() || 'Walk-in Customer',
+          customerPhone: payload.customerPhone?.trim() || null,
+          customerEmail: payload.customerEmail?.trim() || null,
+          discountAmount: discount,
+          invoiceNumber,
+          notes: payload.notes?.trim() || null
+        }
+      });
+
+      // Create Child SubOrder
+      const subOrder = await tx.subOrder.create({
+        data: {
+          orderId: newOrder.id,
+          storeId: payload.storeId,
+          status: 'DELIVERED',
+          subtotal: totalAmount,
+          commissionAmount: 0,
+          sellerPayoutAmount: totalAmount,
+          invoiceNumber
+        }
+      });
+
+      // Create Order Items
+      for (const it of preparedItems) {
+        await tx.orderItem.create({
+          data: {
+            orderId: newOrder.id,
+            subOrderId: subOrder.id,
+            productId: it.productId,
+            variantId: it.variantId,
+            quantity: it.quantity,
+            priceAt: it.priceAt,
+            productName: it.productName,
+            sku: it.sku
+          }
+        });
+      }
+
+      // Create Completed Payment Record
+      await tx.payment.create({
+        data: {
+          orderId: newOrder.id,
+          amount: totalAmount,
+          currency,
+          status: 'SUCCESS',
+          provider: payload.paymentMethod || 'CASH',
+          providerPaymentId: `manual_${newOrder.id.slice(0, 8)}`
+        }
+      });
+
+      // Record in Seller Financial Ledger
+      await tx.sellerTransaction.create({
+        data: {
+          storeId: payload.storeId,
+          orderId: newOrder.id,
+          title: `In-Store POS Sale #${newOrder.id.slice(0, 8).toUpperCase()}`,
+          amount: totalAmount,
+          type: 'CREDIT',
+          description: `Manual In-Store POS Sale (${invoiceNumber})`
+        }
+      });
+
+      return {
+        order: newOrder,
+        subOrder,
+        items: preparedItems,
+        subtotal,
+        discount,
+        totalAmount,
+        invoiceNumber,
+        currency,
+        currencySymbol,
+        store
+      };
+    }, { maxWait: 15000, timeout: 30000 });
+
+    // 4. Asynchronously send email invoice if email was provided
+    if (payload.customerEmail && payload.customerEmail.includes('@')) {
+      try {
+        const { EmailService } = require('../../notification/application/email.service');
+        const emailService = new EmailService();
+        emailService.sendInvoiceEmail(payload.customerEmail.trim(), {
+          invoiceNumber: orderResult.invoiceNumber,
+          orderId: orderResult.order.id,
+          orderDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          storeName: store.name,
+          storeAddress: store.address ? `${store.address}${store.city ? `, ${store.city}` : ''}${store.state ? `, ${store.state}` : ''}` : undefined,
+          storePhone: store.contactPhone || undefined,
+          storeGst: store.gstNumber || undefined,
+          customerName: payload.customerName || 'Walk-in Customer',
+          paymentMethod: payload.paymentMethod || 'CASH',
+          items: orderResult.items.map(i => ({
+            name: i.productName,
+            variant: i.variantName || undefined,
+            sku: i.sku,
+            quantity: i.quantity,
+            price: i.priceAt,
+            total: i.priceAt * i.quantity
+          })),
+          subtotal: orderResult.subtotal,
+          discountAmount: orderResult.discount,
+          shippingFee: 0,
+          totalAmount: orderResult.totalAmount,
+          currencySymbol,
+          isManualBooking: true
+        }).catch((err: any) => console.warn('Failed to dispatch background invoice email:', err));
+      } catch (err) {
+        console.warn('Email dispatch init failed:', err);
+      }
+    }
+
+    // 5. Emit real-time WebSocket event
+    try {
+      const { getIO } = require('../../../api/socket');
+      const io = getIO();
+      io.to(`store_${payload.storeId}`).emit('order_created', {
+        orderId: orderResult.order.id,
+        isManualBooking: true,
+        totalAmount: orderResult.totalAmount,
+        invoiceNumber: orderResult.invoiceNumber
+      });
+    } catch (e) {
+      // socket fallback
+    }
+
+    return {
+      success: true,
+      message: 'Manual order created and stock updated successfully',
+      orderId: orderResult.order.id,
+      invoiceNumber: orderResult.invoiceNumber,
+      totalAmount: orderResult.totalAmount,
+      order: orderResult.order
+    };
+  }
+
+  static async getOrderInvoice(orderId: string, userId: string) {
+    const orderData = await this.getOrder(orderId, userId);
+    const store = await prisma.store.findUnique({ where: { id: orderData.storeId } });
+    if (!store) throw new AppError('Store not found', 404);
+
+    const isIndian = CurrencyService.isIndianEntity(store);
+    const currency = isIndian ? 'INR' : 'NPR';
+    const currencySymbol = isIndian ? '₹' : 'रू';
+
+    const itemsSubtotal = orderData.items.reduce((acc: number, it: any) => {
+      const p = Number(it.price || it.priceAt || 0);
+      const q = Number(it.qty || it.quantity || 1);
+      return acc + (p * q);
+    }, 0);
+
+    const invoiceNumber = orderData.invoiceNumber || `INV-${new Date(orderData.createdAt).toISOString().slice(0, 10).replace(/-/g, '')}-${orderData.id.slice(0, 6).toUpperCase()}`;
+
+    return {
+      invoiceNumber,
+      orderId: orderData.id,
+      orderDate: new Date(orderData.createdAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      store: {
+        id: store.id,
+        name: store.name,
+        address: store.address,
+        city: store.city,
+        state: store.state,
+        pincode: store.pincode,
+        gstNumber: store.gstNumber,
+        contactPhone: store.contactPhone,
+        logoUrl: store.logoUrl,
+        bannerUrl: store.bannerUrl
+      },
+      customer: {
+        name: orderData.customerName || 'Walk-in Customer',
+        phone: orderData.customerPhone || orderData.phone || '',
+        email: orderData.customerEmail || '',
+        address: orderData.deliveryAddress || 'Over-the-Counter / Walk-in'
+      },
+      payment: {
+        method: orderData.paymentMethod,
+        rawMethod: orderData.rawPaymentMethod,
+        status: orderData.paymentStatus,
+        currency,
+        currencySymbol
+      },
+      isManualBooking: Boolean(orderData.isManualBooking),
+      notes: orderData.notes || '',
+      items: orderData.items.map((it: any, idx: number) => ({
+        slNo: idx + 1,
+        id: it.id,
+        productId: it.productId,
+        name: it.name || it.productName,
+        sku: it.sku,
+        variantName: it.variantName || null,
+        image: it.image || null,
+        quantity: it.quantity || it.qty || 1,
+        unitPrice: Number(it.price || it.priceAt || 0),
+        total: Number(it.price || it.priceAt || 0) * Number(it.quantity || it.qty || 1)
+      })),
+      pricing: {
+        subtotal: itemsSubtotal,
+        discountAmount: Number(orderData.discountAmount || 0),
+        shippingFee: Number(orderData.shippingFee || 0),
+        totalAmount: Number(orderData.totalAmount || orderData.total || itemsSubtotal),
+        currency,
+        currencySymbol
+      }
+    };
+  }
 }
+
 

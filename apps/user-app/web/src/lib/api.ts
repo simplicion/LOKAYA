@@ -109,6 +109,29 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
+      invalidatesTags: ['Order'],
+    }),
+    createManualOrder: builder.mutation<any, {
+      storeId: string;
+      customerName?: string;
+      customerPhone?: string;
+      customerEmail?: string;
+      paymentMethod?: string;
+      discountAmount?: number;
+      notes?: string;
+      items: Array<{
+        productId: string;
+        variantId?: string | null;
+        quantity: number;
+        customPrice?: number | null;
+      }>;
+    }>({
+      query: (body) => ({
+        url: '/orders/manual',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Order', 'SellerDashboard', 'Product', 'Store'],
     }),
     getUserOrders: builder.query<any[], void>({
       query: () => '/orders',
@@ -116,6 +139,10 @@ export const api = createApi({
     }),
     getOrder: builder.query<any, string>({
       query: (orderId) => `/orders/${orderId}`,
+      providesTags: ['Order'],
+    }),
+    getOrderInvoice: builder.query<any, string>({
+      query: (orderId) => `/orders/${orderId}/invoice`,
       providesTags: ['Order'],
     }),
     updateOrderStatus: builder.mutation<any, { orderId: string; status: string }>({
@@ -888,8 +915,10 @@ export const {
   useOnboardStoreMutation, 
   useAddProductMutation,
   useCreateOrderMutation,
+  useCreateManualOrderMutation,
   useGetUserOrdersQuery,
   useGetOrderQuery,
+  useGetOrderInvoiceQuery,
   useUpdateOrderStatusMutation,
   useDispatchShipmentMutation,
   useGetOrderTrackingQuery,

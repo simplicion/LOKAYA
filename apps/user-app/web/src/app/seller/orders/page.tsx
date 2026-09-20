@@ -15,7 +15,9 @@ import {
   Store, 
   CreditCard, 
   Banknote,
-  Sparkles
+  Sparkles,
+  PlusCircle,
+  FileText
 } from 'lucide-react';
 import { useCurrency } from '@/context/CurrencyContext';
 
@@ -61,22 +63,32 @@ export default function OrdersPage() {
         onSearchChange={setSearchQuery}
       />
 
-      {/* Category Tabs */}
-      <div className="bg-white border-b border-[#E5E2DC] sticky top-0 z-10">
-        <div className="flex overflow-x-auto no-scrollbar px-4 py-3 gap-3">
-          {['All', 'New', 'Preparing', 'Completed'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab as any)}
-              className={`text-xs font-bold whitespace-nowrap transition-all px-4 py-2 rounded-full border ${
-                activeTab === tab 
-                  ? 'bg-[#171717] text-white border-[#171717] shadow-sm' 
-                  : 'text-[#6B6B6B] bg-white border-[#E5E2DC] hover:border-gray-400'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+      {/* Action Banner: Book Manual Order (POS) & Category Tabs */}
+      <div className="bg-white border-b border-[#E5E2DC] sticky top-0 z-10 space-y-2 py-2">
+        <div className="px-4 flex items-center justify-between gap-3">
+          <div className="flex overflow-x-auto no-scrollbar gap-2 flex-1">
+            {['All', 'New', 'Preparing', 'Completed'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as any)}
+                className={`text-xs font-bold whitespace-nowrap transition-all px-3.5 py-1.5 rounded-full border ${
+                  activeTab === tab 
+                    ? 'bg-[#171717] text-white border-[#171717] shadow-sm' 
+                    : 'text-[#6B6B6B] bg-white border-[#E5E2DC] hover:border-gray-400'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => router.push('/seller/orders/manual')}
+            className="px-3.5 py-1.5 rounded-full bg-[#171717] hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-sm transition-transform active:scale-95"
+          >
+            <PlusCircle className="w-3.5 h-3.5 text-[#FF5A36]" />
+            <span>Book Manual Order</span>
+          </button>
         </div>
       </div>
 
@@ -104,12 +116,17 @@ export default function OrdersPage() {
                 onClick={() => router.push(`/seller/orders/details?id=${order.id}`)}
                 className="bg-white rounded-2xl border border-[#E5E2DC] p-4 shadow-sm hover:shadow-md hover:border-gray-300 transition-all cursor-pointer active:scale-[0.99] space-y-3"
               >
-                {/* Top Row: Order ID, Status, and Timestamp */}
+                {/* Top Row: Order ID, Status, Manual Badge, and Timestamp */}
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono font-black text-sm text-[#171717] tracking-tight">
                       #{order.id.slice(0, 8).toUpperCase()}
                     </span>
+                    {order.isManualBooking && (
+                      <span className="px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-200 text-[9px] font-black rounded uppercase tracking-wider">
+                        POS Manual
+                      </span>
+                    )}
                     <span className="text-[11px] font-medium text-gray-400 flex items-center gap-1">
                       <Clock className="w-3 h-3 text-gray-400" />
                       {order.timeLabel}
@@ -127,7 +144,7 @@ export default function OrdersPage() {
                         src={productImage} 
                         alt={productName} 
                         fill 
-                        className="object-cover"
+                        className="object-cover" 
                         sizes="64px"
                       />
                     ) : (
@@ -168,8 +185,8 @@ export default function OrdersPage() {
                 </div>
 
                 {/* Bottom Row: Price, Payment Method, Delivery Type, and Details link */}
-                <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="pt-3 border-t border-gray-100 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {/* Payment Mode Tag */}
                     <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                       isCod 
@@ -185,6 +202,19 @@ export default function OrdersPage() {
                       {isDelivery ? <Truck className="w-3 h-3 text-gray-500" /> : <Store className="w-3 h-3 text-gray-500" />}
                       {isDelivery ? 'Delivery' : 'Store Pickup'}
                     </span>
+
+                    {/* Quick Invoice Link */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/seller/orders/invoice?id=${order.id}`);
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-full border border-gray-200 transition-colors"
+                    >
+                      <FileText className="w-3 h-3 text-gray-500" />
+                      Invoice
+                    </button>
                   </div>
 
                   {/* Total Amount */}
