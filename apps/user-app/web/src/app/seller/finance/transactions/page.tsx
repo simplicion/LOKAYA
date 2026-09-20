@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useGetTransactionsQuery } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function TransactionsPage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const [activeFilter, setActiveFilter] = useState('All');
 
   const { data: response, isLoading } = useGetTransactionsQuery({ type: activeFilter });
@@ -61,16 +63,16 @@ export default function TransactionsPage() {
                     <p className="text-xs text-gray-500 mt-0.5">{transaction.date}</p>
                   </div>
                   
-                  <div className="text-right">
-                    <p className={`font-bold text-sm ${
-                      transaction.type === 'Credit' ? 'text-emerald-600' :
-                      transaction.type === 'Refund' ? 'text-red-500' :
-                      'text-gray-900'
-                    }`}>
-                      {transaction.amount > 0 ? `+₹${transaction.amount.toLocaleString()}` : `-₹${Math.abs(transaction.amount).toLocaleString()}`}
-                    </p>
-                    <span className="text-[10px] text-gray-400 uppercase tracking-wider">{transaction.type}</span>
-                  </div>
+                    <div className="text-right">
+                      <p className={`font-bold text-sm ${
+                        transaction.type === 'Credit' ? 'text-emerald-600' :
+                        transaction.type === 'Refund' ? 'text-red-500' :
+                        'text-gray-900'
+                      }`}>
+                        {transaction.amount > 0 ? `+${formatPrice(transaction.amount)}` : `-${formatPrice(Math.abs(transaction.amount))}`}
+                      </p>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wider">{transaction.type}</span>
+                    </div>
                 </div>
               ))}
 

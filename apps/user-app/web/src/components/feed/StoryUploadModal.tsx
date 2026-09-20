@@ -8,6 +8,7 @@ import { VideoTrimmerModal } from '@/components/media/VideoTrimmerModal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { toast } from 'sonner';
+import { useCurrency } from '@/context/CurrencyContext';
 
 interface StoryUploadModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export function StoryUploadModal({
   storeName = 'My Store',
   storeLogo
 }: StoryUploadModalProps) {
+  const { formatPrice } = useCurrency();
   const user = useSelector((state: RootState) => state.auth.user);
   const isAuthenticated = Boolean(user);
 
@@ -260,7 +262,7 @@ export function StoryUploadModal({
                   </div>
                   <div className="truncate">
                     <p className="text-xs font-bold text-gray-900 truncate">{selectedProduct.name}</p>
-                    <p className="text-xs font-semibold text-[#FF5A36]">₹{selectedProduct.sellingPrice}</p>
+                    <p className="text-xs font-semibold text-[#FF5A36]">{formatPrice(selectedProduct.sellingPrice)}</p>
                   </div>
                 </div>
                 <button 
@@ -302,7 +304,7 @@ export function StoryUploadModal({
                         <img src={p.imageUrl || p.images?.[0] || ''} alt={p.name} className="w-8 h-8 rounded object-cover" />
                         <span className="text-xs font-medium text-gray-800 truncate max-w-[200px]">{p.name}</span>
                       </div>
-                      <span className="text-xs font-bold text-[#FF5A36] shrink-0">₹{p.sellingPrice}</span>
+                      <span className="text-xs font-bold text-[#FF5A36] shrink-0">{formatPrice(p.sellingPrice)}</span>
                     </div>
                   ))
                 ) : (

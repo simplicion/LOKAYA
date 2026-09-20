@@ -12,11 +12,13 @@ import {
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import { useCurrency } from '@/context/CurrencyContext';
 
 function OrderDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get('id') || '';
+  const { formatPrice } = useCurrency();
 
   const { data: order, isLoading, refetch } = useGetOrderQuery(id, { skip: !id });
   const [updateStatus, { isLoading: isUpdatingStatus }] = useUpdateOrderStatusMutation();
@@ -184,7 +186,7 @@ function OrderDetailsContent() {
                 </div>
                 <div className="flex items-center gap-6 text-gray-900 font-medium whitespace-nowrap">
                   <span>x {item.qty}</span>
-                  <span className="w-12 text-right">₹ {item.price}</span>
+                  <span className="w-16 text-right">{formatPrice(item.price)}</span>
                 </div>
               </div>
             ))}
@@ -192,7 +194,7 @@ function OrderDetailsContent() {
 
           <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
             <span className="font-bold text-gray-900 text-base">Total</span>
-            <span className="font-bold text-gray-900 text-lg">₹ {order.total}</span>
+            <span className="font-bold text-gray-900 text-lg">{formatPrice(order.total)}</span>
           </div>
         </div>
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Trash2, Plus, Minus, Heart, Sparkles, Check, AlertCircle, Package } from 'lucide-react';
 import { useToggleWishlistMutation } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 import { toast } from 'sonner';
 
 interface CartProductCardProps {
@@ -37,6 +38,7 @@ export function CartProductCard({
   onDecrement,
   onRemove
 }: CartProductCardProps) {
+  const { formatPrice } = useCurrency();
   const [toggleWishlist, { isLoading: isWishlisting }] = useToggleWishlistMutation();
   const [isSaved, setIsSaved] = useState(false);
 
@@ -132,11 +134,11 @@ export function CartProductCard({
           {/* Price Row */}
           <div className="flex items-baseline gap-2 mt-2">
             <span className="font-black text-sm sm:text-base text-[#171717] tabular-nums">
-              ₹{price.toLocaleString('en-IN')}
+              {formatPrice(price)}
             </span>
             {originalPrice && originalPrice > price && (
               <span className="text-xs text-[#999999] line-through tabular-nums font-medium">
-                ₹{originalPrice.toLocaleString('en-IN')}
+                {formatPrice(originalPrice)}
               </span>
             )}
             {discount && (

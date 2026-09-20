@@ -212,7 +212,7 @@ export class OrderService {
             storeId: subOrder.storeId,
             type: NotificationType.ORDER,
             title: `New Order Received #${populatedOrder.id.slice(0, 8)}`,
-            message: `You have received a new order for ${subOrder.items?.length || 1} items (₹${subOrder.subtotal}).`,
+            message: `You have received a new order for ${subOrder.items?.length || 1} items (Total: ${subOrder.subtotal}).`,
             linkUrl: `/seller/orders/details?id=${populatedOrder.id}`
           }
         });

@@ -10,9 +10,11 @@ import {
   useGetStoreProductsQuery, 
   useGetStoreCategoriesQuery 
 } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function MyProductsPage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
 
@@ -130,7 +132,7 @@ export default function MyProductsPage() {
                     </div>
                     
                     <div className="font-bold text-[#171717] text-lg mt-1">
-                      ₹{product.sellingPrice || 0}
+                      {formatPrice(product.sellingPrice || 0)}
                     </div>
                     
                     <div className="flex items-center justify-between mt-2 flex-wrap gap-1.5">

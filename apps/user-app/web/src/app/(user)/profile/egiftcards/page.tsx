@@ -3,9 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Gift, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function EGiftCardsPage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50/50 pb-safe">
@@ -31,7 +33,7 @@ export default function EGiftCardsPage() {
             </div>
             
             <div>
-              <span className="text-4xl font-black tracking-tight">₹0.00</span>
+              <span className="text-4xl font-black tracking-tight">{formatPrice(0)}</span>
               <p className="text-indigo-200 text-xs mt-2 font-medium">Valid across all LOKAYA stores</p>
             </div>
           </div>

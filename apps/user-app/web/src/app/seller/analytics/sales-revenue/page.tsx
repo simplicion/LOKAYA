@@ -27,9 +27,11 @@ import {
 } from 'recharts';
 import Image from 'next/image';
 import { useGetAnalyticsSalesRevenueQuery } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function SalesRevenueAnalyticsPage() {
   const router = useRouter();
+  const { formatPrice, currencySymbol } = useCurrency();
   const [activeDateFilter, setActiveDateFilter] = useState('This Month');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
 
@@ -92,7 +94,7 @@ export default function SalesRevenueAnalyticsPage() {
                 </div>
               </div>
               <div>
-                <p className="text-xl font-bold text-[#171717]">₹{grossSales.toLocaleString()}</p>
+                <p className="text-xl font-bold text-[#171717]">{formatPrice(grossSales)}</p>
                 <div className="flex mt-1.5">
                   <p className="text-[10px] font-bold text-[#00B960] bg-[#E5F7ED] px-1.5 py-0.5 rounded-md flex items-center">
                     <TrendingUp className="w-3 h-3 mr-0.5" /> +12.5% 
@@ -111,7 +113,7 @@ export default function SalesRevenueAnalyticsPage() {
                 </div>
               </div>
               <div>
-                <p className="text-xl font-bold text-[#00B960]">₹{netRevenue.toLocaleString()}</p>
+                <p className="text-xl font-bold text-[#00B960]">{formatPrice(netRevenue)}</p>
                 <p className="text-[10px] text-[#6B6B6B] mt-1 flex items-center">
                   Margin: <span className="font-bold text-[#171717] ml-1">{overallMargin}%</span>
                 </p>
@@ -127,7 +129,7 @@ export default function SalesRevenueAnalyticsPage() {
                 </div>
               </div>
               <div>
-                <p className="text-xl font-bold text-[#171717]">₹{totalCost.toLocaleString()}</p>
+                <p className="text-xl font-bold text-[#171717]">{formatPrice(totalCost)}</p>
                 <p className="text-[10px] text-[#6B6B6B] mt-1">Cost of Goods Sold (COGS)</p>
               </div>
             </div>
@@ -171,11 +173,11 @@ export default function SalesRevenueAnalyticsPage() {
                   axisLine={false} 
                   tickLine={false} 
                   tick={{ fontSize: 10, fill: '#6b7280' }}
-                  tickFormatter={(value) => `₹${value/1000}k`}
+                  tickFormatter={(value) => `${currencySymbol}${value/1000}k`}
                 />
                 <Tooltip 
                   contentStyle={{ borderRadius: '1.25rem', border: '1px solid #E5E2DC', boxShadow: 'none' }}
-                  formatter={(value: any, name: any) => [`₹${value}`, name === 'gross' ? 'Gross Sales' : 'Net Revenue']}
+                  formatter={(value: any, name: any) => [formatPrice(Number(value) || 0), name === 'gross' ? 'Gross Sales' : 'Net Revenue']}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
                 <Bar dataKey="gross" name="Gross Sales" fill="#FF5A36" radius={[4, 4, 0, 0]} />
@@ -216,11 +218,11 @@ export default function SalesRevenueAnalyticsPage() {
                   <div className="grid grid-cols-3 gap-2 mt-2 bg-[#F9F9F9] p-2 rounded-xl">
                     <div className="text-center">
                       <p className="text-[10px] text-[#6B6B6B] font-medium mb-0.5">Avg CP</p>
-                      <p className="text-xs font-semibold text-[#171717]">₹{product.cp}</p>
+                      <p className="text-xs font-semibold text-[#171717]">{formatPrice(product.cp)}</p>
                     </div>
                     <div className="text-center border-l border-r border-[#E5E2DC]">
                       <p className="text-[10px] text-[#6B6B6B] font-medium mb-0.5">Avg SP</p>
-                      <p className="text-xs font-semibold text-[#171717]">₹{product.sp}</p>
+                      <p className="text-xs font-semibold text-[#171717]">{formatPrice(product.sp)}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-[10px] text-[#6B6B6B] font-medium mb-0.5">Margin</p>
@@ -229,8 +231,8 @@ export default function SalesRevenueAnalyticsPage() {
                   </div>
                   
                   <div className="flex justify-between items-center mt-3 pt-2 border-t border-[#E5E2DC]">
-                    <span className="text-xs text-[#6B6B6B] font-medium">Total Gross: <span className="text-[#171717]">₹{productGross.toLocaleString()}</span></span>
-                    <span className="text-xs text-[#6B6B6B] font-medium">Net Profit: <span className="text-[#00B960] font-bold">₹{productNet.toLocaleString()}</span></span>
+                    <span className="text-xs text-[#6B6B6B] font-medium">Total Gross: <span className="text-[#171717]">{formatPrice(productGross)}</span></span>
+                    <span className="text-xs text-[#6B6B6B] font-medium">Net Profit: <span className="text-[#00B960] font-bold">{formatPrice(productNet)}</span></span>
                   </div>
                 </div>
               );

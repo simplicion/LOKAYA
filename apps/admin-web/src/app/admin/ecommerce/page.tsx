@@ -34,8 +34,10 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { toast } from 'sonner';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function EcommerceControlPage() {
+  const { formatPrice } = useCurrency();
   const { data: banners = [], isLoading: isBannersLoading } = useGetBannersQuery();
   const { data: stores = [] } = useGetAllStoresQuery({ status: 'VERIFIED' });
   const { data: products = [] } = useGetProductsQuery();
@@ -401,7 +403,7 @@ export default function EcommerceControlPage() {
                       <img src={p.image || p.primaryImage} alt="" className="w-7 h-7 rounded-lg object-cover shrink-0 bg-gray-200" />
                       <div className="truncate">
                         <p className="font-semibold text-gray-800 truncate">{p.title || p.name}</p>
-                        <p className="text-[10px] text-gray-500">₹{p.price}</p>
+                        <p className="text-[10px] text-gray-500">{formatPrice(p.price)}</p>
                       </div>
                     </div>
                     <button

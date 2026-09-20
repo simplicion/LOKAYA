@@ -31,6 +31,7 @@ import {
 } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn, getMediaUrl, generateStandardSku } from '@/lib/utils';
+import { useCurrency } from '@/context/CurrencyContext';
 
 interface MediaItem {
   id?: string;
@@ -42,6 +43,7 @@ interface MediaItem {
 
 export default function EditProductClient({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { currencySymbol } = useCurrency();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: productData, isLoading, refetch } = useGetProductByIdQuery(params.id);
@@ -587,7 +589,7 @@ export default function EditProductClient({ params }: { params: { id: string } }
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">MRP (₹)</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">MRP ({currencySymbol})</label>
               <input 
                 type="number" 
                 value={mrp}
@@ -599,7 +601,7 @@ export default function EditProductClient({ params }: { params: { id: string } }
 
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                Selling Price (₹) <span className="text-red-500">*</span>
+                Selling Price ({currencySymbol}) <span className="text-red-500">*</span>
               </label>
               <input 
                 type="number" 

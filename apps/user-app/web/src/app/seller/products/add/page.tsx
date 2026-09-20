@@ -13,6 +13,7 @@ import { useAddProductMutation, useGetMyStoreQuery, useGetPresignedUrlMutation, 
 import { Dropdown } from '@/components/ui/dropdown';
 import { getMediaUrl, generateStandardSku } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
+import { useCurrency } from '@/context/CurrencyContext';
 const variantSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'Variant name is required'),
@@ -48,6 +49,7 @@ const STEPS = ['Basic Info', 'Pricing & Stock', 'Media', 'Publish'];
 
 export default function ManualAddProductPage() {
   const router = useRouter();
+  const { currencySymbol } = useCurrency();
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -512,9 +514,9 @@ export default function ManualAddProductPage() {
               <>
                 <div className="flex gap-4">
                   <div className="flex-1 space-y-1.5">
-                    <label className="text-sm font-semibold text-gray-700">Selling Price</label>
+                    <label className="text-sm font-semibold text-gray-700">Selling Price ({currencySymbol})</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">₹</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
                       <input 
                         {...register('sellingPrice')}
                         type="number" 
@@ -525,9 +527,9 @@ export default function ManualAddProductPage() {
                     {errors.sellingPrice && <span className="text-xs text-red-500">{errors.sellingPrice.message}</span>}
                   </div>
                   <div className="flex-1 space-y-1.5">
-                    <label className="text-sm font-semibold text-gray-700">MRP (Original)</label>
+                    <label className="text-sm font-semibold text-gray-700">MRP ({currencySymbol})</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">₹</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
                       <input 
                         {...register('mrp')}
                         type="number" 
@@ -575,7 +577,7 @@ export default function ManualAddProductPage() {
                     </div>
                     <div className="flex gap-3">
                       <div className="flex-1 space-y-1">
-                        <label className="text-xs font-semibold text-gray-700">Price (₹)</label>
+                        <label className="text-xs font-semibold text-gray-700">Price ({currencySymbol})</label>
                         <input type="number" {...register(`variants.${index}.price`)} placeholder="0.00" className={`w-full p-2 bg-white border ${errors.variants?.[index]?.price ? 'border-red-500' : 'border-[#E5E2DC]'} rounded-lg text-sm`} />
                         {errors.variants?.[index]?.price && <span className="text-[10px] text-red-500">{errors.variants[index]?.price?.message}</span>}
                       </div>

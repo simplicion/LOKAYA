@@ -230,7 +230,7 @@ export class CartService {
     const subtotal = cart.items.reduce((sum, item) => sum + (item.product.sellingPrice * item.quantity), 0);
 
     if (coupon.minCartValue && subtotal < coupon.minCartValue) {
-      throw new AppError(`Cart minimum value must be ₹${coupon.minCartValue}`, 400);
+      throw new AppError(`Cart minimum value must be ${coupon.minCartValue}`, 400);
     }
 
     const updatedCart = await prisma.cart.update({

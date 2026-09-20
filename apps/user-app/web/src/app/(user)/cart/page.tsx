@@ -38,11 +38,13 @@ import {
   useRemoveCouponMutation,
   useGetAddressesQuery
 } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 import { toast } from 'sonner';
 
 export default function CartPage() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { formatPrice, currencySymbol } = useCurrency();
   const user = useSelector((state: RootState) => (state as any).auth?.user);
   const reduxCart = useSelector((state: RootState) => state.cart);
   const reduxItems = reduxCart.items || [];
@@ -359,7 +361,7 @@ export default function CartPage() {
   // Popular Promo Codes for 1-Tap Apply
   const curatedCoupons = [
     { code: 'FIRST50', title: '50% OFF', desc: 'First time buyer special' },
-    { code: 'ARTISAN20', title: '₹200 FLAT OFF', desc: 'On orders above ₹999' },
+    { code: 'ARTISAN20', title: `${formatPrice(200)} FLAT OFF`, desc: `On orders above ${formatPrice(999)}` },
     { code: 'FESTIVE10', title: '10% OFF', desc: 'Instant sitewide savings' },
   ];
 
@@ -434,13 +436,13 @@ export default function CartPage() {
                   </span>
                 ) : (
                   <>
-                    Add <span className="font-extrabold text-[#FF5A36]">₹{amountForFreeDelivery.toLocaleString('en-IN')}</span> more for <span className="text-[#16845B] font-extrabold">FREE Delivery</span>
+                    Add <span className="font-extrabold text-[#FF5A36]">{formatPrice(amountForFreeDelivery)}</span> more for <span className="text-[#16845B] font-extrabold">FREE Delivery</span>
                   </>
                 )}
               </p>
               <div className="flex items-center gap-1 text-[11px] font-extrabold text-[#6B6B6B] bg-[#FAF9F6] px-2 py-0.5 rounded-lg border border-[#E5E2DC]">
                 <Truck className="w-3.5 h-3.5 text-[#FF5A36]" />
-                <span>₹999 threshold</span>
+                <span>{formatPrice(999)} threshold</span>
               </div>
             </div>
             
@@ -564,7 +566,7 @@ export default function CartPage() {
                     <p className="text-[11px] text-emerald-700 font-semibold mt-0.5">
                       {cartData.coupon.discountType === 'PERCENTAGE'
                         ? `${cartData.coupon.discountValue}% discount applied`
-                        : `₹${cartData.coupon.discountValue} flat discount applied`}
+                        : `${formatPrice(cartData.coupon.discountValue)} flat discount applied`}
                     </p>
                   </div>
                 </div>
@@ -633,20 +635,20 @@ export default function CartPage() {
             <div className="space-y-3 text-xs">
               <div className="flex justify-between text-[#6B6B6B]">
                 <span>Items Subtotal ({items.reduce((sum: number, i: any) => sum + i.quantity, 0)} items)</span>
-                <span className="text-[#171717] font-bold tabular-nums">₹{subtotal.toLocaleString('en-IN')}</span>
+                <span className="text-[#171717] font-bold tabular-nums">{formatPrice(subtotal)}</span>
               </div>
 
               {discountAmount > 0 && (
                 <div className="flex justify-between text-[#16845B]">
                   <span>Product Savings</span>
-                  <span className="font-bold tabular-nums">- ₹{discountAmount.toLocaleString('en-IN')}</span>
+                  <span className="font-bold tabular-nums">- {formatPrice(discountAmount)}</span>
                 </div>
               )}
 
               {couponDiscount > 0 && (
                 <div className="flex justify-between text-[#16845B]">
                   <span>Coupon Discount</span>
-                  <span className="font-bold tabular-nums">- ₹{couponDiscount.toLocaleString('en-IN')}</span>
+                  <span className="font-bold tabular-nums">- {formatPrice(couponDiscount)}</span>
                 </div>
               )}
 
@@ -657,11 +659,11 @@ export default function CartPage() {
                 <div className="flex gap-1.5 items-center">
                   {isFreeDelivery ? (
                     <>
-                      <span className="line-through text-[11px] text-gray-400 tabular-nums">₹49</span>
+                      <span className="line-through text-[11px] text-gray-400 tabular-nums">{formatPrice(49)}</span>
                       <span className="text-[#16845B] font-extrabold">FREE</span>
                     </>
                   ) : (
-                    <span className="text-[#171717] font-bold tabular-nums">₹49</span>
+                    <span className="text-[#171717] font-bold tabular-nums">{formatPrice(49)}</span>
                   )}
                 </div>
               </div>
@@ -669,13 +671,13 @@ export default function CartPage() {
 
             <div className="border-t border-dashed border-[#E5E2DC] my-3.5 pt-3.5 flex justify-between items-center">
               <span className="font-extrabold text-sm text-[#171717]">Total Payable</span>
-              <span className="font-black text-[#171717] text-xl tabular-nums">₹{totalAmount.toLocaleString('en-IN')}</span>
+              <span className="font-black text-[#171717] text-xl tabular-nums">{formatPrice(totalAmount)}</span>
             </div>
 
             {totalSaved > 0 && (
               <div className="text-[#16845B] text-xs font-extrabold text-center bg-emerald-50/80 py-2.5 rounded-xl border border-emerald-200/80 flex items-center justify-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#16845B]" />
-                <span>You are saving ₹{totalSaved.toLocaleString('en-IN')} on this order!</span>
+                <span>You are saving {formatPrice(totalSaved)} on this order!</span>
               </div>
             )}
           </div>
@@ -725,7 +727,7 @@ export default function CartPage() {
           <div className="flex flex-col">
             <div className="flex items-baseline gap-1.5">
               <span className="font-black text-xl sm:text-2xl text-[#171717] tabular-nums leading-none">
-                ₹{totalAmount.toLocaleString('en-IN')}
+                {formatPrice(totalAmount)}
               </span>
             </div>
             <span className="text-[11px] font-semibold text-[#6B6B6B] mt-0.5">

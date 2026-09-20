@@ -6,10 +6,12 @@ import { RootState } from '@/lib/store';
 import Link from 'next/link';
 import { ShoppingBag, ChevronRight, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export function FloatingCartBar() {
   const cart = useSelector((state: RootState) => state.cart);
   const pathname = usePathname();
+  const { formatPrice } = useCurrency();
   
   const [isDismissed, setIsDismissed] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -61,7 +63,7 @@ export function FloatingCartBar() {
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-sm leading-tight">{totalItems} {totalItems === 1 ? 'item' : 'items'} added</span>
-            <span className="text-xs text-white/90 font-medium">₹{totalPrice.toLocaleString()}</span>
+            <span className="text-xs text-white/90 font-medium">{formatPrice(totalPrice)}</span>
           </div>
         </div>
         

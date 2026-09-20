@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGetOrderQuery } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 import { 
   motion, 
   AnimatedSuccessCheck, 
@@ -27,6 +28,7 @@ import {
 function OrderSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { formatPrice, currencySymbol } = useCurrency();
   const orderId = searchParams.get('orderId');
   const [copied, setCopied] = useState(false);
 
@@ -43,8 +45,8 @@ function OrderSuccessContent() {
   // Resilient calculation of real total
   const totalAmountNum = Number(order?.totalAmount ?? order?.total ?? 0);
   const displayAmount = !isNaN(totalAmountNum) && totalAmountNum > 0
-    ? `₹${totalAmountNum.toLocaleString('en-IN')}`
-    : order?.totalAmount === 0 || order?.total === 0 ? '₹0' : '—';
+    ? formatPrice(totalAmountNum)
+    : order?.totalAmount === 0 || order?.total === 0 ? formatPrice(0) : '—';
 
   // Payment method and labels
   const rawMethod = (order?.paymentMethod || order?.payment?.provider || order?.rawPaymentMethod || '').toUpperCase();
@@ -274,12 +276,12 @@ function OrderSuccessContent() {
                             </p>
                           )}
                           <p className="text-[11px] font-medium text-gray-500 mt-0.5">
-                            Qty: {itemQty} × ₹{itemPrice.toLocaleString('en-IN')}
+                            Qty: {itemQty} × {formatPrice(itemPrice)}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
                           <span className="text-xs font-black text-gray-900">
-                            ₹{(itemPrice * itemQty).toLocaleString('en-IN')}
+                            {formatPrice(itemPrice * itemQty)}
                           </span>
                         </div>
                       </div>
@@ -291,12 +293,12 @@ function OrderSuccessContent() {
                 <div className="pt-3 border-t border-gray-100 space-y-1.5 text-xs">
                   <div className="flex justify-between text-gray-500">
                     <span>Items Subtotal</span>
-                    <span className="font-semibold text-gray-800">₹{itemsSubtotal.toLocaleString('en-IN')}</span>
+                    <span className="font-semibold text-gray-800">{formatPrice(itemsSubtotal)}</span>
                   </div>
                   <div className="flex justify-between text-gray-500">
                     <span>Delivery Fee</span>
                     <span className="font-semibold text-emerald-600">
-                      {order?.shippingFee ? `₹${order.shippingFee}` : 'FREE'}
+                      {order?.shippingFee ? formatPrice(order.shippingFee) : 'FREE'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-gray-100 font-bold text-sm">

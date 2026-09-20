@@ -19,9 +19,11 @@ import { Button } from '@/components/ui/button';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { SellerHeader } from '@/components/seller/SellerHeader';
 import { DateRangeModal } from '@/components/seller/DateRangeModal';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function SellerDashboardPage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
   const [activeDateFilter, setActiveDateFilter] = useState('Today');
@@ -284,7 +286,7 @@ export default function SellerDashboardPage() {
         <div className="grid grid-cols-2 gap-3 mb-8">
           <div className="bg-white border border-[#E5E2DC] rounded-[1.25rem] p-4 flex flex-col justify-between">
             <div>
-              <p className="text-xl font-bold text-[#171717]">₹{dashboardStats.todayRevenue.toLocaleString()}</p>
+              <p className="text-xl font-bold text-[#171717]">{formatPrice(dashboardStats.todayRevenue)}</p>
               <p className="text-[10px] text-[#6B6B6B] mt-1 font-medium">Today's Sales</p>
             </div>
             <div className="flex justify-end mt-2">
@@ -374,7 +376,7 @@ export default function SellerDashboardPage() {
                   </div>
                   <h3 className="font-bold text-[#171717] text-[15px] mb-2">{order.customerName}</h3>
                   <div className="flex justify-between items-center">
-                    <p className="text-xs text-[#6B6B6B]">{order.itemsCount} items • ₹{order.total}</p>
+                    <p className="text-xs text-[#6B6B6B]">{order.itemsCount} items • {formatPrice(typeof order.total === 'number' ? order.total : parseFloat(String(order.total).replace(/[^0-9.]/g, '')) || 0)}</p>
                     <p className="text-[10px] text-[#999999] font-medium">{order.pickupTime}</p>
                   </div>
                 </div>
@@ -398,7 +400,7 @@ export default function SellerDashboardPage() {
           <div className="bg-white rounded-[1.25rem] border border-[#E5E2DC] overflow-hidden pt-4 h-[200px] flex flex-col relative">
              <div className="px-4 mb-2 absolute top-4 left-0">
                <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md inline-block">
-                 ₹{dashboardStats.todayRevenue.toLocaleString()}
+                 {formatPrice(dashboardStats.todayRevenue)}
                </div>
              </div>
             <div className="flex-1 w-full mt-6">

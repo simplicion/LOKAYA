@@ -6,6 +6,7 @@ import {
   useVerifyProductMutation, 
   useRejectProductMutation 
 } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ import {
 } from 'lucide-react';
 
 export default function ProductVerificationCenter() {
+  const { formatPrice } = useCurrency();
   const [selectedStatus, setSelectedStatus] = useState<string>('PENDING');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
@@ -272,9 +274,9 @@ export default function ProductVerificationCenter() {
                       <div>
                         <span className="text-[10px] uppercase font-bold text-gray-400 block">Selling Price</span>
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-lg font-black text-gray-900">₹{product.sellingPrice}</span>
+                          <span className="text-lg font-black text-gray-900">{formatPrice(product.sellingPrice)}</span>
                           {product.mrp > product.sellingPrice && (
-                            <span className="text-xs text-gray-400 line-through">₹{product.mrp}</span>
+                            <span className="text-xs text-gray-400 line-through">{formatPrice(product.mrp)}</span>
                           )}
                         </div>
                       </div>
@@ -456,9 +458,9 @@ export default function ProductVerificationCenter() {
                 </h2>
 
                 <div className="flex items-baseline gap-3 pt-1">
-                  <span className="text-2xl font-black text-gray-900">₹{selectedProduct.sellingPrice}</span>
+                  <span className="text-2xl font-black text-gray-900">{formatPrice(selectedProduct.sellingPrice)}</span>
                   {selectedProduct.mrp > selectedProduct.sellingPrice && (
-                    <span className="text-sm text-gray-400 line-through">MRP: ₹{selectedProduct.mrp}</span>
+                    <span className="text-sm text-gray-400 line-through">MRP: {formatPrice(selectedProduct.mrp)}</span>
                   )}
                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
                     Stock: {selectedProduct.stockCount} units

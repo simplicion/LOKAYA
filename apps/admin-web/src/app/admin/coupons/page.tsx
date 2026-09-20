@@ -36,8 +36,10 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { toast } from 'sonner';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function CouponManagementPage() {
+  const { formatPrice, currencySymbol } = useCurrency();
   const { data: coupons = [], isLoading: isCouponsLoading } = useGetCouponsQuery();
   const { data: statsData, isLoading: isStatsLoading } = useGetCouponStatsQuery();
 
@@ -297,7 +299,7 @@ export default function CouponManagementPage() {
             >
               <option value="ALL">All Discount Types</option>
               <option value="PERCENTAGE">Percentage (%)</option>
-              <option value="FIXED">Fixed Amount (₹)</option>
+              <option value="FIXED">Fixed Amount ({currencySymbol})</option>
             </select>
 
             {/* Status Filter */}
@@ -384,13 +386,13 @@ export default function CouponManagementPage() {
                               </>
                             ) : (
                               <>
-                                <span className="text-emerald-600">₹{coupon.discountValue} FLAT OFF</span>
+                                <span className="text-emerald-600">{formatPrice(coupon.discountValue)} FLAT OFF</span>
                               </>
                             )}
                           </span>
                           {coupon.maxDiscount && (
                             <span className="text-[11px] text-gray-400">
-                              Max discount: ₹{coupon.maxDiscount}
+                              Max discount: {formatPrice(coupon.maxDiscount)}
                             </span>
                           )}
                         </div>
@@ -420,7 +422,7 @@ export default function CouponManagementPage() {
                       <td className="py-4 px-6 text-xs text-gray-600">
                         {coupon.minCartValue ? (
                           <span className="bg-gray-100 px-2.5 py-1 rounded-lg font-medium text-gray-700">
-                            Min. order: ₹{coupon.minCartValue}
+                            Min. order: {formatPrice(coupon.minCartValue)}
                           </span>
                         ) : (
                           <span className="text-gray-400 font-normal">No min order</span>
@@ -531,13 +533,13 @@ export default function CouponManagementPage() {
                     className="w-full h-11 px-3.5 text-sm font-semibold rounded-xl bg-gray-50 border border-gray-200 text-gray-800 outline-none focus:bg-white focus:border-emerald-500"
                   >
                     <option value="PERCENTAGE">Percentage (%) Discount</option>
-                    <option value="FIXED">Flat Currency (₹) Discount</option>
+                    <option value="FIXED">Flat Currency ({currencySymbol}) Discount</option>
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-gray-700 uppercase">
-                    Discount Amount {discountType === 'PERCENTAGE' ? '(%)' : '(₹)'} *
+                    Discount Amount {discountType === 'PERCENTAGE' ? '(%)' : `(${currencySymbol})`} *
                   </Label>
                   <Input
                     type="number"
@@ -555,7 +557,7 @@ export default function CouponManagementPage() {
               {/* Min Order & Max Discount */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-gray-700 uppercase">Min Cart Value (₹)</Label>
+                  <Label className="text-xs font-bold text-gray-700 uppercase">Min Cart Value ({currencySymbol})</Label>
                   <Input
                     type="number"
                     min="0"
@@ -568,7 +570,7 @@ export default function CouponManagementPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-gray-700 uppercase">Max Discount Cap (₹)</Label>
+                  <Label className="text-xs font-bold text-gray-700 uppercase">Max Discount Cap ({currencySymbol})</Label>
                   <Input
                     type="number"
                     min="0"

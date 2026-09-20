@@ -26,6 +26,7 @@ import { addToCart } from '@/lib/features/cartSlice';
 import { getMediaUrl, cn } from '@/lib/utils';
 import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { Button } from '@/components/ui/button';
+import { useCurrency } from '@/context/CurrencyContext';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { recordRecentlyViewed } from '@/lib/services/recentlyViewed';
@@ -33,6 +34,7 @@ import { recordRecentlyViewed } from '@/lib/services/recentlyViewed';
 export default function ProductViewClient({ productId }: { productId: string }) {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { formatPrice } = useCurrency();
   const user = useSelector((state: any) => state.auth.user);
   const { data: product, isLoading, isError } = useGetProductByIdQuery(productId);
   const [toggleWishlist, { isLoading: isTogglingWishlist }] = useToggleWishlistMutation();
@@ -349,11 +351,11 @@ export default function ProductViewClient({ productId }: { productId: string }) 
         {/* Pricing & Stock Status */}
         <div className="flex items-baseline gap-2.5 pt-1 flex-wrap">
           <span className="text-2xl font-black text-[#171717]">
-            ₹{activePrice.toLocaleString('en-IN')}
+            {formatPrice(activePrice)}
           </span>
-          {activeMrp && (
+          {activeMrp && activeMrp > activePrice && (
             <span className="text-sm text-gray-400 line-through font-medium">
-              ₹{activeMrp.toLocaleString('en-IN')}
+              {formatPrice(activeMrp)}
             </span>
           )}
           {discountPercent > 0 && (
@@ -405,7 +407,7 @@ export default function ProductViewClient({ productId }: { productId: string }) 
                   )}
                 >
                   <span className={isVariantOOS ? "line-through opacity-70" : ""}>{v.name}</span>
-                  {v.price && <span className={cn("text-[10px] opacity-80", isSelected ? "text-white" : "text-gray-500")}>₹{v.price}</span>}
+                  {v.price && <span className={cn("text-[10px] opacity-80", isSelected ? "text-white" : "text-gray-500")}>{formatPrice(v.price)}</span>}
                   {isVariantOOS && (
                     <span className={cn("text-[9px] font-extrabold uppercase px-1 py-0.2 rounded", isSelected ? "bg-black/25 text-white" : "bg-gray-200 text-gray-500")}>
                       Sold out
@@ -480,7 +482,7 @@ export default function ProductViewClient({ productId }: { productId: string }) 
         <div className="flex flex-col pr-3">
           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total Price</span>
           <span className="text-xl font-black text-[#171717]">
-            ₹{activePrice.toLocaleString('en-IN')}
+            {formatPrice(activePrice)}
           </span>
         </div>
 

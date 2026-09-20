@@ -28,9 +28,11 @@ import {
 
 import { DateRangeModal } from '@/components/seller/DateRangeModal';
 import { useGetAnalyticsOverviewQuery } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function AnalyticsPage() {
   const router = useRouter();
+  const { formatPrice, currencySymbol } = useCurrency();
   const [dateRange, setDateRange] = useState('This Month');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
 
@@ -38,8 +40,8 @@ export default function AnalyticsPage() {
 
   const stats = analyticsData?.stats || [
     { label: "Total Orders", value: "0", trend: "+0%", isPositive: true },
-    { label: "Total Revenue", value: "₹0", trend: "+0%", isPositive: true },
-    { label: "Avg. Order Value", value: "₹0", trend: "+0%", isPositive: true },
+    { label: "Total Revenue", value: formatPrice(0), trend: "+0%", isPositive: true },
+    { label: "Avg. Order Value", value: formatPrice(0), trend: "+0%", isPositive: true },
     { label: "Total Customers", value: "0", trend: "+0%", isPositive: true },
   ];
 
@@ -120,13 +122,13 @@ export default function AnalyticsPage() {
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#6B6B6B' }}
-                  tickFormatter={(value) => `₹${value/1000}k`}
+                  tick={{ fontSize: 10, fill: '#6B6B6B' }} 
+                  tickFormatter={(value) => `${currencySymbol}${value/1000}k`}
                 />
                 <Tooltip 
                   contentStyle={{ borderRadius: '12px', border: '1px solid #E5E2DC', boxShadow: 'none' }}
                   itemStyle={{ color: '#171717', fontWeight: 'bold' }}
-                  formatter={(value: any) => [`₹${value}`, 'Revenue']}
+                  formatter={(value: any) => [formatPrice(Number(value) || 0), 'Revenue']}
                 />
                 <Area 
                   type="monotone" 

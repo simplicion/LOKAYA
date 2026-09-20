@@ -192,8 +192,8 @@ export class StoryService {
           id: story.product.id,
           name: story.product.name,
           image: story.product.imageUrl || '',
-          price: `₹${story.product.sellingPrice}`,
-          originalPrice: story.product.mrp && story.product.mrp > story.product.sellingPrice ? `₹${story.product.mrp}` : undefined,
+          price: String(story.product.sellingPrice),
+          originalPrice: story.product.mrp && story.product.mrp > story.product.sellingPrice ? String(story.product.mrp) : undefined,
           discount: story.product.mrp && story.product.mrp > story.product.sellingPrice
             ? `${Math.round(((story.product.mrp - story.product.sellingPrice) / story.product.mrp) * 100)}% OFF`
             : undefined,
@@ -271,8 +271,8 @@ export class StoryService {
         id: s.product.id,
         name: s.product.name,
         image: s.product.imageUrl || '',
-        price: `₹${s.product.sellingPrice}`,
-        originalPrice: s.product.mrp && s.product.mrp > s.product.sellingPrice ? `₹${s.product.mrp}` : undefined,
+        price: String(s.product.sellingPrice),
+        originalPrice: s.product.mrp && s.product.mrp > s.product.sellingPrice ? String(s.product.mrp) : undefined,
       } : null,
       createdAt: s.createdAt,
       expiresAt: s.expiresAt,

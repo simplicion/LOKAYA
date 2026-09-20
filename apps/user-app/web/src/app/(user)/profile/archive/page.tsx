@@ -10,9 +10,11 @@ import { StoryViewerModal } from '@/components/feed/StoryViewerModal';
 import { CreateHighlightModal } from '@/components/profile/CreateHighlightModal';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function StoryArchivePage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const user = useSelector((state: RootState) => state.auth.user);
   const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
   const { data: archiveStories, isLoading, refetch } = useGetStoryArchiveQuery();
@@ -65,7 +67,7 @@ export default function StoryArchivePage() {
         id: s.product.id,
         name: s.product.name,
         image: s.product.imageUrl || '',
-        price: `₹${s.product.sellingPrice}`,
+        price: formatPrice(s.product.sellingPrice),
       } : null,
       createdAt: s.createdAt,
       viewsCount: s.viewsCount,

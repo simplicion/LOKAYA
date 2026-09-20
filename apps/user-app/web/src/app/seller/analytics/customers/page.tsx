@@ -7,11 +7,13 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 import { SellerHeader } from '@/components/seller/SellerHeader';
 import { DateRangeModal } from '@/components/seller/DateRangeModal';
 import { useGetAnalyticsCustomersQuery } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 
 const COLORS = ['#FF5A36', '#FFEBEE'];
 
 export default function CustomerAnalyticsPage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const [activeDateFilter, setActiveDateFilter] = useState('This Month');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
 
@@ -147,7 +149,7 @@ export default function CustomerAnalyticsPage() {
                 </div>
                 
                 <div className="w-1/4 text-right">
-                  <p className="font-bold text-[#171717] text-sm">₹{customer.spent.toLocaleString()}</p>
+                  <p className="font-bold text-[#171717] text-sm">{formatPrice(customer.spent)}</p>
                 </div>
               </div>
             ))

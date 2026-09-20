@@ -6,6 +6,7 @@ import { ChevronLeft, CreditCard, Landmark, Wallet, Banknote, ShieldCheck } from
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { useCurrency } from '@/context/CurrencyContext';
 
 const PAYMENT_METHODS = [
   { id: 'upi', title: 'UPI', subtitle: 'Pay using any UPI app', icon: <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo-vector.svg" alt="UPI" className="w-8 h-auto" /> },
@@ -17,6 +18,7 @@ const PAYMENT_METHODS = [
 
 export default function PaymentMethodPage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const [selectedId, setSelectedId] = useState<string>('upi');
   const amountToPay = 4298;
 
@@ -78,7 +80,7 @@ export default function PaymentMethodPage() {
           onClick={() => router.push('/checkout/processing')}
           className="w-full h-12 rounded-xl bg-[#FF6B00] hover:bg-[#E66000] text-white font-bold text-lg"
         >
-          Pay ₹{amountToPay.toLocaleString('en-IN')}
+          Pay {formatPrice(amountToPay)}
         </Button>
       </div>
     </div>

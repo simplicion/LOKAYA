@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Package, Search, Loader2, ArrowRight, Star } from 'lucide-react';
 import { useGetUserOrdersQuery } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ const TABS = [
 
 export default function OrderHistoryPage() {
   const router = useRouter();
+  const { formatPrice, currencySymbol } = useCurrency();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -214,7 +216,7 @@ export default function OrderHistoryPage() {
 
                     <div className="flex justify-between items-center mt-2">
                       <span className="font-black text-gray-900 text-sm">
-                        ₹{(order.totalAmount || 0).toLocaleString('en-IN')}
+                        {formatPrice(order.totalAmount || 0)}
                       </span>
                       
                       <div className="flex items-center gap-2">

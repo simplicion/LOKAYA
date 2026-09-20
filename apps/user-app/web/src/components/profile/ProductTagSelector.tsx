@@ -5,6 +5,7 @@ import { Search, ChevronLeft, Check, Plus, AlertCircle, RefreshCw, ShoppingBag }
 import { useGetStoreProductsQuery } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { getMediaUrl } from '@/lib/utils';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export function ProductTagSelector({ 
   storeId, 
@@ -18,6 +19,7 @@ export function ProductTagSelector({
   initialSelected?: string[];
 }) {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const { 
     data: products, 
     isLoading, 
@@ -175,9 +177,9 @@ export function ProductTagSelector({
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-[#171717] text-sm leading-tight mb-1 truncate">{product.name}</h3>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-gray-900">₹{displayPrice}</span>
+                      <span className="text-sm font-bold text-gray-900">{formatPrice(displayPrice)}</span>
                       {product.mrp && product.mrp > displayPrice && (
-                        <span className="text-xs text-gray-400 line-through">₹{product.mrp}</span>
+                        <span className="text-xs text-gray-400 line-through">{formatPrice(product.mrp)}</span>
                       )}
                     </div>
                   </div>

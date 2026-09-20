@@ -227,8 +227,8 @@ export class SearchService {
             id: primaryProduct.id,
             name: primaryProduct.name,
             image: primaryProduct.imageUrl || '',
-            price: `₹${price}`,
-            originalPrice: mrp && mrp > price! ? `₹${mrp}` : undefined,
+            price: price !== undefined && price !== null ? String(price) : '',
+            originalPrice: mrp && mrp > price! ? String(mrp) : undefined,
             discount: mrp && mrp > price! ? `${Math.round(((mrp - price!) / mrp) * 100)}% OFF` : undefined,
           } : undefined,
         };

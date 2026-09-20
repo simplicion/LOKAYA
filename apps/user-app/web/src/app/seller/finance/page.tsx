@@ -6,9 +6,11 @@ import { ArrowLeft, ChevronDown, ChevronRight, Landmark, IndianRupee, ArrowRight
 import { SellerHeader } from '@/components/seller/SellerHeader';
 import { DateRangeModal } from '@/components/seller/DateRangeModal';
 import { useGetFinanceSummaryQuery } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function FinanceOverviewPage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const [activeDateFilter, setActiveDateFilter] = useState('This Month');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
 
@@ -46,22 +48,22 @@ export default function FinanceOverviewPage() {
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
             <p className="text-xs text-[#6B6B6B] mb-1">Total Revenue</p>
-            <p className="text-xl font-bold text-[#171717]">₹{(summary?.totalRevenue ?? 0).toLocaleString()}</p>
+            <p className="text-xl font-bold text-[#171717]">{formatPrice(summary?.totalRevenue ?? 0)}</p>
           </div>
           
           <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
             <p className="text-xs text-[#6B6B6B] mb-1">Total Payouts</p>
-            <p className="text-xl font-bold text-[#171717]">₹{(summary?.totalPayouts ?? 0).toLocaleString()}</p>
+            <p className="text-xl font-bold text-[#171717]">{formatPrice(summary?.totalPayouts ?? 0)}</p>
           </div>
           
           <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
             <p className="text-xs text-[#6B6B6B] mb-1">Pending Payouts</p>
-            <p className="text-xl font-bold text-[#171717]">₹{(summary?.pendingPayouts ?? 0).toLocaleString()}</p>
+            <p className="text-xl font-bold text-[#171717]">{formatPrice(summary?.pendingPayouts ?? 0)}</p>
           </div>
           
           <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
             <p className="text-xs text-[#6B6B6B] mb-1">Available Balance</p>
-            <p className="text-xl font-bold text-[#171717]">₹{(summary?.availableBalance ?? 0).toLocaleString()}</p>
+            <p className="text-xl font-bold text-[#171717]">{formatPrice(summary?.availableBalance ?? 0)}</p>
           </div>
         </div>
 
@@ -70,12 +72,12 @@ export default function FinanceOverviewPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
               <p className="text-xs text-[#6B6B6B] mb-1">Today Collected</p>
-              <p className="text-lg font-bold text-[#171717]">₹{(summary?.todayCollected ?? 0).toLocaleString()}</p>
+              <p className="text-lg font-bold text-[#171717]">{formatPrice(summary?.todayCollected ?? 0)}</p>
             </div>
             
             <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">
               <p className="text-xs text-[#6B6B6B] mb-1">Last Collected</p>
-              <p className="text-lg font-bold text-[#171717]">₹{(summary?.lastCollected ?? 0).toLocaleString()}</p>
+              <p className="text-lg font-bold text-[#171717]">{formatPrice(summary?.lastCollected ?? 0)}</p>
             </div>
             
             <div className="bg-[#FFFFFF] p-4 rounded-[1.25rem] border border-[#E5E2DC] shadow-sm">

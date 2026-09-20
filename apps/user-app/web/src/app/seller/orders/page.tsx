@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import { SellerHeader } from '@/components/seller/SellerHeader';
 import { useGetMyStoreQuery, useGetStoreOrdersQuery } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function OrdersPage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const [activeTab, setActiveTab] = useState<'All' | 'New' | 'Preparing' | 'Completed'>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -88,7 +90,7 @@ export default function OrdersPage() {
                 <div className="flex items-end justify-between mt-1">
                   <div>
                     <p className="font-bold text-[#171717] text-[15px] leading-tight">{order.customerName}</p>
-                    <p className="text-xs text-[#6B6B6B] mt-1 font-medium">{order.itemsCount} {order.itemsCount > 1 ? 'items' : 'item'} • ₹{order.total}</p>
+                    <p className="text-xs text-[#6B6B6B] mt-1 font-medium">{order.itemsCount} {order.itemsCount > 1 ? 'items' : 'item'} • {formatPrice(typeof order.total === 'number' ? order.total : parseFloat(String(order.total).replace(/[^0-9.]/g, '')) || 0)}</p>
                   </div>
                   <p className="text-[11px] text-[#999999] font-medium uppercase tracking-wider">{order.timeLabel}</p>
                 </div>

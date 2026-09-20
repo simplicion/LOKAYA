@@ -188,12 +188,12 @@ export class FinanceService {
     const { amount, bankAccountId } = data;
 
     if (amount < 100) {
-      throw new AppError('Minimum payout withdrawal amount is ₹100', 400);
+      throw new AppError('Minimum payout withdrawal amount is 100', 400);
     }
 
     const summary = await this.getSummary(storeId);
     if (amount > summary.availableBalance) {
-      throw new AppError(`Insufficient available balance (Available: ₹${summary.availableBalance})`, 400);
+      throw new AppError(`Insufficient available balance (Available: ${summary.availableBalance})`, 400);
     }
 
     let targetBankId = bankAccountId;

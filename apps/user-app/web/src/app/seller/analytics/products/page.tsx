@@ -7,9 +7,11 @@ import Image from 'next/image';
 import { SellerHeader } from '@/components/seller/SellerHeader';
 import { DateRangeModal } from '@/components/seller/DateRangeModal';
 import { useGetAnalyticsProductsQuery } from '@/lib/api';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function ProductAnalyticsPage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const [activeDateFilter, setActiveDateFilter] = useState('This Month');
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Products');
@@ -103,7 +105,7 @@ export default function ProductAnalyticsPage() {
                 </div>
                 
                 <div className="text-right">
-                  <p className="font-bold text-[#171717]">₹{product.revenue.toLocaleString()}</p>
+                  <p className="font-bold text-[#171717]">{formatPrice(product.revenue)}</p>
                 </div>
               </div>
             ))}
@@ -139,7 +141,7 @@ export default function ProductAnalyticsPage() {
                       <span className="font-semibold text-[#171717] text-sm truncate">{category.name}</span>
                     </div>
                     <div className="col-span-3 text-right font-bold text-[#171717] text-sm">
-                      ₹{category.sales.toLocaleString()}
+                      {formatPrice(category.sales)}
                     </div>
                     <div className="col-span-3 text-right font-semibold text-[#6B6B6B] text-sm">
                       {category.orders}

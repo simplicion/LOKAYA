@@ -34,8 +34,8 @@ export class AnalyticsService {
     return {
       stats: [
         { label: 'Total Orders', value: totalOrders.toString(), trend: '+18.6%', isPositive: true },
-        { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, trend: '+22.3%', isPositive: true },
-        { label: 'Avg. Order Value', value: `₹${avgOrderValue}`, trend: '+12.3%', isPositive: true },
+        { label: 'Total Revenue', value: totalRevenue.toLocaleString(), trend: '+22.3%', isPositive: true },
+        { label: 'Avg. Order Value', value: avgOrderValue.toLocaleString(), trend: '+12.3%', isPositive: true },
         { label: 'Total Customers', value: totalCustomers.toString(), trend: '+16.2%', isPositive: true }
       ],
       chartData: chartData.length > 0 ? chartData : [

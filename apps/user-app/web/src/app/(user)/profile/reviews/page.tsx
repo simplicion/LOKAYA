@@ -6,9 +6,11 @@ import { ArrowLeft, Star, Trash2, Package, Store, ShoppingBag, Loader2 } from 'l
 import { useGetMyReviewsQuery, useDeleteProductReviewMutation } from '@/lib/api';
 import { getMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function MyReviewsPage() {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const { data: reviewsResponse, isLoading, refetch } = useGetMyReviewsQuery();
   const [deleteReview, { isLoading: isDeleting }] = useDeleteProductReviewMutation();
 
@@ -107,7 +109,7 @@ export default function MyReviewsPage() {
 
                       {product?.price && (
                         <div className="font-bold text-xs text-[#171717] mt-1">
-                          ₹{product.price}
+                          {formatPrice(product.price)}
                         </div>
                       )}
                     </div>

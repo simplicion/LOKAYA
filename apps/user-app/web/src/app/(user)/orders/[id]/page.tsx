@@ -20,11 +20,13 @@ import { useGetOrderQuery } from '@/lib/api';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
   const orderId = resolvedParams.id;
+  const { formatPrice } = useCurrency();
 
   const { data: order, isLoading } = useGetOrderQuery(orderId, { skip: !orderId });
 
@@ -169,7 +171,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
 
                     <div className="flex justify-between items-center mt-1.5">
                       <span className="font-black text-gray-900 text-xs">
-                        ₹{((item.priceAt || item.product?.sellingPrice || 0) * (item.quantity || 1)).toLocaleString('en-IN')}
+                        {formatPrice((item.priceAt || item.product?.sellingPrice || 0) * (item.quantity || 1))}
                       </span>
                       <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
                         Qty: {item.quantity}
@@ -217,13 +219,13 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
             <div className="flex justify-between text-gray-600">
               <span>Items Total</span>
               <span className="font-semibold text-gray-900">
-                ₹{((order.totalAmount || 0) - (order.shippingFee || 0)).toLocaleString('en-IN')}
+                {formatPrice((order.totalAmount || 0) - (order.shippingFee || 0))}
               </span>
             </div>
             <div className="flex justify-between text-gray-600">
               <span>Delivery Charges</span>
               <span className="font-semibold text-emerald-600">
-                {order.shippingFee ? `₹${order.shippingFee}` : 'FREE'}
+                {order.shippingFee ? formatPrice(order.shippingFee) : 'FREE'}
               </span>
             </div>
           </div>
@@ -231,13 +233,13 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           <div className="flex justify-between items-center">
             <span className="font-extrabold text-gray-900 text-sm">Total Paid</span>
             <span className="font-black text-[#FF6B00] text-base">
-              ₹{(order.totalAmount || 0).toLocaleString('en-IN')}
+              {formatPrice(order.totalAmount || 0)}
             </span>
           </div>
           
           <div className="flex items-center gap-1.5 text-[11px] text-gray-500 pt-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Paid via {order.paymentMethod || 'ONLINE'} (Secured by Razorpay)</span>
+            <span>Paid via {order.paymentMethod || 'ONLINE'}</span>
           </div>
         </div>
 

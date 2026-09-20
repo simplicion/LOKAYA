@@ -29,6 +29,7 @@ export const metadata: Metadata = {
 
 import StoreProvider from "@/lib/StoreProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { CurrencyProvider } from "@/context/CurrencyContext";
 
 export default function RootLayout({
   children,
@@ -43,8 +44,10 @@ export default function RootLayout({
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col">
         <StoreProvider>
-          {children}
-          <Toaster position="top-right" />
+          <CurrencyProvider>
+            {children}
+            <Toaster position="top-right" />
+          </CurrencyProvider>
         </StoreProvider>
       </body>
     </html>

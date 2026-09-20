@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { useGetProductByIdQuery, useUpdateProductMutation } from '@/lib/api';
 import { getMediaUrl } from '@/lib/utils';
 import Image from 'next/image';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export default function ProductDetailsClient({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const [showSoldHistory, setShowSoldHistory] = useState(false);
 
   const { data: productData, isLoading, refetch } = useGetProductByIdQuery(params.id);
@@ -166,9 +168,9 @@ export default function ProductDetailsClient({ params }: { params: { id: string 
           <div>
             <span className="text-xs text-gray-500 font-medium">Selling Price</span>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-black text-gray-900">₹{product.price}</span>
+              <span className="text-2xl font-black text-gray-900">{formatPrice(product.price)}</span>
               {product.mrp > product.price && (
-                <span className="text-sm text-gray-400 line-through">₹{product.mrp}</span>
+                <span className="text-sm text-gray-400 line-through">{formatPrice(product.mrp)}</span>
               )}
             </div>
           </div>
@@ -217,7 +219,7 @@ export default function ProductDetailsClient({ params }: { params: { id: string 
                     <p className="text-[11px] text-gray-500">SKU: {v.sku}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-gray-900">₹{v.price}</p>
+                    <p className="font-bold text-gray-900">{formatPrice(v.price)}</p>
                     <p className="text-[11px] text-gray-500">{v.stockCount} in stock</p>
                   </div>
                 </div>
@@ -254,7 +256,7 @@ export default function ProductDetailsClient({ params }: { params: { id: string 
                     <p className="text-[11px] text-gray-500">#{ord.id} • {ord.date}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-gray-900">₹{ord.cost}</p>
+                    <p className="font-bold text-gray-900">{formatPrice(ord.cost)}</p>
                     <p className="text-[11px] text-gray-500">Qty: {ord.qty}</p>
                   </div>
                 </div>
