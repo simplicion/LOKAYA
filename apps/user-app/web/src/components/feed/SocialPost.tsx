@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Volume2, Film, Sparkles, CheckCircle2 } from 'lucide-react';
+import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Volume2, Sparkles, CheckCircle2 } from 'lucide-react';
 import { cn, getMediaUrl, formatTimeAgo } from '@/lib/utils';
 import { ProductOverlayCard } from './ProductOverlayCard';
 import { ShareBottomSheet } from '../ui/ShareBottomSheet';
@@ -83,7 +83,6 @@ export function SocialPost({
   const router = useRouter();
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isAuthor = Boolean(currentUser?.id && authorId && currentUser.id === authorId);
-  const isItemReel = Boolean(isReel || contentType === 'REEL' || (media && media.length > 0 && media[0]?.type === 'video'));
 
   // Global feed sound state (unmute one -> unmutes all across the feed)
   const { isMuted, toggleMute } = useFeedSound();
@@ -305,18 +304,7 @@ export function SocialPost({
                 <CheckCircle2 className="w-4 h-4 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
               )}
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[#6B6B6B] text-[11px] font-medium">{displayTime}</span>
-              {isItemReel && (
-                <>
-                  <span className="text-[#A3A3A3] text-[9px]">•</span>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#FF5A36] bg-orange-50 border border-orange-200/70 px-1.5 py-0.2 rounded-full">
-                    <Film className="w-2.5 h-2.5" />
-                    Reel
-                  </span>
-                </>
-              )}
-            </div>
+            <span className="text-[#6B6B6B] text-[11px] font-medium mt-0.5">{displayTime}</span>
           </div>
         </Link>
         <button onClick={() => setIsOptionsOpen(true)} className="text-[#171717] p-1 active:bg-gray-100 rounded-full transition-colors">
@@ -392,24 +380,6 @@ export function SocialPost({
                         <Volume2 className="w-4 h-4 text-white animate-pulse" />
                       )}
                     </button>
-
-                    {m.duration && (
-                      <div className="absolute bottom-[88px] left-4 bg-black/60 rounded-md px-2 py-0.5 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none">
-                        {m.duration}
-                      </div>
-                    )}
-                    
-                    {/* Watch Reel Quick Pill */}
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openReelsView();
-                      }}
-                      className="absolute top-4 left-4 bg-black/60 hover:bg-black/85 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-[11px] font-bold flex items-center gap-1.5 border border-white/15 shadow-md cursor-pointer active:scale-95 transition-all z-20"
-                    >
-                      <Film className="w-3.5 h-3.5 text-[#FF5A36] fill-[#FF5A36]" />
-                      <span>Watch Reel</span>
-                    </div>
                   </>
                 )}
               </div>
