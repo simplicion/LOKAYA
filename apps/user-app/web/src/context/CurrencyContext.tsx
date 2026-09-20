@@ -18,17 +18,17 @@ export interface CurrencyContextType {
 }
 
 const CurrencyContext = createContext<CurrencyContextType>({
-  currency: 'INR',
-  currencySymbol: '₹',
-  countryCode: 'IN',
-  countryName: 'India',
-  flag: '🇮🇳',
+  currency: 'NPR',
+  currencySymbol: 'रू',
+  countryCode: 'NP',
+  countryName: 'Nepal',
+  flag: '🇳🇵',
   rates: { INR: 1.0, NPR: 1.6, USD: 0.0104 },
   isLoading: true,
   setCurrency: () => {},
-  formatPrice: (amt) => `₹${amt || 0}`,
+  formatPrice: (amt) => `रू${amt || 0}`,
   convertPrice: (amt) => amt || 0,
-  isIndianUser: true,
+  isIndianUser: false,
 });
 
 const DEFAULT_RATES: Record<string, number> = {
@@ -43,15 +43,15 @@ const DEFAULT_RATES: Record<string, number> = {
 };
 
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currency, setCurrencyState] = useState<string>('INR');
-  const [currencySymbol, setCurrencySymbol] = useState<string>('₹');
-  const [countryCode, setCountryCode] = useState<string>('IN');
-  const [countryName, setCountryName] = useState<string>('India');
-  const [flag, setFlag] = useState<string>('🇮🇳');
+  const [currency, setCurrencyState] = useState<string>('NPR');
+  const [currencySymbol, setCurrencySymbol] = useState<string>('रू');
+  const [countryCode, setCountryCode] = useState<string>('NP');
+  const [countryName, setCountryName] = useState<string>('Nepal');
+  const [flag, setFlag] = useState<string>('🇳🇵');
   const [rates, setRates] = useState<Record<string, number>>(DEFAULT_RATES);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // 1. Fetch live rates from backend meta API or public fallback
+  // 1. Fetch live rates dynamically from real endpoints
   const fetchLiveRates = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
@@ -79,7 +79,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return DEFAULT_RATES;
   };
 
-  // 2. Initialize location and currency on mount
+  // 2. Initialize location and currency dynamically on mount
   useEffect(() => {
     let isMounted = true;
 
@@ -88,17 +88,25 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       await fetchLiveRates();
 
       try {
+        // Check for user-selected preference in localStorage
+        let savedCurrency: string | null = null;
+        if (typeof window !== 'undefined') {
+          try {
+            savedCurrency = localStorage.getItem('lokaya_preferred_currency');
+          } catch {}
+        }
+
         const loc: LocationContext = await LocationService.detectUserLocation();
         if (isMounted && loc) {
-          const userCurrency = loc.currency || 'INR';
-          const userCountry = loc.countryCode || 'IN';
-          const symbol = LocationService.getCurrencySymbol(userCurrency, userCountry);
+          const activeCurrency = savedCurrency || loc.currency || 'NPR';
+          const userCountry = loc.countryCode || (activeCurrency === 'INR' ? 'IN' : 'NP');
+          const symbol = LocationService.getCurrencySymbol(activeCurrency, userCountry);
 
-          setCurrencyState(userCurrency);
-          setCurrencySymbol(symbol || (userCurrency === 'NPR' ? 'रू' : userCurrency === 'INR' ? '₹' : '$'));
+          setCurrencyState(activeCurrency);
+          setCurrencySymbol(symbol);
           setCountryCode(userCountry);
-          setCountryName(loc.country || 'India');
-          setFlag(loc.flag || '🇮🇳');
+          setCountryName(loc.country || (userCountry === 'IN' ? 'India' : 'Nepal'));
+          setFlag(loc.flag || LocationService.getCountryFlag(userCountry));
         }
       } catch (err) {
         console.warn('[CurrencyContext] Location detection fallback to default:', err);
@@ -117,14 +125,25 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const setCurrency = useCallback((code: string) => {
     const upper = code.toUpperCase();
     setCurrencyState(upper);
-    const symbol = LocationService.getCurrencySymbol(upper);
-    setCurrencySymbol(symbol || upper);
+
+    let resolvedCountry = 'NP';
+    if (upper === 'INR') resolvedCountry = 'IN';
+    else if (upper === 'USD') resolvedCountry = 'US';
+    else if (upper === 'GBP') resolvedCountry = 'GB';
+    else if (upper === 'AED') resolvedCountry = 'AE';
+    else if (upper === 'EUR') resolvedCountry = 'EU';
+
+    const symbol = LocationService.getCurrencySymbol(upper, resolvedCountry);
+    setCurrencySymbol(symbol);
+    setCountryCode(resolvedCountry);
+    setFlag(LocationService.getCountryFlag(resolvedCountry));
+
     try {
       localStorage.setItem('lokaya_preferred_currency', upper);
     } catch {}
   }, []);
 
-  // 4. Convert price numeric calculation
+  // 4. Convert price numeric calculation from live exchange rates
   const convertPrice = useCallback(
     (amount: number | null | undefined, fromCurrency = 'INR'): number => {
       if (amount === null || amount === undefined || isNaN(amount)) return 0;
@@ -134,7 +153,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (from === to) return amount;
 
       const fromRate = rates[from] || 1.0;
-      const toRate = rates[to] || 1.0;
+      const toRate = rates[to] || (to === 'NPR' ? 1.6 : 1.0);
       const exchangeRate = toRate / fromRate;
 
       return Math.round(amount * exchangeRate * 100) / 100;

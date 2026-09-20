@@ -99,6 +99,182 @@ export class CurrencyService {
   }
 
   /**
+   * Resolve native currency symbol dynamically with standard universal unicode representations
+   */
+  static getCurrencySymbol(currencyCode: string, countryCode?: string): string {
+    if (!currencyCode) return '₹';
+    const code = currencyCode.toUpperCase();
+    const country = (countryCode || '').toUpperCase();
+
+    // Standardized high-fidelity currency symbols
+    switch (code) {
+      case 'NPR':
+        return 'रू'; // Nepali Rupee Devanagari standard
+      case 'INR':
+        return '₹'; // Indian Rupee Unicode standard
+      case 'USD':
+        return '$';
+      case 'EUR':
+        return '€';
+      case 'GBP':
+        return '£';
+      case 'AED':
+        return 'AED';
+      case 'JPY':
+        return '¥';
+      case 'CAD':
+        return 'CA$';
+      case 'AUD':
+        return 'AU$';
+      case 'SGD':
+        return 'S$';
+      case 'CNY':
+        return '¥';
+      case 'THB':
+        return '฿';
+      default:
+        try {
+          const locale = country ? `en-${country}` : 'en-US';
+          const formatter = new Intl.NumberFormat(locale, {
+            style: 'currency',
+            currency: code,
+            currencyDisplay: 'narrowSymbol',
+          });
+          const parts = formatter.formatToParts(0);
+          const symbolPart = parts.find(p => p.type === 'currency');
+          return symbolPart?.value || code;
+        } catch {
+          return code;
+        }
+    }
+  }
+
+  /**
+   * Convert 2-letter ISO country code to Unicode Flag Emoji mathematically.
+   */
+  static getCountryFlag(countryCode: string): string {
+    if (!countryCode || countryCode.length !== 2) return '🌐';
+    try {
+      const codePoints = countryCode
+        .toUpperCase()
+        .split('')
+        .map(char => 127397 + char.charCodeAt(0));
+      return String.fromCodePoint(...codePoints);
+    } catch {
+      return '🌐';
+    }
+  }
+
+  /**
+   * Live IP Geolocation Detection from multi-provider cascade
+   */
+  static async detectLocation(clientIp?: string): Promise<{
+    ip: string;
+    country: string;
+    countryCode: string;
+    city: string;
+    region: string;
+    timezone: string;
+    currency: string;
+    currencySymbol: string;
+    flag: string;
+    callingCode: string;
+    exchangeRate: number;
+    source: string;
+  }> {
+    const isLocalIp = !clientIp || clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.');
+    const queryIp = isLocalIp ? '' : clientIp;
+
+    // 1. Try ipwho.is (fast, no key required, highly accurate)
+    try {
+      const res = await fetch(`https://ipwho.is/${queryIp}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success !== false && data.country_code) {
+          const countryCode = (data.country_code || 'NP').toUpperCase();
+          const country = data.country || 'Nepal';
+          const currency = (data.currency?.code || (countryCode === 'NP' ? 'NPR' : countryCode === 'IN' ? 'INR' : 'USD')).toUpperCase();
+          const currencySymbol = this.getCurrencySymbol(currency, countryCode);
+          const flag = data.flag?.emoji || this.getCountryFlag(countryCode);
+          const callingCode = data.calling_code ? `+${data.calling_code.replace(/^\+/, '')}` : '+977';
+          const rates = await this.getLiveRates('INR');
+          const exchangeRate = rates[currency] || (currency === 'NPR' ? 1.6 : 1.0);
+
+          return {
+            ip: data.ip || clientIp || '127.0.0.1',
+            country,
+            countryCode,
+            city: data.city || '',
+            region: data.region || '',
+            timezone: data.timezone?.id || 'Asia/Kathmandu',
+            currency,
+            currencySymbol,
+            flag,
+            callingCode,
+            exchangeRate,
+            source: 'ipwho.is',
+          };
+        }
+      }
+    } catch {}
+
+    // 2. Try ip-api.com fallback
+    try {
+      const url = queryIp ? `http://ip-api.com/json/${queryIp}?fields=status,country,countryCode,regionName,city,timezone,currency,query` : `http://ip-api.com/json/?fields=status,country,countryCode,regionName,city,timezone,currency,query`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.status === 'success' && data.countryCode) {
+          const countryCode = data.countryCode.toUpperCase();
+          const country = data.country || 'Nepal';
+          const currency = (data.currency || (countryCode === 'NP' ? 'NPR' : countryCode === 'IN' ? 'INR' : 'USD')).toUpperCase();
+          const currencySymbol = this.getCurrencySymbol(currency, countryCode);
+          const flag = this.getCountryFlag(countryCode);
+          const rates = await this.getLiveRates('INR');
+          const exchangeRate = rates[currency] || (currency === 'NPR' ? 1.6 : 1.0);
+
+          return {
+            ip: data.query || clientIp || '127.0.0.1',
+            country,
+            countryCode,
+            city: data.city || '',
+            region: data.regionName || '',
+            timezone: data.timezone || 'Asia/Kathmandu',
+            currency,
+            currencySymbol,
+            flag,
+            callingCode: countryCode === 'NP' ? '+977' : countryCode === 'IN' ? '+91' : '+1',
+            exchangeRate,
+            source: 'ip-api.com',
+          };
+        }
+      }
+    } catch {}
+
+    // 3. Fallback based on server environment / default Nepal development context
+    const fallbackCountryCode = 'NP';
+    const fallbackCurrency = 'NPR';
+    const rates = await this.getLiveRates('INR');
+
+    return {
+      ip: clientIp || '127.0.0.1',
+      country: 'Nepal',
+      countryCode: fallbackCountryCode,
+      city: 'Kathmandu',
+      region: 'Bagmati Province',
+      timezone: 'Asia/Kathmandu',
+      currency: fallbackCurrency,
+      currencySymbol: 'रू',
+      flag: '🇳🇵',
+      callingCode: '+977',
+      exchangeRate: rates[fallbackCurrency] || 1.6,
+      source: 'fallback',
+    };
+  }
+
+  /**
    * Helper to check if a store or country is India
    */
   static isIndianEntity(storeOrCountry: { country?: string | null; state?: string | null; address?: string | null; city?: string | null } | string): boolean {
