@@ -2,7 +2,28 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, QrCode, Keyboard, Loader2, Truck, Printer, Download, ExternalLink, PackageCheck, CheckCircle2 } from 'lucide-react';
+import Image from 'next/image';
+import { 
+  ArrowLeft, 
+  QrCode, 
+  Keyboard, 
+  Loader2, 
+  Truck, 
+  Printer, 
+  Download, 
+  ExternalLink, 
+  PackageCheck, 
+  CheckCircle2, 
+  Package, 
+  Phone, 
+  User, 
+  Tag, 
+  Copy, 
+  Check, 
+  ShoppingBag,
+  CreditCard,
+  Banknote
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
   useGetOrderQuery, 
@@ -19,6 +40,7 @@ function OrderDetailsContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id') || '';
   const { formatPrice } = useCurrency();
+  const [copiedId, setCopiedId] = useState(false);
 
   const { data: order, isLoading, refetch } = useGetOrderQuery(id, { skip: !id });
   const [updateStatus, { isLoading: isUpdatingStatus }] = useUpdateOrderStatusMutation();
@@ -110,18 +132,27 @@ function OrderDetailsContent() {
     }
   };
 
+  const handleCopyOrderId = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(order?.id || id);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+      toast.success('Order ID copied to clipboard');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'New':
-        return <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-lg">New</span>;
+        return <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-black rounded-lg uppercase tracking-wider">New</span>;
       case 'Preparing':
-        return <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded-lg">Preparing</span>;
+        return <span className="px-3 py-1 bg-orange-50 text-orange-700 border border-orange-200 text-xs font-black rounded-lg uppercase tracking-wider">Preparing</span>;
       case 'Ready':
-        return <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-lg">Ready for Pickup</span>;
+        return <span className="px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-black rounded-lg uppercase tracking-wider">Ready for Pickup</span>;
       case 'Completed':
-        return <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg">Completed</span>;
+        return <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-black rounded-lg uppercase tracking-wider">Completed</span>;
       default:
-        return <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg">{status}</span>;
+        return <span className="px-3 py-1 bg-gray-100 text-gray-700 border border-gray-200 text-xs font-black rounded-lg uppercase tracking-wider">{status}</span>;
     }
   };
 
@@ -143,10 +174,18 @@ function OrderDetailsContent() {
     );
   }
 
+  const items = order.items || [];
+  const itemsSubtotal = items.reduce((acc: number, it: any) => {
+    const p = Number(it.price || it.priceAt || 0);
+    const q = Number(it.qty || it.quantity || 1);
+    return acc + (p * q);
+  }, 0);
+  const totalAmount = Number(order.totalAmount || order.total || itemsSubtotal);
+
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-gray-50 pb-36">
+    <div className="flex flex-col min-h-[100dvh] bg-[#FAF9F6] pb-36">
       {/* Header */}
-      <div className="flex items-center p-4 bg-white sticky top-0 z-10 border-b border-gray-100">
+      <div className="flex items-center p-4 bg-white sticky top-0 z-10 border-b border-[#E5E2DC]">
         <button onClick={() => router.back()} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600">
           <ArrowLeft className="w-6 h-6" />
         </button>
@@ -157,44 +196,153 @@ function OrderDetailsContent() {
 
       <div className="p-4 space-y-4 flex-1">
         
-        {/* Order ID & Status */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-          <span className="font-bold text-gray-900 text-lg">#{order.id.slice(0, 8).toUpperCase()}</span>
+        {/* Order ID & Status Header */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#E5E2DC] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-mono font-black text-gray-900 text-lg">
+              #{order.id.slice(0, 8).toUpperCase()}
+            </span>
+            <button
+              onClick={handleCopyOrderId}
+              className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+              title="Copy Order ID"
+            >
+              {copiedId ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+            </button>
+          </div>
           {getStatusBadge(order.status)}
         </div>
 
-        {/* Customer Details */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Customer</h3>
-          <p className="font-bold text-gray-900 text-base">{order.customerName}</p>
-          <p className="text-gray-600 text-sm mt-1">{order.phone}</p>
+        {/* Customer Details Card */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#E5E2DC] space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Customer Details</span>
+            <span className="text-xs font-semibold text-gray-400">{order.timeLabel}</span>
+          </div>
+
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#171717] text-white font-black text-sm flex items-center justify-center shrink-0">
+                {(order.customerName || 'C').charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="font-bold text-gray-900 text-base leading-tight">{order.customerName}</p>
+                {order.phone && (
+                  <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-1 font-medium">
+                    <Phone className="w-3 h-3 text-gray-400" />
+                    {order.phone}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {order.phone && order.phone !== '+91 Not provided' && (
+              <a 
+                href={`tel:${order.phone}`}
+                className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-800 flex items-center gap-1 transition-colors"
+              >
+                <Phone className="w-3.5 h-3.5" /> Call
+              </a>
+            )}
+          </div>
+
           {order.status === 'Ready' && (
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700 font-medium">
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700 font-medium">
               Customer has been notified that the order is ready for pickup!
             </div>
           )}
         </div>
 
-        {/* Items List */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">Items</h3>
-          <div className="space-y-4">
-            {(order.items || []).map((item: any, idx: number) => (
-              <div key={idx} className="flex justify-between items-start text-sm">
-                <div className="flex-1 pr-4">
-                  <p className="font-semibold text-gray-900">{item.name}</p>
-                </div>
-                <div className="flex items-center gap-6 text-gray-900 font-medium whitespace-nowrap">
-                  <span>x {item.qty}</span>
-                  <span className="w-16 text-right">{formatPrice(item.price)}</span>
-                </div>
-              </div>
-            ))}
+        {/* Rich Items List Card */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#E5E2DC] space-y-4">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4 text-[#FF5A36]" />
+              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                Items Ordered ({order.itemsCount || items.length})
+              </h3>
+            </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
-            <span className="font-bold text-gray-900 text-base">Total</span>
-            <span className="font-bold text-gray-900 text-lg">{formatPrice(order.total)}</span>
+          {/* Product Items Breakdown */}
+          <div className="divide-y divide-gray-100">
+            {items.map((item: any, idx: number) => {
+              const itemImg = item.image || item.product?.imageUrl || item.product?.media?.[0]?.url;
+              const itemName = item.name || item.productName || item.title || 'Product Item';
+              const itemQty = Number(item.qty || item.quantity || 1);
+              const itemPrice = Number(item.price || item.priceAt || 0);
+              const itemVariant = item.variantName || item.variant?.name || null;
+              const itemSku = item.sku || item.variant?.sku || item.product?.sku || null;
+
+              return (
+                <div key={item.id || idx} className="py-3.5 first:pt-0 last:pb-0 flex items-start gap-3.5">
+                  {/* Thumbnail Image */}
+                  <div className="w-16 h-16 rounded-xl bg-gray-50 border border-[#E5E2DC] relative overflow-hidden shrink-0 flex items-center justify-center">
+                    {itemImg ? (
+                      <Image 
+                        src={itemImg} 
+                        alt={itemName} 
+                        fill 
+                        className="object-cover"
+                        sizes="64px" 
+                      />
+                    ) : (
+                      <Package className="w-6 h-6 text-gray-300" />
+                    )}
+                  </div>
+
+                  {/* Details */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-900 leading-snug">
+                      {itemName}
+                    </p>
+                    
+                    {/* Variant & SKU */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      {itemVariant && (
+                        <span className="inline-block text-[10px] font-semibold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md">
+                          Variant: {itemVariant}
+                        </span>
+                      )}
+                      {itemSku && (
+                        <span className="inline-block font-mono text-[10px] font-semibold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md">
+                          SKU: {itemSku}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs font-medium text-gray-500 mt-1.5">
+                      Qty: {itemQty} × {formatPrice(itemPrice)}
+                    </p>
+                  </div>
+
+                  {/* Line Total */}
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-black text-gray-900">
+                      {formatPrice(itemPrice * itemQty)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pricing Breakdown */}
+          <div className="pt-4 border-t border-gray-100 space-y-2 text-xs">
+            <div className="flex justify-between text-gray-500 font-medium">
+              <span>Items Subtotal</span>
+              <span className="font-semibold text-gray-800">{formatPrice(itemsSubtotal)}</span>
+            </div>
+            <div className="flex justify-between text-gray-500 font-medium">
+              <span>Delivery Fee</span>
+              <span className="font-semibold text-emerald-600">
+                {order.shippingFee ? formatPrice(order.shippingFee) : 'FREE'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-2.5 border-t border-gray-100 font-bold text-sm">
+              <span className="text-gray-900">Total Order Value</span>
+              <span className="font-black text-[#FF5A36] text-lg">{formatPrice(totalAmount)}</span>
+            </div>
           </div>
         </div>
 

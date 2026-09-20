@@ -344,8 +344,9 @@ export class OrderService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, imageUrl: true }
-              }
+                include: { media: true }
+              },
+              variant: true
             }
           },
           payment: true,
@@ -368,25 +369,59 @@ export class OrderService {
       else if (order.status === OrderStatus.DELIVERED) uiStatus = 'Completed';
       else if (order.status === OrderStatus.CANCELLED) uiStatus = 'Cancelled';
 
+      let resolvedPaymentMethod = 'Cash on Pickup';
+      if (order.payment?.provider === 'RAZORPAY') {
+        resolvedPaymentMethod = 'Prepaid (UPI/Card)';
+      } else if (order.paymentMethod === 'COD' || order.paymentMethod?.toLowerCase() === 'cod') {
+        resolvedPaymentMethod = order.deliveryAddress ? 'Cash on Delivery (COD)' : 'Cash on Pickup';
+      } else if (order.paymentMethod) {
+        resolvedPaymentMethod = order.paymentMethod;
+      }
+
+      const mappedItems = order.items.map(item => {
+        const primaryMedia = item.product?.media?.find((m: any) => m.isPrimary)?.url;
+        const firstMedia = item.product?.media?.[0]?.url;
+        const imgUrl = primaryMedia || firstMedia || item.product?.imageUrl || null;
+        return {
+          id: item.id,
+          productId: item.productId,
+          name: item.productName || item.product?.name || 'Item',
+          productName: item.productName || item.product?.name || 'Item',
+          qty: item.quantity,
+          quantity: item.quantity,
+          price: item.priceAt,
+          priceAt: item.priceAt,
+          sku: item.sku || item.variant?.sku || item.product?.sku || '',
+          variantName: item.variant?.name || null,
+          image: imgUrl,
+          product: item.product ? {
+            ...item.product,
+            imageUrl: imgUrl
+          } : null
+        };
+      });
+
       return {
         id: order.id,
         customerName: order.buyer?.name || 'Customer',
         phone: order.buyer?.phone || '+91 Not provided',
         itemsCount: order.items.reduce((acc, i) => acc + i.quantity, 0),
         total: order.totalAmount,
+        totalAmount: order.totalAmount,
+        shippingFee: order.shippingFee || 0,
         status: uiStatus,
         rawStatus: order.status,
         timeLabel,
-        paymentMethod: order.payment?.provider === 'RAZORPAY' ? 'Prepaid (UPI/Card)' : 'Cash on Pickup',
+        deliveryAddress: order.deliveryAddress,
+        paymentMethod: resolvedPaymentMethod,
+        rawPaymentMethod: order.paymentMethod,
         pickupTime: isToday ? `Today, ${timeLabel}` : timeLabel,
         pickupOtp: order.pickupOtp?.otpCode || '',
-        items: order.items.map(item => ({
-          id: item.id,
-          name: item.productName || item.product?.name || 'Item',
-          qty: item.quantity,
-          price: item.priceAt,
-          image: item.product?.imageUrl || null
-        }))
+        firstItemImage: mappedItems[0]?.image || null,
+        firstItemName: mappedItems[0]?.name || 'Item',
+        firstItemSku: mappedItems[0]?.sku || '',
+        firstItemVariant: mappedItems[0]?.variantName || null,
+        items: mappedItems
       };
     });
 

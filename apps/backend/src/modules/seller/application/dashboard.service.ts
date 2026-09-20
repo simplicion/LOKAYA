@@ -75,7 +75,12 @@ export class DashboardService {
           select: { id: true, name: true, phone: true }
         },
         items: {
-          select: { id: true, productName: true, quantity: true, priceAt: true }
+          include: {
+            product: {
+              include: { media: true }
+            },
+            variant: true
+          }
         }
       }
     });
@@ -100,6 +105,21 @@ export class DashboardService {
         statusBg = 'bg-red-50';
       }
 
+      const mappedItems = order.items.map(item => {
+        const primaryMedia = item.product?.media?.find((m: any) => m.isPrimary)?.url;
+        const firstMedia = item.product?.media?.[0]?.url;
+        const imgUrl = primaryMedia || firstMedia || item.product?.imageUrl || null;
+        return {
+          id: item.id,
+          name: item.productName || item.product?.name || 'Item',
+          qty: item.quantity,
+          price: item.priceAt,
+          sku: item.sku || item.variant?.sku || '',
+          variantName: item.variant?.name || null,
+          image: imgUrl
+        };
+      });
+
       return {
         id: order.id,
         customerName: order.buyer?.name || 'Customer',
@@ -109,7 +129,10 @@ export class DashboardService {
         status: order.status,
         pickupTime: timeLabel,
         statusColor,
-        statusBg
+        statusBg,
+        firstItemImage: mappedItems[0]?.image || null,
+        firstItemName: mappedItems[0]?.name || 'Item',
+        items: mappedItems
       };
     });
   }

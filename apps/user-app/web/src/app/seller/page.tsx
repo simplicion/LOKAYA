@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { 
   useGetMyStoreQuery, 
   useGetStoreProductsQuery,
@@ -167,8 +168,11 @@ export default function SellerDashboardPage() {
   };
 
   const recentOrders = liveRecentOrders.map(order => ({
+    rawId: order.id,
     id: `#${order.id.slice(0, 8).toUpperCase()}`,
     customerName: order.customerName || 'Customer',
+    productImage: order.firstItemImage || order.items?.[0]?.image || null,
+    productName: order.firstItemName || order.items?.[0]?.name || 'Ordered Product',
     itemsCount: order.itemsCount || 1,
     total: order.total || 0,
     status: order.status || 'NEW',
@@ -183,6 +187,7 @@ export default function SellerDashboardPage() {
     return (
       order.id.toLowerCase().includes(query) ||
       order.customerName.toLowerCase().includes(query) ||
+      order.productName.toLowerCase().includes(query) ||
       order.pickupTime.toLowerCase().includes(query) ||
       order.status.toLowerCase().includes(query)
     );
@@ -364,25 +369,51 @@ export default function SellerDashboardPage() {
             </Link>
           </div>
           
-          <div className="bg-white rounded-[1.25rem] border border-[#E5E2DC] overflow-hidden">
-            {filteredRecentOrders.map((order, index) => (
-              <div key={order.id} className="flex flex-col">
-                <div className="p-4">
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="font-bold text-[#171717]">{order.id}</span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${order.statusColor} ${order.statusBg}`}>
-                      {order.status}
-                    </span>
+          <div className="bg-white rounded-[1.25rem] border border-[#E5E2DC] overflow-hidden divide-y divide-[#E5E2DC]">
+            {filteredRecentOrders.map((order) => (
+              <div 
+                key={order.id} 
+                onClick={() => router.push(`/seller/orders/details?id=${order.rawId}`)}
+                className="p-4 hover:bg-gray-50 transition-colors cursor-pointer flex flex-col gap-3"
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-mono font-bold text-[#171717] text-sm">{order.id}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${order.statusColor} ${order.statusBg}`}>
+                    {order.status}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-[#E5E2DC] bg-[#FAF9F6] flex items-center justify-center">
+                    {order.productImage ? (
+                      <Image 
+                        src={order.productImage} 
+                        alt={order.productName} 
+                        fill 
+                        className="object-cover"
+                        sizes="48px"
+                      />
+                    ) : (
+                      <Package className="w-5 h-5 text-gray-300" />
+                    )}
                   </div>
-                  <h3 className="font-bold text-[#171717] text-[15px] mb-2">{order.customerName}</h3>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-[#6B6B6B]">{order.itemsCount} items • {formatPrice(typeof order.total === 'number' ? order.total : parseFloat(String(order.total).replace(/[^0-9.]/g, '')) || 0)}</p>
-                    <p className="text-[10px] text-[#999999] font-medium">{order.pickupTime}</p>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-[#171717] text-sm leading-tight line-clamp-1">
+                      {order.productName}
+                    </h3>
+                    <p className="text-xs text-[#6B6B6B] mt-0.5 font-medium">
+                      {order.customerName} • {order.itemsCount} {order.itemsCount > 1 ? 'items' : 'item'}
+                    </p>
                   </div>
                 </div>
-                {index < filteredRecentOrders.length - 1 && (
-                  <div className="h-px bg-[#E5E2DC] mx-4"></div>
-                )}
+
+                <div className="flex justify-between items-center pt-1 text-xs">
+                  <span className="font-black text-[#FF5A36] text-sm">
+                    {formatPrice(typeof order.total === 'number' ? order.total : parseFloat(String(order.total).replace(/[^0-9.]/g, '')) || 0)}
+                  </span>
+                  <span className="text-[10px] text-[#999999] font-medium">{order.pickupTime}</span>
+                </div>
               </div>
             ))}
           </div>
