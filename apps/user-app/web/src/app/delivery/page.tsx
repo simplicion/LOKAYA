@@ -38,7 +38,8 @@ import {
   Layers,
   Sparkles,
   ChevronRight,
-  XCircle
+  XCircle,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
@@ -192,6 +193,116 @@ export default function DeliveryDashboardPage() {
     return (
       <div className="flex h-[70vh] items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#FF5A36]" />
+      </div>
+    );
+  }
+
+  // 1. Pending Verification Holding Screen (identical to Seller holding screen)
+  if (profile?.status === 'PENDING') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8 md:py-16">
+        <div className="bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-[#E5E2DC] text-center space-y-6">
+          {/* Icon Header */}
+          <div className="w-16 h-16 rounded-3xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto">
+            <Clock className="w-8 h-8 animate-pulse" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+              KYC Under Review
+            </span>
+            <h1 className="text-2xl md:text-3xl font-bold text-[#171717] pt-1">
+              Rider Account Pending Verification
+            </h1>
+            <p className="text-[#6B6B6B] text-sm max-w-md mx-auto">
+              Your delivery partner registration and KYC documents have been submitted and are currently being reviewed by our verification team.
+            </p>
+          </div>
+
+          {/* Timeline */}
+          <div className="bg-[#FAF9F6] rounded-2xl p-5 border border-[#E5E2DC] text-left space-y-4 max-w-lg mx-auto">
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0 mt-0.5">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-gray-900">Application & Documents Submitted</h4>
+                <p className="text-[11px] text-gray-500">
+                  {profile?.user?.name ? `${profile.user.name}'s ` : ''}Identity documents, vehicle ({profile?.vehicleType || 'Vehicle'}) & photo received.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0 mt-0.5 animate-pulse">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-amber-900">Admin Document Verification</h4>
+                <p className="text-[11px] text-amber-700">Verification in progress. Typically takes 1-4 hours.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 opacity-50">
+              <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 shrink-0 mt-0.5">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-gray-700">Fleet Account Activated</h4>
+                <p className="text-[11px] text-gray-500">Start going online, accepting local delivery dispatches, and earning payouts.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              onClick={() => refetchProfile()}
+              className="rounded-2xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold h-12 px-6 gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Check Verification Status
+            </Button>
+            <Link href="/home">
+              <Button variant="outline" className="rounded-2xl h-12 px-6 w-full sm:w-auto">
+                Back to Shopping
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Rejected Screen
+  if (profile?.status === 'REJECTED') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8 md:py-16">
+        <div className="bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-red-200 text-center space-y-6">
+          <div className="w-16 h-16 rounded-3xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 mx-auto">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-red-700 bg-red-50 px-3 py-1 rounded-full border border-red-200">
+              Verification Unsuccessful
+            </span>
+            <h1 className="text-2xl md:text-3xl font-bold text-[#171717] pt-1">
+              Rider Verification Needs Attention
+            </h1>
+            <p className="text-[#6B6B6B] text-sm max-w-md mx-auto">
+              {profile.rejectionReason || 'Your application could not be approved. Please review your documents and resubmit your KYC verification.'}
+            </p>
+          </div>
+
+          <div className="pt-2 flex justify-center">
+            <Link href="/delivery/onboarding">
+              <Button className="rounded-2xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold h-12 px-8 gap-2">
+                Resubmit KYC Documents <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

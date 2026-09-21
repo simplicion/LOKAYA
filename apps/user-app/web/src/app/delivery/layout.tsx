@@ -75,6 +75,12 @@ export default function DeliveryLayout({
     return null;
   }
 
+  // Restrict unverified riders to holding screen on /delivery
+  if (profile && profile.status !== 'APPROVED' && !isOnboarding && pathname !== '/delivery') {
+    if (typeof window !== 'undefined') router.push('/delivery');
+    return null;
+  }
+
   const navItems = [
     { label: 'Home', href: '/delivery', icon: Home },
     { label: 'Orders', href: '/delivery/orders', icon: Package },
@@ -105,6 +111,11 @@ export default function DeliveryLayout({
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Verified
+                  </span>
+                ) : profile?.status === 'REJECTED' ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-50 text-red-800 border border-red-200">
+                    <ShieldAlert className="w-3 h-3" />
+                    Rejected
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
@@ -140,7 +151,7 @@ export default function DeliveryLayout({
       </main>
 
       {/* Bottom Sticky Navigation Dock (Clean Lokaya Design) */}
-      {!isOnboarding && (
+      {!isOnboarding && profile?.status === 'APPROVED' && (
         <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E5E2DC] px-3 py-2 shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
           <div className="max-w-lg mx-auto flex items-center justify-around">
             {navItems.map((item) => {

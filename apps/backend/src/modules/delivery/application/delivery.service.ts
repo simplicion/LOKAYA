@@ -196,15 +196,7 @@ export class DeliveryService {
     }
 
     if (isOnline && partner.status !== DeliveryPartnerStatus.APPROVED) {
-      // In dev mode, auto-approve for seamless testing
-      if (process.env.NODE_ENV !== 'production' && partner.status === DeliveryPartnerStatus.PENDING) {
-        await prisma.deliveryPartner.update({
-          where: { userId },
-          data: { status: DeliveryPartnerStatus.APPROVED }
-        });
-      } else {
-        throw new AppError('Your account is pending verification. You can go online once approved.', 403);
-      }
+      throw new AppError('Your account is pending verification. You can go online once approved by admin.', 403);
     }
 
     const updated = await prisma.deliveryPartner.update({
