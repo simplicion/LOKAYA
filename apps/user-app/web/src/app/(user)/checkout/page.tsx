@@ -58,7 +58,6 @@ import {
 } from '@/lib/api';
 import { clearCart, removeFromCart, updateQuantity } from '@/lib/features/cartSlice';
 import { useCurrency } from '@/context/CurrencyContext';
-import { isIndianStore } from '@/lib/utils';
 import { toast } from 'sonner';
 
 function CheckoutContent() {
@@ -98,7 +97,6 @@ function CheckoutContent() {
 
   // Local Checkout State
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
-  const [deliverySpeed, setDeliverySpeed] = useState<'STANDARD' | 'EXPRESS'>('STANDARD');
   const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -196,23 +194,7 @@ function CheckoutContent() {
     return Array.from(resolvedMap.values());
   }, [directProductId, directProduct, directVariantId, directQty, cartData, reduxCartItems, user]);
 
-  // Check if all stores in the checkout are located in India (India only for Razorpay)
-  const allStoresAreIndian = React.useMemo(() => {
-    if (directProductId && directProduct) {
-      return isIndianStore(directProduct.store);
-    }
-    if (orderItems.length > 0) {
-      return orderItems.every((item: any) => isIndianStore(item.store));
-    }
-    return true;
-  }, [directProductId, directProduct, orderItems]);
 
-  // Enforce Cash on Delivery if any store is located outside India
-  useEffect(() => {
-    if (!allStoresAreIndian && paymentMethod !== 'COD') {
-      setPaymentMethod('COD');
-    }
-  }, [allStoresAreIndian, paymentMethod]);
 
   // Inventory validation to prevent 400 Bad Request at order placement
   const invalidCheckoutItems = React.useMemo(() => {
@@ -633,105 +615,48 @@ function CheckoutContent() {
           )}
         </section>
 
-        {/* Step 2: Shipping Method */}
+        {/* Step 2: Payment Method */}
         <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#FF6B00] flex items-center justify-center font-bold text-xs">
               2
             </div>
-            <h2 className="font-bold text-gray-900 text-sm">Delivery Speed</h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div
-              onClick={() => setDeliverySpeed('STANDARD')}
-              className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                deliverySpeed === 'STANDARD'
-                  ? 'border-[#FF6B00] bg-orange-50/20'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-xs text-gray-900">Standard</span>
-                <span className="font-black text-xs text-emerald-600">FREE</span>
-              </div>
-              <p className="text-[11px] text-gray-500">Delivers in 3-5 business days</p>
-            </div>
-
-            <div
-              onClick={() => setDeliverySpeed('EXPRESS')}
-              className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                deliverySpeed === 'EXPRESS'
-                  ? 'border-[#FF6B00] bg-orange-50/20'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-xs text-gray-900">Express Courier</span>
-                <span className="font-black text-xs text-gray-900">{formatPrice(49)}</span>
-              </div>
-              <p className="text-[11px] text-gray-500">Priority 1-2 day fast transit</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Step 3: Payment Method */}
-        <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#FF6B00] flex items-center justify-center font-bold text-xs">
-              3
-            </div>
             <h2 className="font-bold text-gray-900 text-sm">Payment Method</h2>
           </div>
 
-          {/* Regional Store Notice if outside India */}
-          {!allStoresAreIndian && (
-            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 mb-3.5">
-              <MapPin className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold">Store Located Outside India</p>
-                <p className="text-[11px] text-amber-800/90 mt-0.5">
-                  Domestic Razorpay UPI / Card payments are only available for Indian-registered stores. <strong>Cash on Delivery / Direct Store Settlement</strong> is active for this order.
-                </p>
+          <div className="space-y-3">
+            {/* Online Option */}
+            <div
+              onClick={() => setPaymentMethod('ONLINE')}
+              className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${
+                paymentMethod === 'ONLINE'
+                  ? 'border-[#FF6B00] bg-orange-50/20'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="mt-0.5">
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                  paymentMethod === 'ONLINE' ? 'border-[#FF6B00]' : 'border-gray-300'
+                }`}>
+                  {paymentMethod === 'ONLINE' && <div className="w-2 h-2 rounded-full bg-[#FF6B00]" />}
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-gray-900">Prepaid / UPI & Cards</span>
+                    <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Sparkles className="w-2.5 h-2.5" /> 5% INSTANT OFF
+                    </span>
+                  </div>
+                  <CreditCard className="w-4 h-4 text-gray-400" />
+                </div>
+                <p className="text-xs text-gray-500">Google Pay, PhonePe, Paytm, Cards, NetBanking via Razorpay</p>
               </div>
             </div>
-          )}
 
-          <div className="space-y-3">
-            {/* Online Option (India-registered stores only) */}
-            {allStoresAreIndian && (
-              <div
-                onClick={() => setPaymentMethod('ONLINE')}
-                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${
-                  paymentMethod === 'ONLINE'
-                    ? 'border-[#FF6B00] bg-orange-50/20'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="mt-0.5">
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    paymentMethod === 'ONLINE' ? 'border-[#FF6B00]' : 'border-gray-300'
-                  }`}>
-                    {paymentMethod === 'ONLINE' && <div className="w-2 h-2 rounded-full bg-[#FF6B00]" />}
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-gray-900">Prepaid / UPI & Cards</span>
-                      <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Sparkles className="w-2.5 h-2.5" /> 5% INSTANT OFF
-                      </span>
-                    </div>
-                    <CreditCard className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <p className="text-xs text-gray-500">Google Pay, PhonePe, Paytm, Cards, NetBanking via Razorpay</p>
-                </div>
-              </div>
-            )}
-
-            {/* Cash on Delivery Option (Always Available) */}
+            {/* Cash on Delivery Option */}
             <div
               onClick={() => setPaymentMethod('COD')}
               className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${

@@ -24,18 +24,7 @@ export class PaymentService {
     if (order.buyerId !== userId) throw new AppError('Unauthorized', 403);
     if (order.status !== 'PENDING') throw new AppError('Order is no longer pending payment', 400);
 
-    // 2. Validate Store Registration Country (India only for Razorpay)
-    const primaryStoreIsIndian = CurrencyService.isIndianEntity(order.store);
-    const allSubStoresAreIndian = order.subOrders.every(so => CurrencyService.isIndianEntity(so.store));
-
-    if (!primaryStoreIsIndian || !allSubStoresAreIndian) {
-      throw new AppError(
-        'Online payment via Razorpay is only available for stores registered in India. This store is located outside India—please select Cash on Delivery or Pay on Pickup.',
-        400
-      );
-    }
-
-    // 3. Create Razorpay order
+    // 2. Create Razorpay order
     const razorpayOrder = await RazorpayService.createOrder(amount, `receipt_${orderId}`);
 
     // 4. Save payment intent in DB (upsert if retry)
