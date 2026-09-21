@@ -254,23 +254,33 @@ jobs:
           aws ssm wait command-executed \
             --command-id "$CMD_ID" \
             --instance-id "${{ env.EC2_INSTANCE_ID }}" \
-            --region "${{ env.AWS_REGION }}"
+            --region "${{ env.AWS_REGION }}" || true
 
           STATUS=$(aws ssm get-command-invocation \
             --command-id "$CMD_ID" \
             --instance-id "${{ env.EC2_INSTANCE_ID }}" \
             --region "${{ env.AWS_REGION }}" \
             --query "Status" \
-            --output text)
+            --output text 2>/dev/null || echo "Failed")
 
           echo "Deployment finished with status: $STATUS"
+          echo "--- STDOUT ---"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "StandardOutputContent" \
+            --output text 2>/dev/null || true
+
+          echo "--- STDERR ---"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "StandardErrorContent" \
+            --output text 2>/dev/null || true
+
           if [ "$STATUS" != "Success" ]; then
-            aws ssm get-command-invocation \
-              --command-id "$CMD_ID" \
-              --instance-id "${{ env.EC2_INSTANCE_ID }}" \
-              --region "${{ env.AWS_REGION }}" \
-              --query "StandardErrorContent" \
-              --output text
             exit 1
           fi
 
