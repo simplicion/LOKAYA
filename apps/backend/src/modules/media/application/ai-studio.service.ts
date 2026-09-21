@@ -34,13 +34,17 @@ export class AiStudioService {
     this.mediaService = new MediaService();
   }
 
-  private getApiKey(): string {
+  private getGeminiApiKey(): string {
     return (
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_AI_KEY ||
       process.env.GOOGLE_API_KEY ||
       ''
     );
+  }
+
+  private getOpenAiApiKey(): string {
+    return process.env.OPENAI_API_KEY || '';
   }
 
   /**
@@ -58,7 +62,7 @@ export class AiStudioService {
   }
 
   /**
-   * Step 1: Multimodal Vision Analysis with Gemini 2.0 Flash
+   * Step 1: Multimodal Vision Analysis (Gemini or OpenAI GPT-4o)
    * Analyzes 1-2 product photos & generates 5 dynamic commercial prompts
    */
   async analyzeProductAndGeneratePrompts(
@@ -67,22 +71,10 @@ export class AiStudioService {
     category?: string,
     customPrompt?: string
   ): Promise<{ productAnalysis: any; shots: ShotPrompt[] }> {
-    const apiKey = this.getApiKey();
+    const geminiKey = this.getGeminiApiKey();
+    const openAiKey = this.getOpenAiApiKey();
 
-    if (!apiKey) {
-      console.warn('[AiStudioService] GEMINI_API_KEY not configured. Using fallback dynamic studio prompts.');
-      return this.getFallbackPrompts(productName, category, customPrompt);
-    }
-
-    try {
-      const imageParts = images.map((img) => ({
-        inlineData: {
-          mimeType: img.mimetype || 'image/jpeg',
-          data: this.fileToBase64(img),
-        },
-      }));
-
-      const contextText = `
+    const systemPromptText = `
 You are a world-class commercial product photographer, 3D visual effects director, and high-end advertising creative director for luxury retail and e-commerce.
 Product Name: "${productName || 'Product'}"
 Product Category: "${category || 'General'}"
@@ -108,8 +100,8 @@ Respond strictly with valid JSON without markdown formatting:
   "productAnalysis": {
     "name": "${productName || 'Product'}",
     "category": "${category || 'General'}",
-    "materials": ["identified material 1", "identified material 2"],
-    "colors": ["identified color 1", "identified color 2"],
+    "materials": ["material 1", "material 2"],
+    "colors": ["color 1", "color 2"],
     "description": "concise description of the product"
   },
   "shots": [
@@ -152,101 +144,158 @@ Respond strictly with valid JSON without markdown formatting:
 }
 `;
 
-      const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          contents: [
-            {
-              role: 'user',
-              parts: [...imageParts, { text: contextText }],
+    // 1. Try Gemini 3.6 Flash / 3.5 Flash if key exists
+    if (geminiKey) {
+      try {
+        const imageParts = images.map((img) => ({
+          inlineData: {
+            mimeType: img.mimetype || 'image/jpeg',
+            data: this.fileToBase64(img),
+          },
+        }));
+
+        const response = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${geminiKey}`,
+          {
+            contents: [
+              {
+                role: 'user',
+                parts: [...imageParts, { text: systemPromptText }],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.4,
             },
-          ],
-          generationConfig: {
-            responseMimeType: 'application/json',
+          },
+          {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 30000,
+          }
+        );
+
+        const candidateText =
+          response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const cleanJson = candidateText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+        const parsed = JSON.parse(cleanJson);
+
+        if (parsed.shots && Array.isArray(parsed.shots) && parsed.shots.length > 0) {
+          return parsed;
+        }
+      } catch (geminiErr: any) {
+        console.warn('[AiStudioService] Gemini prompt analysis notice:', geminiErr?.response?.data || geminiErr?.message);
+      }
+    }
+
+    // 2. Try OpenAI GPT-4o-mini Vision if key exists
+    if (openAiKey) {
+      try {
+        const contentParts: any[] = [{ type: 'text', text: systemPromptText }];
+        images.forEach((img) => {
+          const b64 = this.fileToBase64(img);
+          contentParts.push({
+            type: 'image_url',
+            image_url: { url: `data:${img.mimetype || 'image/jpeg'};base64,${b64}` },
+          });
+        });
+
+        const response = await axios.post(
+          'https://api.openai.com/v1/chat/completions',
+          {
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: contentParts }],
+            response_format: { type: 'json_object' },
             temperature: 0.4,
           },
-        },
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 30000,
+          {
+            headers: {
+              Authorization: `Bearer ${openAiKey}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 30000,
+          }
+        );
+
+        const text = response.data?.choices?.[0]?.message?.content || '{}';
+        const parsed = JSON.parse(text);
+        if (parsed.shots && Array.isArray(parsed.shots) && parsed.shots.length > 0) {
+          return parsed;
         }
-      );
-
-      const candidateText =
-        response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      const cleanJson = candidateText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
-      if (parsed.shots && Array.isArray(parsed.shots) && parsed.shots.length > 0) {
-        return parsed;
+      } catch (openAiErr: any) {
+        console.warn('[AiStudioService] OpenAI prompt analysis notice:', openAiErr?.response?.data || openAiErr?.message);
       }
-      return this.getFallbackPrompts(productName, category, customPrompt);
-    } catch (error: any) {
-      console.error('[AiStudioService] Gemini vision prompt generation error:', error?.response?.data || error?.message || error);
-      return this.getFallbackPrompts(productName, category, customPrompt);
     }
+
+    return this.getFallbackPrompts(productName, category, customPrompt);
   }
 
   /**
-   * Step 2: Render a single image with Imagen 3 / Google GenAI Image API
+   * Step 2: Render image using OpenAI DALL-E 3 or Google Imagen 3
    */
   async generateSingleImage(prompt: string, shotId: string): Promise<Buffer | null> {
-    const apiKey = this.getApiKey();
-    if (!apiKey) return null;
+    const openAiKey = this.getOpenAiApiKey();
+    const geminiKey = this.getGeminiApiKey();
 
-    // Try Imagen 3 predict endpoint
-    try {
-      const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-      const payload = {
-        instances: [{ prompt }],
-        parameters: {
-          sampleCount: 1,
-          aspectRatio: '1:1',
-          outputMimeType: 'image/jpeg',
-          personGeneration: 'ALLOW_ADULT',
-          safetySetting: 'BLOCK_ONLY_HIGH',
-        },
-      };
+    // 1. Try OpenAI DALL-E 3 first if OpenAI key is present
+    if (openAiKey) {
+      try {
+        const res = await axios.post(
+          'https://api.openai.com/v1/images/generations',
+          {
+            model: 'dall-e-3',
+            prompt: prompt,
+            n: 1,
+            size: '1024x1024',
+            response_format: 'b64_json',
+            quality: 'standard',
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${openAiKey}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 60000,
+          }
+        );
 
-      const res = await axios.post(imagenUrl, payload, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 45000,
-      });
-
-      const b64 =
-        res.data?.predictions?.[0]?.bytesBase64Encoded ||
-        res.data?.generatedImages?.[0]?.image?.imageBytes;
-
-      if (b64) {
-        return Buffer.from(b64, 'base64');
+        const b64 = res.data?.data?.[0]?.b64_json;
+        if (b64) {
+          return Buffer.from(b64, 'base64');
+        }
+      } catch (err: any) {
+        console.warn(`[AiStudioService] DALL-E 3 error on ${shotId}:`, err?.response?.data || err?.message);
       }
-    } catch (err: any) {
-      console.warn(`[AiStudioService] Imagen 3 predict call for ${shotId} error:`, err?.response?.data || err?.message || err);
     }
 
-    // Try alternative endpoint format
-    try {
-      const altUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key=${apiKey}`;
-      const res = await axios.post(
-        altUrl,
-        {
-          prompt,
-          numberOfImages: 1,
-          aspectRatio: '1:1',
-          outputMimeType: 'image/jpeg',
-        },
-        { headers: { 'Content-Type': 'application/json' }, timeout: 45000 }
-      );
+    // 2. Try Google Imagen 3 / Gemini Image if Gemini key is present
+    if (geminiKey) {
+      try {
+        const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${geminiKey}`;
+        const res = await axios.post(
+          imagenUrl,
+          {
+            instances: [{ prompt }],
+            parameters: {
+              sampleCount: 1,
+              aspectRatio: '1:1',
+              outputMimeType: 'image/jpeg',
+              personGeneration: 'ALLOW_ADULT',
+              safetySetting: 'BLOCK_ONLY_HIGH',
+            },
+          },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 45000 }
+        );
 
-      const b64 =
-        res.data?.generatedImages?.[0]?.image?.imageBytes ||
-        res.data?.predictions?.[0]?.bytesBase64Encoded;
+        const b64 =
+          res.data?.predictions?.[0]?.bytesBase64Encoded ||
+          res.data?.generatedImages?.[0]?.image?.imageBytes;
 
-      if (b64) {
-        return Buffer.from(b64, 'base64');
+        if (b64) {
+          return Buffer.from(b64, 'base64');
+        }
+      } catch (err: any) {
+        console.warn(`[AiStudioService] Imagen 3 error on ${shotId}:`, err?.response?.data || err?.message);
       }
-    } catch (altErr: any) {
-      console.warn(`[AiStudioService] Alt Imagen endpoint for ${shotId} error:`, altErr?.response?.data || altErr?.message || altErr);
     }
 
     return null;
@@ -254,7 +303,6 @@ Respond strictly with valid JSON without markdown formatting:
 
   /**
    * Step 3: End-to-End Photoshoot Orchestration
-   * Analyzes reference photos -> Generates 5 Studio Shots -> Uploads to Storage -> Returns results
    */
   async runPhotoshoot(
     userId: string,
@@ -307,7 +355,6 @@ Respond strictly with valid JSON without markdown formatting:
       if (res) generatedShots.push(res);
     });
 
-    // If API key generated results, return them!
     if (generatedShots.length > 0) {
       return {
         success: true,
@@ -316,7 +363,6 @@ Respond strictly with valid JSON without markdown formatting:
       };
     }
 
-    // Fallback: If no API key is yet configured, inform frontend gracefully
     return {
       success: false,
       productAnalysis,

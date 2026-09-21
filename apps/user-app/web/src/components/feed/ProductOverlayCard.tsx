@@ -2,12 +2,16 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import { useCurrency } from '@/context/CurrencyContext';
 
 export interface ProductOverlayCardProps {
   product: {
     id?: string;
+    storeId?: string;
+    storeName?: string;
+    store?: { id?: string; name?: string };
     name: string;
     image: string;
     price: string | number;
@@ -17,7 +21,10 @@ export interface ProductOverlayCardProps {
 }
 
 export function ProductOverlayCard({ product }: ProductOverlayCardProps) {
+  const router = useRouter();
   const { formatPrice } = useCurrency();
+  const storeId = product.storeId || product.store?.id;
+  const storeName = product.storeName || product.store?.name;
 
   const formattedPrice = typeof product.price === 'number'
     ? formatPrice(product.price)
@@ -39,6 +46,27 @@ export function ProductOverlayCard({ product }: ProductOverlayCardProps) {
         <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
       </div>
       <div className="flex-1 flex flex-col justify-center overflow-hidden">
+        {storeName && (
+          <div className="flex items-center justify-between gap-1 mb-0.5">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight truncate">
+              {storeName}
+            </span>
+            {storeId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  router.push(`/store/${storeId}`);
+                }}
+                className="text-[9px] font-bold text-[#FF5A36] hover:underline flex items-center gap-0.5 shrink-0"
+              >
+                <span>Visit Store</span>
+                <ChevronRight className="w-2.5 h-2.5" />
+              </button>
+            )}
+          </div>
+        )}
         <span className="text-[13px] font-bold text-[#171717] leading-tight truncate">{product.name}</span>
         <div className="flex items-center gap-1.5 mt-1">
           <span className="text-[#171717] font-bold text-[15px] tabular-nums leading-none">{formattedPrice}</span>

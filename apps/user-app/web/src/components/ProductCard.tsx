@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Star, Package } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Star, Package, ChevronRight, Store } from 'lucide-react';
 import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart, updateQuantity, removeFromCart } from '@/lib/features/cartSlice';
@@ -19,6 +20,7 @@ export interface ProductCardProps {
     name?: string;
     brand?: string;
     brandId?: string;
+    storeId?: string;
     image?: string;
     imageUrl?: string;
     primaryImage?: string;
@@ -29,7 +31,7 @@ export interface ProductCardProps {
     discount?: string;
     discountLabel?: string;
     tag?: { text: string; bg: string };
-    store?: { id?: string; name?: string; isVerified?: boolean };
+    store?: { id?: string; name?: string; handle?: string; isVerified?: boolean; logoUrl?: string };
     rating?: string | number;
     reviews?: string | number;
     stockCount?: number;
@@ -39,6 +41,7 @@ export interface ProductCardProps {
 }
 
 export function ProductCard({ product, isPreview = false }: ProductCardProps) {
+  const router = useRouter();
   const dispatch = useDispatch();
   const { formatPrice } = useCurrency();
   const cartItems = useSelector((state: RootState) => state.cart.items);
@@ -52,11 +55,28 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
     setImageError(false);
   }, [rawImage]);
 
-  const brandOrStore = product.brand || product.store?.name;
+  const rawStore: any = product.store;
+  const storeObj = typeof rawStore === 'object' && rawStore !== null ? rawStore : null;
+  const storeId = storeObj?.id || (product as any).storeId || (typeof rawStore === 'string' && rawStore.includes('-') ? rawStore : undefined);
+  const brandOrStore = product.brand || storeObj?.name || (typeof rawStore === 'string' && !rawStore.includes('-') ? rawStore : undefined) || 'Lokaya Store';
   const rawTitle = product.title || product.name || '';
   const displayTitle = brandOrStore && rawTitle.toLowerCase().startsWith(brandOrStore.toLowerCase())
     ? rawTitle.slice(brandOrStore.length).trim() || brandOrStore
     : rawTitle;
+
+  const handleVisitStore = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isPreview) {
+      toast.info('Preview mode: Store visit is disabled');
+      return;
+    }
+    if (storeId) {
+      router.push(`/store/${storeId}`);
+    } else {
+      toast.info('Store profile not available');
+    }
+  };
 
   const variants = product.variants;
   const hasVariantsList = Array.isArray(variants) && variants.length > 0;
@@ -259,19 +279,57 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
             ({totalReviewsCount})
           </span>
         </div>
+
+        {/* Visit Store Button Pill on Image (Bottom-Right on desktop hover) */}
+        {storeId && (
+          <button
+            type="button"
+            onClick={handleVisitStore}
+            className="absolute bottom-2 right-2 z-10 bg-white/95 backdrop-blur-xs hover:bg-white text-[#171717] hover:text-[#FF5A36] border border-[#E5E2DC] rounded-md px-2 py-0.5 text-[10px] font-bold shadow-2xs items-center gap-1 transition-all opacity-0 group-hover:opacity-100 hidden sm:flex active:scale-95 cursor-pointer"
+            title={`Visit ${brandOrStore} store`}
+          >
+            <Store className="w-2.5 h-2.5 text-[#FF5A36]" />
+            <span>Store</span>
+            <ChevronRight className="w-2.5 h-2.5" />
+          </button>
+        )}
       </div>
       
       {/* 2. Product Details */}
       <div className="pt-2 px-0.5 flex flex-col flex-1">
-        {/* Brand & Title (Single Line with bold brand) */}
-        <div className="text-xs sm:text-[13px] leading-tight truncate">
-          {brandOrStore && (
-            <span className="font-bold text-[#171717] mr-1.5 uppercase tracking-tight">{brandOrStore}</span>
-          )}
-          {displayTitle && displayTitle.toLowerCase() !== brandOrStore?.toLowerCase() && (
-            <span className="text-gray-500 font-normal">{displayTitle}</span>
+        {/* Store / Brand Row with Visit Store Text Link Button */}
+        <div className="flex items-center justify-between gap-1 mb-1 min-h-[18px]">
+          <button
+            type="button"
+            onClick={handleVisitStore}
+            className={`flex items-center gap-1 min-w-0 text-left group/brand ${
+              storeId && !isPreview ? 'cursor-pointer' : 'cursor-default'
+            }`}
+            title={storeId ? `Visit ${brandOrStore}` : undefined}
+          >
+            <Store className="w-2.5 h-2.5 text-gray-400 shrink-0 group-hover/brand:text-[#FF5A36] transition-colors" />
+            <span className="font-bold text-[#171717] text-[11px] sm:text-xs uppercase tracking-tight truncate group-hover/brand:text-[#FF5A36] transition-colors">
+              {brandOrStore}
+            </span>
+          </button>
+
+          {storeId && (
+            <button
+              type="button"
+              onClick={handleVisitStore}
+              className="text-[10px] sm:text-[11px] font-bold text-[#FF5A36] hover:text-[#e04826] hover:underline flex items-center gap-0.5 shrink-0 transition-all active:scale-95 py-0.5 group/link cursor-pointer"
+              title={`Visit ${brandOrStore} store`}
+            >
+              <span>Visit Store</span>
+              <ChevronRight className="w-3 h-3 transition-transform group-hover/link:translate-x-0.5" />
+            </button>
           )}
         </div>
+
+        {/* Product Title */}
+        <p className="text-xs sm:text-[13px] leading-tight text-gray-600 font-normal truncate">
+          {displayTitle || rawTitle}
+        </p>
 
         {/* Price Row: Selling Price (actual), MRP (showing price strikethrough), Discount % */}
         <div className="flex items-baseline gap-1.5 mt-1.5 flex-wrap">
