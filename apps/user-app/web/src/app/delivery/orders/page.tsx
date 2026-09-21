@@ -165,10 +165,16 @@ export default function DeliveryOrdersPage() {
                 <div key={task.id} className="bg-white rounded-3xl p-5 border-2 border-orange-300 shadow-md space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-black uppercase tracking-wider text-[#FF5A36] bg-orange-50 px-2.5 py-1 rounded-full border border-orange-200">
                           New Assignment
                         </span>
+                        {task.economics?.distanceKm && (
+                          <span className="text-[10px] font-bold text-gray-700 bg-gray-100 px-2.5 py-0.5 rounded-full border border-gray-200 flex items-center gap-1">
+                            <Navigation className="w-2.5 h-2.5 text-blue-600" />
+                            <span>{task.economics.distanceKm} km ({task.economics.twoWayDistanceKm || Math.round(task.economics.distanceKm * 2 * 10) / 10} km round trip)</span>
+                          </span>
+                        )}
                         {(task.assignedAt || task.createdAt) && (
                           <span className="text-[10px] text-gray-500 font-semibold">
                             {formatTimeAgoOrDate(task.assignedAt || task.createdAt)}
@@ -200,6 +206,13 @@ export default function DeliveryOrdersPage() {
                       <span className="font-bold text-[#171717] truncate block">{task.order?.buyer?.name || 'Customer'}</span>
                       <span className="text-[11px] text-gray-500 truncate block">{task.order?.deliveryAddress || 'Local Area'}</span>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between px-1 text-[11px] text-gray-500 font-medium">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-[#FF5A36]" />
+                      Total Trip Distance: <strong className="text-gray-900 font-bold">{task.economics?.distanceKm ? `${task.economics.distanceKm} km (${task.economics.twoWayDistanceKm} km round trip)` : 'Local delivery'}</strong>
+                    </span>
                   </div>
 
                   <div className="flex gap-2 pt-1">

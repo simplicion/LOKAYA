@@ -10,10 +10,13 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 
+import { useGetMyStoreQuery } from '@/lib/api';
+
 export default function SellerLayout({ children }: { children: React.ReactNode }) {
   const user = useSelector((state: any) => state.auth.user);
   const router = useRouter();
   const pathname = usePathname();
+  const { data: store, isLoading } = useGetMyStoreQuery(undefined, { skip: !user });
 
   useEffect(() => {
     if (!user) {
@@ -23,10 +26,12 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
 
   if (!user) return null;
 
-  // Don't show navigation on onboarding page
+  const isVerified = store?.status === 'VERIFIED';
+
+  // Don't show navigation on onboarding page or until store is verified
   const isOnboarding = pathname === '/seller/onboarding';
 
-  if (isOnboarding) {
+  if (isOnboarding || (!isVerified && !isLoading)) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex flex-col">
         <header className="bg-white border-b border-[#E5E2DC] px-6 py-4 flex items-center justify-between sticky top-0 z-40">
