@@ -74,6 +74,21 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['Stores'],
     }),
+    approveBlueTick: builder.mutation<any, string>({
+      query: (storeId) => ({
+        url: `/seller/${storeId}/blue-tick/approve`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['Stores'],
+    }),
+    rejectBlueTick: builder.mutation<any, { storeId: string; reason?: string }>({
+      query: ({ storeId, reason }) => ({
+        url: `/seller/${storeId}/blue-tick/reject`,
+        method: 'PATCH',
+        body: { reason },
+      }),
+      invalidatesTags: ['Stores'],
+    }),
     getPlatformStats: builder.query<any, void>({
       query: () => '/admin/stats',
       providesTags: ['Stores'],
@@ -285,6 +300,8 @@ export const {
   useLoginMutation,
   useVerifyStoreMutation,
   useRejectStoreMutation,
+  useApproveBlueTickMutation,
+  useRejectBlueTickMutation,
   useGetPlatformStatsQuery,
   useGetUsersQuery,
   useGetBannersQuery,

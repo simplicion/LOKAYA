@@ -320,7 +320,7 @@ sellerRouter.patch('/:storeId/verify', requireAuth, async (req: AuthRequest, res
   try {
     const { storeId } = req.params;
     const store = await sellerService.verifyStore(storeId);
-    res.status(200).json({ message: 'Store verified successfully', store });
+    res.status(200).json({ message: 'Store KYC approved successfully', store });
   } catch (error) {
     next(error);
   }
@@ -331,7 +331,28 @@ sellerRouter.patch('/:storeId/reject', requireAuth, async (req: AuthRequest, res
     const { storeId } = req.params;
     const { reason } = req.body || {};
     const store = await sellerService.rejectStore(storeId, reason);
-    res.status(200).json({ message: 'Store rejected', store });
+    res.status(200).json({ message: 'Store KYC rejected', store });
+  } catch (error) {
+    next(error);
+  }
+});
+
+sellerRouter.patch('/:storeId/blue-tick/approve', requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { storeId } = req.params;
+    const store = await sellerService.approveBlueTick(storeId);
+    res.status(200).json({ message: 'Blue tick verification approved successfully', store });
+  } catch (error) {
+    next(error);
+  }
+});
+
+sellerRouter.patch('/:storeId/blue-tick/reject', requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { storeId } = req.params;
+    const { reason } = req.body || {};
+    const store = await sellerService.rejectBlueTick(storeId, reason);
+    res.status(200).json({ message: 'Blue tick verification rejected', store });
   } catch (error) {
     next(error);
   }

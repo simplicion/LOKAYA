@@ -78,7 +78,7 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const storeCategory = store?.category;
   const bannerUrl = store?.bannerUrl;
   const logoUrl = store?.logoUrl || store?.users?.[0]?.user?.avatarUrl;
-  const isVerified = Boolean(store?.isVerified);
+  const isVerified = Boolean(store?.isVerified && store?.verificationStatus === 'APPROVED');
   const isOpen = storeSummary?.isOpen ?? true;
   const hasHours = Boolean(store?.openingTime || store?.closingTime || storeSummary?.timingLabel);
   const timingLabel = storeSummary?.timingLabel || (hasHours ? (isOpen ? 'Open Now' : 'Closed') : '');

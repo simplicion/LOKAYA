@@ -133,7 +133,7 @@ export class HighlightService {
       where: { id: highlightId },
       include: {
         store: {
-          select: { id: true, name: true, logoUrl: true, status: true }
+          select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
         },
         items: {
           include: {
@@ -162,7 +162,7 @@ export class HighlightService {
       storeId: highlight.storeId,
       storeName: highlight.store.name,
       storeAvatar: highlight.store.logoUrl || '',
-      isVerified: highlight.store.status === 'VERIFIED',
+      isVerified: Boolean(highlight.store.isVerified && highlight.store.verificationStatus === 'APPROVED'),
       title: highlight.title,
       coverUrl: highlight.coverUrl,
       stories: highlight.items.map(item => ({

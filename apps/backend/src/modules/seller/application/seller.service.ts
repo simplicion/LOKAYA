@@ -205,11 +205,6 @@ export class SellerService {
           { status: 'PENDING' },
           { verificationStatus: 'PENDING' }
         ];
-      } else if (status === 'VERIFIED') {
-        whereClause.OR = [
-          { status: 'VERIFIED' },
-          { isVerified: true }
-        ];
       } else {
         whereClause.status = status;
       }
@@ -314,7 +309,7 @@ export class SellerService {
       throw new AppError('Store not found', 404);
     }
 
-    if (store.isVerified) {
+    if (store.isVerified && store.verificationStatus === 'APPROVED') {
       throw new AppError('Store is already verified with blue tick', 400);
     }
 
@@ -327,6 +322,10 @@ export class SellerService {
     });
   }
 
+  /**
+   * Approves store KYC onboarding documents so seller can sell and manage orders.
+   * Note: This does NOT grant the Blue Tick badge. Blue Tick requires separate verification application.
+   */
   async verifyStore(storeId: string) {
     const store = await prisma.store.findUnique({ where: { id: storeId } });
     if (!store) {
@@ -337,13 +336,14 @@ export class SellerService {
       where: { id: storeId },
       data: { 
         status: 'VERIFIED',
-        isVerified: true,
-        verificationStatus: 'APPROVED',
         isActive: true
       }
     });
   }
 
+  /**
+   * Rejects store KYC onboarding.
+   */
   async rejectStore(storeId: string, reason?: string) {
     const store = await prisma.store.findUnique({ where: { id: storeId } });
     if (!store) {
@@ -353,6 +353,42 @@ export class SellerService {
     return await prisma.store.update({
       where: { id: storeId },
       data: { 
+        status: 'REJECTED',
+        isActive: false
+      }
+    });
+  }
+
+  /**
+   * Approves a dedicated Blue Tick Verification badge application.
+   */
+  async approveBlueTick(storeId: string) {
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) {
+      throw new AppError('Store not found', 404);
+    }
+
+    return await prisma.store.update({
+      where: { id: storeId },
+      data: {
+        isVerified: true,
+        verificationStatus: 'APPROVED'
+      }
+    });
+  }
+
+  /**
+   * Rejects a dedicated Blue Tick Verification badge application.
+   */
+  async rejectBlueTick(storeId: string, reason?: string) {
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) {
+      throw new AppError('Store not found', 404);
+    }
+
+    return await prisma.store.update({
+      where: { id: storeId },
+      data: {
         isVerified: false,
         verificationStatus: 'REJECTED'
       }

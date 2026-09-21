@@ -555,7 +555,7 @@ export class SocialService {
         logoUrl: store.logoUrl || store.users[0]?.user?.avatarUrl || null,
         bannerUrl: store.bannerUrl || null,
         status: store.status,
-        isVerified: store.status === 'VERIFIED',
+        isVerified: Boolean(store.isVerified && store.verificationStatus === 'APPROVED'),
         productsCount: store._count.products,
         reviewsCount: store._count.reviews,
         rating: avgRating > 0 ? Number(avgRating.toFixed(1)) : null,
@@ -574,7 +574,7 @@ export class SocialService {
         stores: {
           select: {
             store: {
-              select: { id: true, name: true, logoUrl: true, status: true }
+              select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
             }
           }
         }
@@ -588,7 +588,7 @@ export class SocialService {
       name: u.name || 'User',
       username: (u.name || 'user').toLowerCase().replace(/\s+/g, '_'),
       avatarUrl: u.avatarUrl || u.stores?.[0]?.store?.logoUrl || null,
-      isVerified: u.stores?.[0]?.store?.status === 'VERIFIED',
+      isVerified: Boolean(u.stores?.[0]?.store?.isVerified && u.stores?.[0]?.store?.verificationStatus === 'APPROVED'),
       storeId: u.stores?.[0]?.store?.id || null
     }));
   }

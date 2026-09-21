@@ -637,7 +637,7 @@ export class CatalogService {
           store: {
             id: prod.store?.id || '',
             name: prod.store?.name || 'Lokaya Store',
-            isVerified: prod.store?.status === 'VERIFIED',
+            isVerified: Boolean(prod.store?.isVerified && prod.store?.verificationStatus === 'APPROVED'),
             logoUrl: prod.store?.logoUrl
           },
           rating: avgRating > 0 ? avgRating : 0,
@@ -702,7 +702,7 @@ export class CatalogService {
         store: {
           id: prod.store?.id || '',
           name: prod.store?.name || 'Lokaya Store',
-          isVerified: prod.store?.status === 'VERIFIED',
+          isVerified: Boolean(prod.store?.isVerified && prod.store?.verificationStatus === 'APPROVED'),
           logoUrl: prod.store?.logoUrl
         },
         rating: avgRating > 0 ? avgRating : 0,

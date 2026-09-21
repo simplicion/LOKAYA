@@ -59,6 +59,8 @@ export class SearchService {
           bannerUrl: true,
           handle: true,
           status: true,
+          isVerified: true,
+          verificationStatus: true,
           workingDays: true,
           openingTime: true,
           closingTime: true,
@@ -91,7 +93,9 @@ export class SearchService {
             select: {
               id: true,
               name: true,
-              status: true
+              status: true,
+              isVerified: true,
+              verificationStatus: true
             }
           },
           media: {
@@ -127,7 +131,7 @@ export class SearchService {
               stores: {
                 include: {
                   store: {
-                    select: { id: true, name: true, logoUrl: true, status: true }
+                    select: { id: true, name: true, logoUrl: true, status: true, isVerified: true, verificationStatus: true }
                   }
                 }
               }
@@ -156,6 +160,7 @@ export class SearchService {
           : 0;
         return {
           ...store,
+          isVerified: Boolean(store.isVerified && store.verificationStatus === 'APPROVED'),
           rating: avgRating > 0 ? avgRating.toFixed(1) : null,
           reviewsCount: store._count.reviews
         };
@@ -186,7 +191,7 @@ export class SearchService {
           store: {
             id: prod.store?.id || '',
             name: prod.store?.name || 'Local Store',
-            isVerified: Boolean(prod.store?.isVerified)
+            isVerified: Boolean(prod.store?.isVerified && prod.store?.verificationStatus === 'APPROVED')
           },
           rating: avgRating > 0 ? avgRating : 0,
           reviews: prod.reviews?.length ? `(${prod.reviews.length})` : '(0)',
@@ -208,7 +213,7 @@ export class SearchService {
           storeId: store?.id || '',
           storeName: store?.name || post.author.name,
           storeAvatar: store?.logoUrl || post.author.avatarUrl || '',
-          isVerified: Boolean(store?.isVerified),
+          isVerified: Boolean(store?.isVerified && store?.verificationStatus === 'APPROVED'),
           media: post.media.map((m: any) => ({
             id: m.id,
             type: (m.type?.toLowerCase() || 'image') as 'image' | 'video',

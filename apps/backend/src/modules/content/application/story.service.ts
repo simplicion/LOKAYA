@@ -178,7 +178,7 @@ export class StoryService {
           storeId: story.store.id,
           storeName: story.store.name,
           storeAvatar: story.store.logoUrl || '',
-          isVerified: Boolean(story.store.isVerified || story.store.status === 'VERIFIED' || story.store.verificationStatus === 'APPROVED'),
+          isVerified: Boolean(story.store.isVerified && story.store.verificationStatus === 'APPROVED'),
           hasUnseen: false,
           latestStoryAt: story.createdAt,
           stories: []
@@ -274,7 +274,7 @@ export class StoryService {
       storeId: s.storeId,
       storeName: s.store.name,
       storeAvatar: s.store.logoUrl || '',
-      isVerified: Boolean(s.store.isVerified || s.store.status === 'VERIFIED' || s.store.verificationStatus === 'APPROVED'),
+      isVerified: Boolean(s.store.isVerified && s.store.verificationStatus === 'APPROVED'),
       mediaUrl: s.mediaUrl,
       mediaType: s.mediaType,
       caption: s.caption,

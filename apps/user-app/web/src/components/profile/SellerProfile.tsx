@@ -136,7 +136,7 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
   const timingLabel = storeSummary?.timingLabel || (hasHours ? (isOpen ? 'Open Now' : 'Closed') : '');
 
   const isStoreLive = myStore?.isActive ?? storeSummary?.store?.isActive ?? true;
-  const isVerified = Boolean(myStore?.isVerified || storeSummary?.store?.isVerified);
+  const isVerified = Boolean((myStore?.isVerified && myStore?.verificationStatus === 'APPROVED') || (storeSummary?.store?.isVerified && storeSummary?.store?.verificationStatus === 'APPROVED'));
   const verificationStatus = myStore?.verificationStatus || storeSummary?.store?.verificationStatus || (isVerified ? 'APPROVED' : 'NOT_APPLIED');
   const [isBlueTickSheetOpen, setIsBlueTickSheetOpen] = useState(false);
 
@@ -198,7 +198,7 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
     storeId: myStore.id,
     storeName: myStore.name,
     storeAvatar: myStore.logoUrl || '',
-    isVerified: myStore.status === 'VERIFIED',
+    isVerified: isVerified,
     stories: viewerHighlightStories.map(s => ({
       id: s.id,
       mediaUrl: s.mediaUrl,

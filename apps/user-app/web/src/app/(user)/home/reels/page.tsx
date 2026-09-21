@@ -66,7 +66,7 @@ function ReelsContent() {
       id: targetId || 'target-reel',
       storeName: targetStoreName || 'Creator',
       storeAvatar: '',
-      isVerified: true,
+      isVerified: false,
       timeAgo: 'Recently',
       videoUrl: targetVideoUrl || '',
       posterUrl: targetPosterUrl || '',

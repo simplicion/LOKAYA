@@ -57,7 +57,7 @@ export default function StoryArchivePage() {
     storeId: myStore?.id || 'archive',
     storeName: myStore?.name || 'My Archive',
     storeAvatar: myStore?.logoUrl || '',
-    isVerified: myStore?.status === 'VERIFIED',
+    isVerified: Boolean(myStore?.isVerified && myStore?.verificationStatus === 'APPROVED'),
     stories: archiveStories.map(s => ({
       id: s.id,
       mediaUrl: s.mediaUrl,

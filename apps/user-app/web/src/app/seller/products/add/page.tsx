@@ -923,7 +923,7 @@ export default function ManualAddProductPage() {
                       store: {
                         id: storeData?.id,
                         name: storeData?.storeName || storeData?.name || 'Store',
-                        isVerified: storeData?.status === 'VERIFIED'
+                        isVerified: Boolean(storeData?.isVerified && storeData?.verificationStatus === 'APPROVED')
                       },
                       stockCount: previewStock,
                       variants: variants,

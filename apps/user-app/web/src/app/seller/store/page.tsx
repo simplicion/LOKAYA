@@ -264,7 +264,7 @@ export default function StorePreviewPage() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <h2 className="text-2xl font-black text-gray-900 leading-tight truncate">{storeData?.name || ''}</h2>
-                  {storeData?.isVerified && (
+                  {Boolean(storeData?.isVerified && storeData?.verificationStatus === 'APPROVED') && (
                     <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-500 text-white shrink-0 animate-in zoom-in duration-300" />
                   )}
                   {storeData?.category && (
@@ -411,7 +411,7 @@ export default function StorePreviewPage() {
                   image: product.media?.[0]?.url || product.imageUrl || '',
                   price: product.sellingPrice?.toString() || '0',
                   originalPrice: product.mrp ? product.mrp.toString() : undefined,
-                  store: { name: storeData?.name || '', isVerified: storeData?.status === 'VERIFIED' },
+                  store: { name: storeData?.name || '', isVerified: Boolean(storeData?.isVerified && storeData?.verificationStatus === 'APPROVED') },
                   rating: product.avgRating ? String(product.avgRating) : undefined,
                   reviews: product.reviewsCount ? String(product.reviewsCount) : undefined,
                   stockCount: product.stockCount

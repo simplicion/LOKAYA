@@ -53,7 +53,7 @@ export default function StoreCategoryPage({
   const store = storeSummary?.store;
   const storeName = store?.name || 'Store';
   const logoUrl = store?.logoUrl;
-  const isVerified = Boolean(store?.isVerified);
+  const isVerified = Boolean(store?.isVerified && store?.verificationStatus === 'APPROVED');
 
   // Find active category
   const activeCategory = useMemo(() => {

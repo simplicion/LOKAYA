@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useGetAllStoresQuery, useVerifyStoreMutation, useRejectStoreMutation } from '@/lib/api';
+import { 
+  useGetAllStoresQuery,  
+  useVerifyStoreMutation,
+  useRejectStoreMutation,
+  useApproveBlueTickMutation,
+  useRejectBlueTickMutation 
+} from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -22,30 +28,45 @@ export default function VerificationCenter() {
     selectedStatus === 'ALL' ? undefined : { status: selectedStatus }
   );
 
-  const [verifyStore, { isLoading: isVerifying }] = useVerifyStoreMutation();
-  const [rejectStore, { isLoading: isRejecting }] = useRejectStoreMutation();
+  const [verifyStore, { isLoading: isVerifyingStore }] = useVerifyStoreMutation();
+  const [rejectStore, { isLoading: isRejectingStore }] = useRejectStoreMutation();
+  const [approveBlueTick, { isLoading: isApprovingBlueTick }] = useApproveBlueTickMutation();
+  const [rejectBlueTick, { isLoading: isRejectingBlueTick }] = useRejectBlueTickMutation();
 
-  const handleVerify = async (storeId: string) => {
+  const isVerifying = isVerifyingStore || isApprovingBlueTick;
+  const isRejecting = isRejectingStore || isRejectingBlueTick;
+
+  const handleVerify = async (store: any) => {
     try {
-      await verifyStore(storeId).unwrap();
-      toast.success('Store verified & activated successfully!');
+      if (store.verificationStatus === 'PENDING') {
+        await approveBlueTick(store.id).unwrap();
+        toast.success('Blue Tick badge approved successfully!');
+      } else {
+        await verifyStore(store.id).unwrap();
+        toast.success('Store KYC verified & activated successfully!');
+      }
       setSelectedStore(null);
       refetch();
     } catch (error: any) {
-      toast.error(error?.data?.message || 'Failed to verify store');
+      toast.error(error?.data?.message || 'Failed to verify');
     }
   };
 
-  const handleReject = async (storeId: string) => {
+  const handleReject = async (store: any) => {
     try {
-      await rejectStore({ storeId, reason: rejectReason }).unwrap();
-      toast.success('Store application rejected');
+      if (store.verificationStatus === 'PENDING') {
+        await rejectBlueTick({ storeId: store.id, reason: rejectReason }).unwrap();
+        toast.success('Blue Tick request rejected');
+      } else {
+        await rejectStore({ storeId: store.id, reason: rejectReason }).unwrap();
+        toast.success('Store KYC application rejected');
+      }
       setShowRejectModal(false);
       setSelectedStore(null);
       setRejectReason('');
       refetch();
     } catch (error: any) {
-      toast.error(error?.data?.message || 'Failed to reject store');
+      toast.error(error?.data?.message || 'Failed to reject');
     }
   };
 
@@ -272,14 +293,14 @@ export default function VerificationCenter() {
                             <Eye className="w-3.5 h-3.5" />
                             Review
                           </Button>
-                          {(!store.isVerified || store.status !== 'VERIFIED') && (
+                          {(store.verificationStatus === 'PENDING' || store.status === 'PENDING') && (
                             <Button
                               size="sm"
-                              onClick={() => handleVerify(store.id)}
+                              onClick={() => handleVerify(store)}
                               disabled={isVerifying}
                               className="text-xs h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                             >
-                              {store.verificationStatus === 'PENDING' ? 'Approve Blue Tick' : 'Approve'}
+                              {store.verificationStatus === 'PENDING' ? 'Approve Blue Tick' : 'Approve KYC'}
                             </Button>
                           )}
                         </div>
@@ -546,13 +567,13 @@ export default function VerificationCenter() {
                   </Button>
                 )}
 
-                {(!selectedStore.isVerified || selectedStore.status !== 'VERIFIED') && (
+                {(selectedStore.verificationStatus === 'PENDING' || selectedStore.status === 'PENDING') && (
                   <Button
-                    onClick={() => handleVerify(selectedStore.id)}
+                    onClick={() => handleVerify(selectedStore)}
                     disabled={isVerifying}
                     className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5"
                   >
-                    {isVerifying ? 'Approving...' : selectedStore.verificationStatus === 'PENDING' ? 'Approve Blue Tick Verification' : 'Approve & Activate Store'}
+                    {isVerifying ? 'Approving...' : selectedStore.verificationStatus === 'PENDING' ? 'Approve Blue Tick Badge' : 'Approve & Activate Store'}
                   </Button>
                 )}
               </div>
@@ -587,11 +608,11 @@ export default function VerificationCenter() {
               </Button>
               <Button
                 size="sm"
-                onClick={() => handleReject(selectedStore.id)}
+                onClick={() => handleReject(selectedStore)}
                 disabled={isRejecting}
                 className="text-xs bg-red-600 hover:bg-red-700 text-white font-semibold"
               >
-                {isRejecting ? 'Rejecting...' : 'Confirm Reject'}
+                {isRejecting ? 'Rejecting...' : 'Confirm Rejection'}
               </Button>
             </div>
           </div>
