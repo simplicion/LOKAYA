@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Heart, ShoppingCart, Bell, Settings, ChevronDown, Check, ArrowLeft, PlusSquare, Menu } from 'lucide-react';
+import { Heart, ShoppingCart, Bell, Settings, ChevronDown, Check, ArrowLeft, PlusSquare, Menu, MapPin } from 'lucide-react';
 import { Logo } from "@/components/ui/logo";
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -81,14 +81,22 @@ export function MobileTopNav() {
         </button>
 
         {showFeedMenu && (
-          <div className="absolute top-full mt-2 -ml-8 bg-white rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-gray-100 py-2 w-48 z-50">
-            <button className="w-full text-left px-4 py-2.5 text-sm font-bold text-[#171717] hover:bg-gray-50 flex items-center justify-between">
-              For You
+          <div className="absolute top-full mt-2 -ml-8 bg-white rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-gray-100 py-2 w-48 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <button 
+              onClick={() => setShowFeedMenu(false)}
+              className="w-full text-left px-4 py-2.5 text-sm font-bold text-[#171717] hover:bg-gray-50 flex items-center justify-between"
+            >
+              <span>For You</span>
               <Check className="w-4 h-4 text-[#171717]" />
             </button>
-            <button className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50">
-              Following
-            </button>
+            <Link 
+              href="/explore/nearby"
+              onClick={() => setShowFeedMenu(false)}
+              className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-between transition-colors group"
+            >
+              <span className="group-hover:text-[#FF5A36] transition-colors">Stores Nearby</span>
+              <MapPin className="w-4 h-4 text-[#FF5A36]" />
+            </Link>
           </div>
         )}
       </div>

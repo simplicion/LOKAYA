@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, PlaySquare, ShoppingCart, User, MapPin } from 'lucide-react';
+import { Home, Search, PlaySquare, ShoppingCart, User, Compass } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -18,7 +18,6 @@ export function MobileBottomNav() {
     '/cart',
     '/notifications',
     '/wishlist',
-    '/search',
     '/home/reels',
     '/explore/nearby',
     '/product',
@@ -35,9 +34,9 @@ export function MobileBottomNav() {
 
   const links = [
     { href: '/home', label: 'Home', icon: Home },
-    { href: '/explore', label: 'Explore', icon: Search },
+    { href: '/search', label: 'Search', icon: Search },
     { href: '/home/reels', label: 'Reels', icon: PlaySquare },
-    { href: '/explore/nearby', label: 'Stores', icon: MapPin },
+    { href: '/explore', label: 'Explore', icon: Compass },
     { href: '/profile', label: 'Account', icon: User },
   ];
 
@@ -54,8 +53,10 @@ export function MobileBottomNav() {
         let isActive = false;
         if (link.href === '/home') {
           isActive = pathname === '/home' || pathname === '/';
+        } else if (link.href === '/search') {
+          isActive = pathname === '/search' || pathname?.startsWith('/search');
         } else if (link.href === '/explore') {
-          isActive = pathname === '/explore';
+          isActive = pathname === '/explore' || pathname?.startsWith('/explore/category');
         } else {
           isActive = pathname === link.href || pathname?.startsWith(`${link.href}/`);
         }
