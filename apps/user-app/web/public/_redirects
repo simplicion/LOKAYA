@@ -1,0 +1,8 @@
+# Cloudflare Pages SPA rewrite rules for dynamic routes
+/store/*    /store/1.html    200
+/product/*  /product/1.html  200
+/post/*     /post/1.html     200
+/reel/*     /reel/1.html     200
+/user/*     /user/1.html     200
+/orders/*   /orders/1.html   200
+/parcel/*   /parcel/1.html   200

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Headphones, Loader2, Users, Truck, CreditCard, Banknote, Tag, Bike } from 'lucide-react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
@@ -20,8 +20,9 @@ import { toast } from 'sonner';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 
 export default function StoreProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const routeParams = useParams();
   const resolvedParams = use(params);
-  const storeId = resolvedParams.id;
+  const storeId = (routeParams?.id as string) || resolvedParams?.id || '';
   const router = useRouter();
   
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);

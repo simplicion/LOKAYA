@@ -8,9 +8,16 @@ import { Users, Search, ShieldCheck, User, Store, Mail, Phone, Calendar, Refresh
 
 export default function UsersManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: users, isLoading, refetch, isFetching } = useGetUsersQuery();
+  const { data: users, isLoading, isError, error, refetch, isFetching } = useGetUsersQuery();
 
-  const filteredUsers = users?.filter((u) => {
+  const errorMessage = isError
+    ? ((error as any)?.data?.message || 
+       ((error as any)?.status === 'FETCH_ERROR' ? 'Cannot connect to backend API (http://localhost:4002). Ensure the backend service is running.' : null) ||
+       ((error as any)?.status === 401 ? 'Session expired or unauthorized. Please re-login as Admin.' : null) ||
+       'Failed to load users from server.')
+    : null;
+
+  const filteredUsers = (Array.isArray(users) ? users : [])?.filter((u) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -80,6 +87,21 @@ export default function UsersManagementPage() {
                 <tr>
                   <td colSpan={6} className="px-5 py-12 text-center text-gray-400">
                     Loading users list...
+                  </td>
+                </tr>
+              ) : isError ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-12 text-center text-rose-600 bg-rose-50/50">
+                    <div className="font-semibold text-sm mb-1">{errorMessage}</div>
+                    <p className="text-xs text-gray-500 mb-3">Ensure the backend server is running on http://localhost:4002 and you are logged in as System Admin.</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => refetch()} 
+                      className="text-xs border-rose-200 hover:bg-rose-100/50"
+                    >
+                      Retry Connection
+                    </Button>
                   </td>
                 </tr>
               ) : filteredUsers.length === 0 ? (

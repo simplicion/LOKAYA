@@ -38,6 +38,17 @@ export function getMediaUrl(url: string | null | undefined): string {
     return `${apiUrl}/media/stream/${fileKey}`;
   }
 
+  // If it's a direct Cloudflare R2 storage endpoint, rewrite to the backend stream proxy
+  if (url.includes('.r2.cloudflarestorage.com/')) {
+    const parts = url.split('.r2.cloudflarestorage.com/')[1];
+    if (parts) {
+      const pathSegments = parts.split('/');
+      // Skip bucket name if present (e.g. lokaya-cdn/...)
+      const fileKey = pathSegments.length > 1 ? pathSegments.slice(1).join('/') : pathSegments[0];
+      return `${apiUrl}/media/stream/${fileKey}`;
+    }
+  }
+
   if (url.startsWith('/api/v1/')) {
     const backendHost = apiUrl.replace(/\/api\/v1\/?$/, '');
     return `${backendHost}${url}`;
