@@ -34,7 +34,8 @@ import {
   Banknote,
   DollarSign,
   Coins,
-  RefreshCw
+  RefreshCw,
+  ChevronDown
 } from 'lucide-react';
 import { LocationService, LocationContext } from '@/lib/services/location.service';
 import { logout } from '@/lib/features/authSlice';
@@ -538,40 +539,49 @@ export default function DeliveryOnboardingPage() {
             <div className="space-y-3">
               <label className="text-xs font-bold text-[#171717] block">Select Your Delivery Vehicle Mode</label>
               
-              <div className="grid grid-cols-1 gap-2.5">
-                {vehicleOptions.map((v) => {
-                  const Icon = v.icon;
-                  const isSelected = formData.vehicleType === v.type;
-                  return (
-                    <button
-                      key={v.type}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, vehicleType: v.type })}
-                      className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition-all ${
-                        isSelected
-                          ? 'border-[#FF5A36] bg-orange-50/70 ring-1 ring-[#FF5A36]'
-                          : 'border-[#E5E2DC] hover:border-gray-300 bg-white'
-                      }`}
-                    >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                        isSelected ? 'bg-[#FF5A36] text-white' : 'bg-gray-100 text-[#6B6B6B]'
-                      }`}>
+              <div className="relative">
+                <select
+                  value={formData.vehicleType}
+                  onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value as any })}
+                  className="w-full h-12 rounded-2xl bg-[#F2EFE9] border-none px-4 pr-10 text-xs font-bold text-[#171717] outline-none focus:ring-2 focus:ring-[#FF5A36] cursor-pointer appearance-none transition-all"
+                >
+                  {vehicleOptions.map((v) => (
+                    <option key={v.type} value={v.type}>
+                      {v.label} — {v.mileage}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+
+              {/* Active Selected Vehicle Card Preview */}
+              {(() => {
+                const selected = vehicleOptions.find((v) => v.type === formData.vehicleType) || vehicleOptions[0];
+                const Icon = selected.icon;
+                return (
+                  <div className="p-3.5 rounded-2xl bg-orange-50/70 border border-orange-200/80 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-[#FF5A36] text-white flex items-center justify-center shrink-0">
                         <Icon className="w-5 h-5" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-[#171717]">{v.label}</p>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-[#171717]">{selected.label}</p>
                           <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800">
-                            {v.mileage}
+                            {selected.mileage}
                           </span>
                         </div>
-                        <p className="text-[11px] text-[#6B6B6B] mt-0.5">{v.desc}</p>
+                        <p className="text-[11px] text-[#6B6B6B] mt-0.5">{selected.desc}</p>
                       </div>
-                      {isSelected && <CheckCircle2 className="w-5 h-5 text-[#FF5A36] shrink-0 mt-1" />}
-                    </button>
-                  );
-                })}
-              </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[11px] font-bold text-[#FF5A36]">{selected.fuelCost}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {formData.vehicleType !== 'WALKER' && formData.vehicleType !== 'BICYCLE' ? (
                 <>
