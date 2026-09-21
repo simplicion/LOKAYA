@@ -233,6 +233,9 @@ jobs:
             --env-file /opt/lokaya/.env \
             ${{ env.IMAGE_LOWER }}:latest
 
+          echo "--- Pruning older image layers ---"
+          docker image prune -af --filter "until=24h" 2>/dev/null || true
+
           echo "--- Health Verification ---"
           sleep 6
           curl -f http://localhost:4002/health || echo "Health check response verified"
