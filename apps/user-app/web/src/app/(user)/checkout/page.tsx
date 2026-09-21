@@ -628,24 +628,16 @@ function CheckoutContent() {
 
         {/* Step 2: Payment Method */}
         <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#FF6B00] flex items-center justify-center font-bold text-xs">
-                2
-              </div>
-              <h2 className="font-bold text-gray-900 text-sm">Payment Method</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#FF6B00] flex items-center justify-center font-bold text-xs">
+              2
             </div>
-
-            {!isOnlinePaymentAvailable && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                Cash on Delivery Only ({currency})
-              </span>
-            )}
+            <h2 className="font-bold text-gray-900 text-sm">Payment Method</h2>
           </div>
 
           <div className="space-y-3">
-            {/* Online Option (India Only) */}
-            {isOnlinePaymentAvailable ? (
+            {/* Online Option (Rendered ONLY in India / INR) */}
+            {isOnlinePaymentAvailable && (
               <div
                 onClick={() => setPaymentMethod('ONLINE')}
                 className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${
@@ -675,21 +667,6 @@ function CheckoutContent() {
                   <p className="text-xs text-gray-500">Google Pay, PhonePe, Paytm, Cards, NetBanking via Razorpay</p>
                 </div>
               </div>
-            ) : (
-              <div className="p-3.5 rounded-xl border border-dashed border-gray-200 bg-gray-50/80 flex items-start gap-3 opacity-75">
-                <CreditCard className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                <div className="text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-700">Online Payment (UPI & Cards)</span>
-                    <span className="text-[9px] font-semibold bg-gray-200 text-gray-600 px-1.5 py-0.2 rounded">
-                      India (INR) Only
-                    </span>
-                  </div>
-                  <p className="text-gray-500 text-[11px] mt-0.5">
-                    Online Razorpay gateway is currently available for Indian Rupee (INR) payments only. Please use Cash on Delivery.
-                  </p>
-                </div>
-              </div>
             )}
 
             {/* Cash on Delivery Option */}
@@ -711,14 +688,7 @@ function CheckoutContent() {
 
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-gray-900">Cash on Delivery</span>
-                    {!isOnlinePaymentAvailable && (
-                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                        Recommended
-                      </span>
-                    )}
-                  </div>
+                  <span className="font-bold text-sm text-gray-900">Cash on Delivery</span>
                   <Banknote className="w-4 h-4 text-gray-400" />
                 </div>
                 <p className="text-xs text-gray-500">Pay cash upon delivery. +{formatPrice(49)} verification & handling fee.</p>
