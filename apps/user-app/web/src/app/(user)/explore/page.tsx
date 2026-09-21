@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
+import { BannerMediaItem } from '@/components/banner/BannerMediaItem';
 import { useGetBannersQuery, useGetPublicProductsQuery } from '@/lib/api';
 import { cn, getMediaUrl } from '@/lib/utils';
 
@@ -120,13 +121,14 @@ export default function ExplorePage() {
                 onClick={() => handleBannerClick(banner.linkUrl)}
                 className="min-w-[88%] sm:min-w-[340px] h-[168px] rounded-3xl bg-[#1C1917] relative overflow-hidden snap-center shrink-0 flex items-center cursor-pointer shadow-md hover:shadow-lg transition-transform active:scale-[0.99] group border border-stone-800"
               >
-                {/* Background Image */}
-                <img 
-                  src={getMediaUrl(banner.imageUrl)} 
-                  alt={banner.title} 
-                  className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:scale-105 transition-transform duration-700" 
+                {/* Background Media (Image or Video with Autoplay on Mute & Pause on Scroll) */}
+                <BannerMediaItem
+                  url={banner.imageUrl}
+                  alt={banner.title}
+                  isActiveSlide={activeBannerIndex === index}
+                  className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:scale-105 transition-transform duration-700"
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent pointer-events-none" />
 
                 {/* Banner Content */}
                 <div className="relative z-10 p-5 flex flex-col items-start max-w-[72%]">

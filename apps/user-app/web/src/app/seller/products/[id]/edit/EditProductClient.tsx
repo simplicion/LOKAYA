@@ -382,9 +382,9 @@ export default function EditProductClient({ params }: { params: { id: string } }
               <button
                 type="button"
                 onClick={() => setIsAiStudioOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-xs transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-brand-navy hover:bg-brand-dark-navy text-white transition-all cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5 fill-current" />
+                <Sparkles className="w-3.5 h-3.5" />
                 AI Studio
               </button>
 

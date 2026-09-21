@@ -236,34 +236,39 @@ Respond strictly with valid JSON without markdown formatting:
     const openAiKey = this.getOpenAiApiKey();
     const geminiKey = this.getGeminiApiKey();
 
-    // 1. Try OpenAI DALL-E 3 first if OpenAI key is present
+    // 1. Try OpenAI Image models first if OpenAI key is present
     if (openAiKey) {
-      try {
-        const res = await axios.post(
-          'https://api.openai.com/v1/images/generations',
-          {
-            model: 'dall-e-3',
-            prompt: prompt,
-            n: 1,
-            size: '1024x1024',
-            response_format: 'b64_json',
-            quality: 'standard',
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${openAiKey}`,
-              'Content-Type': 'application/json',
+      const openAiModels = ['gpt-image-1-mini', 'gpt-image-1', 'chatgpt-image-latest', 'dall-e-3'];
+      for (const model of openAiModels) {
+        try {
+          const res = await axios.post(
+            'https://api.openai.com/v1/images/generations',
+            {
+              model,
+              prompt,
             },
-            timeout: 60000,
-          }
-        );
+            {
+              headers: {
+                Authorization: `Bearer ${openAiKey}`,
+                'Content-Type': 'application/json',
+              },
+              timeout: 60000,
+            }
+          );
 
-        const b64 = res.data?.data?.[0]?.b64_json;
-        if (b64) {
-          return Buffer.from(b64, 'base64');
+          const b64 = res.data?.data?.[0]?.b64_json;
+          if (b64) {
+            return Buffer.from(b64, 'base64');
+          }
+
+          const imgUrl = res.data?.data?.[0]?.url;
+          if (imgUrl) {
+            const imgRes = await axios.get(imgUrl, { responseType: 'arraybuffer', timeout: 30000 });
+            return Buffer.from(imgRes.data);
+          }
+        } catch (err: any) {
+          console.warn(`[AiStudioService] OpenAI ${model} notice for ${shotId}:`, err?.response?.data?.error?.message || err?.message);
         }
-      } catch (err: any) {
-        console.warn(`[AiStudioService] DALL-E 3 error on ${shotId}:`, err?.response?.data || err?.message);
       }
     }
 

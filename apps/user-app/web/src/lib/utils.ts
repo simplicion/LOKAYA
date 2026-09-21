@@ -40,6 +40,21 @@ export function getMediaUrl(url: string | null | undefined): string {
   return url;
 }
 
+export function isVideoMedia(url?: string | null): boolean {
+  if (!url) return false;
+  const clean = url.split('?')[0].toLowerCase();
+  return (
+    clean.endsWith('.mp4') ||
+    clean.endsWith('.webm') ||
+    clean.endsWith('.mov') ||
+    clean.endsWith('.m4v') ||
+    clean.endsWith('.mkv') ||
+    clean.endsWith('.ogv') ||
+    url.includes('/video/') ||
+    url.includes('type=video')
+  );
+}
+
 export function generateVideoThumbnail(file: File): Promise<{ thumbnailBlob: Blob; thumbnailDataUrl: string }> {
   return new Promise((resolve, reject) => {
     try {

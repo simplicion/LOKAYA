@@ -269,6 +269,13 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['DeliveryPartners'],
     }),
+    uploadMedia: builder.mutation<{ success: boolean; url: string; publicUrl: string; fileKey: string }, FormData>({
+      query: (formData) => ({
+        url: '/media/upload',
+        method: 'POST',
+        body: formData,
+      }),
+    }),
   }),
 });
 
@@ -285,6 +292,7 @@ export const {
   useUpdateBannerMutation,
   useDeleteBannerMutation,
   useToggleBannerMutation,
+  useUploadMediaMutation,
   useGetCouponsQuery,
   useGetCouponStatsQuery,
   useCreateCouponMutation,

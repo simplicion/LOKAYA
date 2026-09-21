@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Sparkles, 
   Plus, 
@@ -17,7 +17,11 @@ import {
   Copy, 
   Check, 
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Video,
+  Loader2,
+  Film
 } from 'lucide-react';
 import { 
   useGetBannersQuery, 
@@ -25,6 +29,7 @@ import {
   useUpdateBannerMutation, 
   useDeleteBannerMutation, 
   useToggleBannerMutation,
+  useUploadMediaMutation,
   useGetAllStoresQuery,
   useGetProductsQuery
 } from '@/lib/api';
@@ -35,6 +40,7 @@ import { Card } from '@/components/ui/card';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { toast } from 'sonner';
 import { useCurrency } from '@/context/CurrencyContext';
+import { isVideoMedia, getMediaUrl } from '@/lib/utils';
 
 export default function EcommerceControlPage() {
   const { formatPrice } = useCurrency();
@@ -46,6 +52,10 @@ export default function EcommerceControlPage() {
   const [updateBanner, { isLoading: isUpdating }] = useUpdateBannerMutation();
   const [deleteBanner, { isLoading: isDeleting }] = useDeleteBannerMutation();
   const [toggleBanner] = useToggleBannerMutation();
+  const [uploadMedia] = useUploadMediaMutation();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
@@ -90,6 +100,68 @@ export default function EcommerceControlPage() {
     setDisplayOrder(banner.displayOrder || 1);
     setIsActive(banner.isActive ?? true);
     setIsModalOpen(true);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
+    const isImage = file.type.startsWith('image/');
+
+    if (!isVideo && !isImage) {
+      toast.error('Please select an image (JPG, PNG, WebP) or video (MP4, WebM, MOV)');
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File size exceeds 50MB limit');
+      return;
+    }
+
+    setIsUploadingMedia(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await uploadMedia(formData).unwrap();
+      const finalUrl = res.publicUrl || res.url;
+      if (finalUrl) {
+        setImageUrl(finalUrl);
+        toast.success(`Uploaded banner ${isVideo ? 'video' : 'image'} successfully!`);
+      } else {
+        throw new Error('No URL returned from upload');
+      }
+    } catch (err: any) {
+      console.warn('Direct upload error, trying fallback:', err);
+      try {
+        const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
+        const formData = new FormData();
+        formData.append('file', file);
+        const directRes = await fetch(`${rawApiUrl}/media/upload`, {
+          method: 'POST',
+          body: formData
+        });
+        if (directRes.ok) {
+          const data = await directRes.json();
+          const publicUrl = data.publicUrl || data.url;
+          if (publicUrl) {
+            setImageUrl(publicUrl);
+            toast.success(`Uploaded banner ${isVideo ? 'video' : 'image'} successfully!`);
+            return;
+          }
+        }
+      } catch (fallbackErr) {
+        console.warn('Fallback fetch failed:', fallbackErr);
+      }
+      toast.error(err?.data?.error || err?.message || 'Failed to upload media file');
+    } finally {
+      setIsUploadingMedia(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -250,14 +322,30 @@ export default function EcommerceControlPage() {
               >
                 {/* Banner Visual Display */}
                 <div className="relative h-44 bg-[#2D2321] overflow-hidden flex items-center">
-                  <img 
-                    src={banner.imageUrl} 
-                    alt={banner.title} 
-                    className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-luminosity" 
-                  />
+                  {isVideoMedia(banner.imageUrl) ? (
+                    <video 
+                      src={getMediaUrl(banner.imageUrl)} 
+                      autoPlay 
+                      loop 
+                      muted 
+                      playsInline 
+                      className="absolute inset-0 w-full h-full object-cover opacity-85" 
+                    />
+                  ) : (
+                    <img 
+                      src={getMediaUrl(banner.imageUrl)} 
+                      alt={banner.title} 
+                      className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-luminosity" 
+                    />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
                   
                   <div className="relative z-10 p-5 flex flex-col items-start max-w-[70%]">
+                    {isVideoMedia(banner.imageUrl) && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-purple-600/90 text-white px-2 py-0.5 rounded-full mb-1.5 shadow-sm flex items-center gap-1">
+                        <Film className="w-3 h-3" /> Video Banner
+                      </span>
+                    )}
                     {banner.tagline && (
                       <span className="text-[10px] font-extrabold uppercase tracking-wider bg-orange-600 text-white px-2 py-0.5 rounded-full mb-1.5 shadow-sm">
                         {banner.tagline}
@@ -468,16 +556,87 @@ export default function EcommerceControlPage() {
                 />
               </div>
 
-              {/* Image URL */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-gray-700">Banner Image URL *</Label>
-                <Input 
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="Paste banner image URL or upload media"
-                  required
-                  className="rounded-xl text-sm"
+              {/* Media File Upload & Direct URL */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-gray-700">Banner Media (Image or Video) *</Label>
+                  {imageUrl && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                      isVideoMedia(imageUrl) ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200'
+                    }`}>
+                      {isVideoMedia(imageUrl) ? <Film className="w-3 h-3" /> : <ImageIcon className="w-3 h-3" />}
+                      {isVideoMedia(imageUrl) ? 'Video Media Detected' : 'Image Media Detected'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Hidden File Input */}
+                <input 
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,video/m4v"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  disabled={isUploadingMedia}
                 />
+
+                {/* Direct Upload Box */}
+                <div 
+                  onClick={() => !isUploadingMedia && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all ${
+                    isUploadingMedia 
+                      ? 'border-orange-300 bg-orange-50/50 cursor-wait' 
+                      : 'border-gray-200 hover:border-orange-400 hover:bg-orange-50/20 bg-gray-50/50'
+                  }`}
+                >
+                  {isUploadingMedia ? (
+                    <div className="flex flex-col items-center justify-center py-2">
+                      <Loader2 className="w-6 h-6 text-orange-600 animate-spin mb-1.5" />
+                      <p className="text-xs font-bold text-orange-700">Uploading media to pipeline...</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">Please wait while the file is processed and stored</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-1.5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
+                          <Upload className="w-4 h-4" />
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
+                          <Video className="w-4 h-4" />
+                        </div>
+                      </div>
+                      <p className="text-xs font-bold text-gray-800">
+                        Click to upload direct Image or Video
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        Supports MP4, WebM, MOV, JPG, PNG, WebP (up to 50MB)
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Or Direct URL Input */}
+                <div className="space-y-1 pt-1">
+                  <div className="flex items-center justify-between text-[11px] text-gray-500">
+                    <span>Or enter media URL manually:</span>
+                    {imageUrl && (
+                      <button 
+                        type="button" 
+                        onClick={() => setImageUrl('')}
+                        className="text-red-500 hover:text-red-700 hover:underline text-[10px]"
+                      >
+                        Clear media
+                      </button>
+                    )}
+                  </div>
+                  <Input 
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://... or uploaded media URL"
+                    required
+                    className="rounded-xl text-xs font-mono"
+                  />
+                </div>
               </div>
 
               {/* Deep Link & Button Text */}
@@ -546,20 +705,45 @@ export default function EcommerceControlPage() {
               {/* Live Preview Card */}
               {imageUrl && (
                 <div className="pt-2">
-                  <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">
-                    Live Mobile Banner Preview
-                  </Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Live Mobile Banner Preview
+                    </Label>
+                    <span className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
+                      {isVideoMedia(imageUrl) ? (
+                        <>🎬 Autoplays on mute in loop & pauses on scroll</>
+                      ) : (
+                        <>🖼️ Responsive image banner</>
+                      )}
+                    </span>
+                  </div>
                   <div className="relative h-36 bg-[#2D2321] rounded-2xl overflow-hidden flex items-center shadow-sm border border-gray-200">
-                    <img 
-                      src={imageUrl} 
-                      alt="" 
-                      className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-luminosity" 
-                    />
+                    {isVideoMedia(imageUrl) ? (
+                      <video 
+                        src={getMediaUrl(imageUrl)} 
+                        autoPlay 
+                        loop 
+                        muted 
+                        playsInline 
+                        className="absolute inset-0 w-full h-full object-cover opacity-85" 
+                      />
+                    ) : (
+                      <img 
+                        src={getMediaUrl(imageUrl)} 
+                        alt="" 
+                        className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-luminosity" 
+                      />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent" />
                     
                     <div className="relative z-10 p-4 flex flex-col items-start max-w-[70%]">
+                      {isVideoMedia(imageUrl) && (
+                        <span className="text-[9px] font-bold uppercase bg-purple-600/90 text-white px-2 py-0.5 rounded-full mb-1 flex items-center gap-1 shadow-sm">
+                          <Film className="w-2.5 h-2.5" /> Video Banner
+                        </span>
+                      )}
                       {tagline && (
-                        <span className="text-[9px] font-extrabold uppercase bg-orange-600 text-white px-2 py-0.5 rounded-full mb-1">
+                        <span className="text-[9px] font-extrabold uppercase bg-orange-600 text-white px-2 py-0.5 rounded-full mb-1 shadow-sm">
                           {tagline}
                         </span>
                       )}

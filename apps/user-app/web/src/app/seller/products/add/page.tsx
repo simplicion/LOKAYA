@@ -757,30 +757,30 @@ export default function ManualAddProductPage() {
             </div>
 
             {/* AI Studio Photoshoot Trigger Card */}
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-lg border border-indigo-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 bg-white border border-[#E5E2DC] rounded-2xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center shrink-0 text-slate-950 shadow-md">
-                  <Sparkles className="w-5 h-5 fill-current" />
+                <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 text-brand-navy flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4 text-brand-navy" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-sm text-white">AI Virtual Photo Studio</h4>
-                    <span className="bg-amber-400/20 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-amber-400/30">
-                      5 Studio Shots
+                    <h4 className="font-bold text-sm text-brand-navy">AI Product Studio</h4>
+                    <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-blue-100">
+                      5 Angles
                     </span>
                   </div>
-                  <p className="text-xs text-slate-300 mt-0.5">
-                    Click 1–2 phone photos and get 5 studio-grade commercial images automatically.
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Upload 1–2 product photos to generate 5 studio-grade commercial catalog images.
                   </p>
                 </div>
               </div>
               <Button
                 type="button"
                 onClick={() => setIsAiStudioOpen(true)}
-                className="h-10 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 font-bold text-xs shadow-md shrink-0 flex items-center gap-1.5 active:scale-95 transition-all"
+                className="h-10 px-4 rounded-xl bg-brand-navy hover:bg-brand-dark-navy text-white font-semibold text-xs shrink-0 flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5 fill-current" />
-                Launch AI Studio
+                <Sparkles className="w-3.5 h-3.5" />
+                Launch Studio
               </Button>
             </div>
             
