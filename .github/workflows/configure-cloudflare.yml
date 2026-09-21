@@ -22,7 +22,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
-          EC2_PUBLIC_IP: "32.196.120.100"
+          EC2_PUBLIC_IP: "35.153.44.245"
         run: |
           node << 'EOF'
           const https = require('https');
@@ -231,9 +231,9 @@ jobs:
             console.log('🔒 Configuring SSL / TLS Setting to "Full"...');
             console.log('====================================================');
             const sslRes = await requestWithAuth(`/zones/${zoneId}/settings/ssl`, 'PATCH', {
-              value: 'flexible'
+              value: 'full'
             });
-            console.log('SSL Flexible Setting result:', sslRes.body.success, sslRes.body.result?.value);
+            console.log('SSL Full Setting result:', sslRes.body.success, sslRes.body.result?.value);
 
             console.log('\n====================================================');
             console.log('🎉 ALL CLOUDFLARE CONFIGURATIONS APPLIED SUCCESSFULLY!');
