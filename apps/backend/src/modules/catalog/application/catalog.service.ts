@@ -260,11 +260,26 @@ export class CatalogService {
       ...(rawUpdateData.isAvailableForPickup !== undefined ? { isAvailableForPickup: Boolean(rawUpdateData.isAvailableForPickup) } : {}),
       ...(rawUpdateData.isDeliveryIncluded !== undefined ? { isDeliveryIncluded: Boolean(rawUpdateData.isDeliveryIncluded) } : {}),
       ...(rawUpdateData.costPrice !== undefined ? { costPrice: Number(rawUpdateData.costPrice) } : {}),
-      // Any seller edit resets verification to PENDING
-      isVerified: false,
-      verificationStatus: 'PENDING',
-      verificationRequestedAt: new Date(),
-      rejectionReason: null
+      // Reset verification only if core product details/pricing/media changed (not when only toggling active status)
+      ...(Boolean(
+        rawUpdateData.name !== undefined ||
+        rawUpdateData.description !== undefined ||
+        rawUpdateData.brand !== undefined ||
+        rawUpdateData.sku !== undefined ||
+        rawUpdateData.mrp !== undefined ||
+        rawUpdateData.sellingPrice !== undefined ||
+        rawUpdateData.costPrice !== undefined ||
+        categoryName !== undefined ||
+        categoryId !== undefined ||
+        imageUrl !== undefined ||
+        (media && Array.isArray(media) && media.length > 0) ||
+        (variants && Array.isArray(variants) && variants.length > 0)
+      ) ? {
+        isVerified: false,
+        verificationStatus: 'PENDING',
+        verificationRequestedAt: new Date(),
+        rejectionReason: null
+      } : {})
     };
 
     // Update core product details

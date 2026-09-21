@@ -1,14 +1,28 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Filter, PlusCircle, MoreVertical, Star, Package } from 'lucide-react';
+import { 
+  Filter, 
+  PlusCircle, 
+  MoreVertical, 
+  Star, 
+  Package, 
+  Edit3, 
+  Trash2, 
+  Eye, 
+  EyeOff, 
+  Loader2 
+} from 'lucide-react';
 import Image from 'next/image';
+import { toast } from 'sonner';
 import { SellerHeader } from '@/components/seller/SellerHeader';
 import { 
   useGetMyStoreQuery, 
   useGetStoreProductsQuery, 
-  useGetStoreCategoriesQuery 
+  useGetStoreCategoriesQuery,
+  useUpdateProductMutation,
+  useDeleteProductMutation
 } from '@/lib/api';
 import { useCurrency } from '@/context/CurrencyContext';
 
@@ -17,6 +31,15 @@ export default function MyProductsPage() {
   const { formatPrice } = useCurrency();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+
+  // Action Menu State
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [productToDelete, setProductToDelete] = useState<any | null>(null);
+  const [togglingProductId, setTogglingProductId] = useState<string | null>(null);
+
+  // Mutations
+  const [updateProduct] = useUpdateProductMutation();
+  const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
 
   // Fetch real data
   const { data: storeData } = useGetMyStoreQuery();
@@ -27,6 +50,51 @@ export default function MyProductsPage() {
   const { data: categories = [], isLoading: isLoadingCategories } = useGetStoreCategoriesQuery(storeData?.id ?? '', {
     skip: !storeData?.id,
   });
+
+  // Close open menus on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuOpenId(null);
+        if (!isDeleting) setProductToDelete(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDeleting]);
+
+  // Toggle Active / Inactive
+  const handleToggleActive = async (e: React.MouseEvent, product: any) => {
+    e.stopPropagation();
+    setMenuOpenId(null);
+    setTogglingProductId(product.id);
+    const targetState = !product.isActive;
+    try {
+      await updateProduct({
+        productId: product.id,
+        body: { isActive: targetState }
+      }).unwrap();
+      toast.success(targetState ? `"${product.name}" is now Active` : `"${product.name}" is now Inactive`);
+    } catch (err: any) {
+      console.error('Failed to toggle product status:', err);
+      toast.error(err?.data?.message || 'Failed to update product status');
+    } finally {
+      setTogglingProductId(null);
+    }
+  };
+
+  // Delete Product
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+    try {
+      await deleteProduct(productToDelete.id).unwrap();
+      toast.success(`"${productToDelete.name}" deleted successfully`);
+      setProductToDelete(null);
+    } catch (err: any) {
+      console.error('Failed to delete product:', err);
+      toast.error(err?.data?.message || 'Failed to delete product');
+    }
+  };
 
   // Filter Logic
   const filteredProducts = useMemo(() => {
@@ -96,11 +164,12 @@ export default function MyProductsPage() {
               const primaryMedia = product.media?.find((m: any) => m.isPrimary) || product.media?.[0];
               const imageUrl = primaryMedia?.url || product.imageUrl || '';
               const stock = product.stockCount ?? 0;
+              const isMenuOpen = menuOpenId === product.id;
               
               return (
                 <div 
                   key={product.id} 
-                  className={`p-4 flex gap-4 ${idx !== filteredProducts.length - 1 ? 'border-b border-[#F2EFE9]' : ''}`}
+                  className={`p-4 flex gap-4 transition-colors relative ${idx !== filteredProducts.length - 1 ? 'border-b border-[#F2EFE9]' : ''} hover:bg-gray-50/50 cursor-pointer`}
                   onClick={() => router.push(`/seller/products/${product.id}`)}
                 >
                   {/* Image */}
@@ -118,15 +187,118 @@ export default function MyProductsPage() {
                   </div>
                   
                   {/* Details */}
-                  <div className="flex-1 flex flex-col justify-between py-0.5">
+                  <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
                     <div>
-                      <div className="flex justify-between items-start">
-                        <h3 className="font-bold text-[#171717] text-[15px] leading-tight pr-2 line-clamp-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="font-bold text-[#171717] text-[15px] leading-tight line-clamp-2">
                           {product.name}
                         </h3>
-                        <button className="shrink-0 p-1 -mr-1 -mt-1 text-[#6B6B6B] active:bg-gray-100 rounded-full" onClick={(e) => e.stopPropagation()}>
-                          <MoreVertical className="w-5 h-5" />
-                        </button>
+
+                        {/* Three Dots Menu Container */}
+                        <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            type="button"
+                            aria-label="Product options"
+                            disabled={togglingProductId === product.id}
+                            className={`p-1.5 -mr-1.5 -mt-1 rounded-full transition-all ${
+                              isMenuOpen 
+                                ? 'bg-gray-100 text-gray-900 ring-2 ring-gray-200' 
+                                : 'text-[#6B6B6B] hover:text-gray-900 hover:bg-gray-100 active:bg-gray-200'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenId(isMenuOpen ? null : product.id);
+                            }}
+                          >
+                            {togglingProductId === product.id ? (
+                              <Loader2 className="w-5 h-5 animate-spin text-brand-navy" />
+                            ) : (
+                              <MoreVertical className="w-5 h-5" />
+                            )}
+                          </button>
+
+                          {/* Popover Action Menu */}
+                          {isMenuOpen && (
+                            <>
+                              {/* Invisible Backdrop to close on outside tap */}
+                              <div 
+                                className="fixed inset-0 z-30" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMenuOpenId(null);
+                                }} 
+                              />
+                              
+                              <div 
+                                className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.14)] border border-gray-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150 origin-top-right overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {/* Edit Product */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuOpenId(null);
+                                    router.push(`/seller/products/${product.id}/edit`);
+                                  }}
+                                  className="w-full px-3.5 py-2.5 text-left text-[13px] font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center gap-2.5 transition-colors"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                                    <Edit3 className="w-4 h-4" />
+                                  </div>
+                                  <span>Edit Product</span>
+                                </button>
+
+                                {/* Toggle Active / Inactive */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleToggleActive(e, product)}
+                                  className="w-full px-3.5 py-2.5 text-left text-[13px] font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center gap-2.5 transition-colors"
+                                >
+                                  {product.isActive ? (
+                                    <>
+                                      <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+                                        <EyeOff className="w-4 h-4" />
+                                      </div>
+                                      <div className="flex flex-col min-w-0">
+                                        <span className="leading-tight">Mark Inactive</span>
+                                        <span className="text-[10px] text-gray-400 font-normal">Hide from buyers</span>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                                        <Eye className="w-4 h-4" />
+                                      </div>
+                                      <div className="flex flex-col min-w-0">
+                                        <span className="leading-tight text-emerald-700 font-semibold">Mark Active</span>
+                                        <span className="text-[10px] text-gray-400 font-normal">Show in store</span>
+                                      </div>
+                                    </>
+                                  )}
+                                </button>
+
+                                <div className="h-px bg-gray-100 my-1" />
+
+                                {/* Delete Product */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuOpenId(null);
+                                    setProductToDelete(product);
+                                  }}
+                                  className="w-full px-3.5 py-2.5 text-left text-[13px] font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-rose-100/70 flex items-center justify-center text-rose-600 shrink-0">
+                                    <Trash2 className="w-4 h-4" />
+                                  </div>
+                                  <span>Delete Product</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <p className="text-xs text-[#6B6B6B] mt-1 uppercase tracking-wider font-medium">SKU: {product.sku || 'N/A'}</p>
                     </div>
@@ -187,6 +359,56 @@ export default function MyProductsPage() {
           </>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {productToDelete && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => !isDeleting && setProductToDelete(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-1.5">
+              Delete Product?
+            </h3>
+            <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
+              Are you sure you want to delete <span className="font-semibold text-gray-800">"{productToDelete.name}"</span>? This product will be archived and hidden from your store.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setProductToDelete(null)}
+                className="flex-1 py-3 px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <span>Delete</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
