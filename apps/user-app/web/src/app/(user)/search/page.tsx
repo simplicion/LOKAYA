@@ -248,16 +248,6 @@ export default function SearchPage() {
     <div className="flex flex-col min-h-screen bg-[#FAF9F6]">
       {/* Header with Search Input */}
       <div className="flex items-center gap-3 px-4 pt-3 pb-3 sticky top-0 bg-[#FAF9F6]/95 backdrop-blur-md z-50 border-b border-gray-200">
-        <Link 
-          href="/notifications" 
-          prefetch={false}
-          className="relative w-10 h-10 flex items-center justify-center -ml-1 text-[#171717] hover:bg-gray-100 active:scale-95 rounded-full transition cursor-pointer shrink-0"
-          aria-label="Notifications"
-        >
-          <Bell className="w-5 h-5 text-[#171717]" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-[#FF5A36] rounded-full ring-2 ring-white" />
-        </Link>
-        
         <div className="flex-1 relative flex items-center h-11 bg-white border border-gray-200 rounded-2xl px-3.5 shadow-sm focus-within:border-[#FF5A36] focus-within:ring-2 focus-within:ring-[#FF5A36]/10 transition-all overflow-hidden">
           <Search className="w-4 h-4 text-gray-400 shrink-0" />
           <input 
@@ -281,6 +271,16 @@ export default function SearchPage() {
             </button>
           )}
         </div>
+
+        <Link 
+          href="/notifications" 
+          prefetch={false}
+          className="relative w-10 h-10 flex items-center justify-center -mr-1 text-[#171717] hover:bg-gray-100 active:scale-95 rounded-full transition cursor-pointer shrink-0"
+          aria-label="Notifications"
+        >
+          <Bell className="w-5 h-5 text-[#171717]" />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-[#FF5A36] rounded-full ring-2 ring-white" />
+        </Link>
       </div>
 
       {/* Filter Chips Bar */}
