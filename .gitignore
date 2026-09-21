@@ -13,3 +13,6 @@ build/
 packages/db/prisma/client/
 scratch/
 scripts/ssm-params.json
+temp_ec2_key*
+test-live-server.js
+packages/db/testFuelRateModel.js

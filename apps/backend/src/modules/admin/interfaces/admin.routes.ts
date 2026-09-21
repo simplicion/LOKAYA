@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin, AuthRequest } from '../../../shared/middleware/auth';
 import { prisma } from '@workspace/db';
 import { SupportService } from '../../support/application/support.service';
+import { FuelRateService } from '../../delivery/application/fuel-rate.service';
 
 export const adminRouter: Router = Router();
 
@@ -850,6 +851,85 @@ adminRouter.patch('/delivery-partners/:id/suspend', requireAuth, requireAdmin, a
     });
 
     res.status(200).json({ success: true, message: 'Delivery partner suspended', partner });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// Fuel Rates & Global Operational Benchmarks
+// ==========================================
+
+// GET /api/v1/admin/fuel-rates - List all country fuel rates (with search & pagination)
+adminRouter.get('/fuel-rates', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const search = req.query.search as string | undefined;
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
+
+    const result = await FuelRateService.getAllCountryRates(search, page, limit);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/v1/admin/fuel-rates/:countryCode - Get single country fuel rate & upfront benchmarks
+adminRouter.get('/fuel-rates/:countryCode', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { countryCode } = req.params;
+    const rate = await FuelRateService.getCountryFuelRate(countryCode);
+    const benchmark = await FuelRateService.getFuelBenchmark(countryCode);
+    res.status(200).json({ rate, benchmark });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/fuel-rates/:countryCode - Update fuel price per liter
+adminRouter.patch('/fuel-rates/:countryCode', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { countryCode } = req.params;
+    const { fuelPricePerLiter, isActive } = req.body;
+
+    if (fuelPricePerLiter === undefined && isActive === undefined) {
+      return res.status(400).json({ message: 'fuelPricePerLiter or isActive is required' });
+    }
+
+    const updated = await FuelRateService.updateCountryRate(
+      countryCode,
+      Number(fuelPricePerLiter),
+      isActive !== undefined ? Boolean(isActive) : undefined
+    );
+
+    const updatedBenchmark = await FuelRateService.getFuelBenchmark(countryCode);
+
+    res.status(200).json({
+      success: true,
+      message: `Fuel rate for ${countryCode.toUpperCase()} updated successfully`,
+      data: updated,
+      benchmark: updatedBenchmark
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/v1/admin/fuel-rates/seed - Re-seed default 177+ countries database
+adminRouter.post('/fuel-rates/seed', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    // Run seeder logic
+    const { spawn } = require('child_process');
+    const path = require('path');
+    const seedScript = path.resolve(__dirname, '../../../../../../packages/db/seedFuelRates.js');
+
+    // Invalidate full cache
+    FuelRateService.invalidateCache();
+
+    res.status(200).json({
+      success: true,
+      message: 'Fuel rate cache refreshed and seeder triggered'
+    });
   } catch (error) {
     next(error);
   }

@@ -39,7 +39,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners'],
+  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
       query: () => '/seller/pending',
@@ -291,6 +291,33 @@ export const adminApi = createApi({
         body: formData,
       }),
     }),
+    // Fuel Rate Management Endpoints
+    getFuelRates: builder.query<{ total: number; page: number; limit: number; totalPages: number; items: any[] }, { search?: string; page?: number; limit?: number } | void>({
+      query: (params) => ({
+        url: '/admin/fuel-rates',
+        params: params || {},
+      }),
+      providesTags: ['FuelRates'],
+    }),
+    getFuelRateByCountry: builder.query<{ rate: any; benchmark: any }, string>({
+      query: (countryCode) => `/admin/fuel-rates/${countryCode}`,
+      providesTags: (result, error, countryCode) => [{ type: 'FuelRates', id: countryCode }],
+    }),
+    updateFuelRate: builder.mutation<any, { countryCode: string; fuelPricePerLiter: number; isActive?: boolean }>({
+      query: ({ countryCode, ...body }) => ({
+        url: `/admin/fuel-rates/${countryCode}`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['FuelRates'],
+    }),
+    seedFuelRates: builder.mutation<any, void>({
+      query: () => ({
+        url: '/admin/fuel-rates/seed',
+        method: 'POST',
+      }),
+      invalidatesTags: ['FuelRates'],
+    }),
   }),
 });
 
@@ -333,4 +360,8 @@ export const {
   useVerifyDeliveryPartnerMutation,
   useRejectDeliveryPartnerMutation,
   useSuspendDeliveryPartnerMutation,
+  useGetFuelRatesQuery,
+  useGetFuelRateByCountryQuery,
+  useUpdateFuelRateMutation,
+  useSeedFuelRatesMutation,
 } = adminApi;

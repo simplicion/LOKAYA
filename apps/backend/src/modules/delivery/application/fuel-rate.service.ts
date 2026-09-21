@@ -121,17 +121,18 @@ export class FuelRateService {
     }
 
     try {
-      const dbEntry = await (prisma as any).countryFuelBenchmark.findUnique({
+      const dbEntry = await (prisma as any).countryFuelRate.findUnique({
         where: { countryCode: normCountry }
       });
 
-      if (dbEntry) {
-        const bikeMileage = dbEntry.standardBikeMileage || 50.0;
+      if (dbEntry && dbEntry.isActive !== false) {
+        const bikeMileage = 50.0;
+        const scooterMileage = 40.0;
+        const labor = normCountry === 'NP' ? 2.0 : normCountry === 'US' ? 0.5 : normCountry === 'BD' ? 1.5 : 1.0;
         const fuelPrice = dbEntry.fuelPricePerLiter;
-        const labor = dbEntry.baseLaborAllowance || 1.0;
         const baseFuelPerKm = fuelPrice / bikeMileage;
         const standardRate = Math.round((baseFuelPerKm + labor) * 1.5 * 10) / 10;
-        const minFloor = normCountry === 'NP' ? 80 : normCountry === 'US' ? 3.5 : 50;
+        const minFloor = normCountry === 'NP' ? 80 : normCountry === 'US' ? 3.5 : normCountry === 'BD' ? 65 : 50;
 
         const data: FuelBenchmarkData = {
           countryCode: dbEntry.countryCode,
@@ -140,25 +141,132 @@ export class FuelRateService {
           currencySymbol: dbEntry.currencySymbol,
           fuelPricePerLiter: dbEntry.fuelPricePerLiter,
           standardBikeMileage: bikeMileage,
-          standardScooterMileage: dbEntry.standardScooterMileage || 40.0,
+          standardScooterMileage: scooterMileage,
           baseLaborAllowance: labor,
           minDeliveryFloor: minFloor,
           standardPerKmRate: standardRate,
-          longDistanceFlatRate: normCountry === 'NP' ? 150 : normCountry === 'US' ? 5.99 : 90,
-          lastUpdated: dbEntry.lastUpdated.toISOString()
+          longDistanceFlatRate: normCountry === 'NP' ? 150 : normCountry === 'US' ? 5.99 : normCountry === 'BD' ? 110 : 90,
+          lastUpdated: dbEntry.updatedAt ? new Date(dbEntry.updatedAt).toISOString() : new Date().toISOString()
         };
 
         this.cache.set(normCountry, { data, cachedAt: now });
         return data;
       }
     } catch (e) {
-      console.warn(`[FuelRateService] Could not query db for ${normCountry}, using built-in benchmark.`);
+      console.warn(`[FuelRateService] Could not query db for ${normCountry}, using built-in fallback.`);
     }
 
     // Fallback to seed benchmark
     const seed = SEED_BENCHMARKS[normCountry] || SEED_BENCHMARKS['IN'];
     this.cache.set(normCountry, { data: seed, cachedAt: now });
     return seed;
+  }
+
+  /**
+   * Directly queries the country fuel rate record.
+   */
+  static async getCountryFuelRate(countryCode = 'IN') {
+    const normCountry = (countryCode || 'IN').toUpperCase();
+    try {
+      const rate = await (prisma as any).countryFuelRate.findUnique({
+        where: { countryCode: normCountry }
+      });
+      if (rate) return rate;
+    } catch (err) {
+      console.warn(`[FuelRateService] Error fetching country fuel rate for ${normCountry}:`, err);
+    }
+    const seed = SEED_BENCHMARKS[normCountry] || SEED_BENCHMARKS['IN'];
+    return {
+      id: `seed-${normCountry}`,
+      countryCode: seed.countryCode,
+      countryName: seed.countryName,
+      currency: seed.currency,
+      currencySymbol: seed.currencySymbol,
+      fuelPricePerLiter: seed.fuelPricePerLiter,
+      isActive: true,
+      updatedAt: new Date(),
+      createdAt: new Date()
+    };
+  }
+
+  /**
+   * Retrieves paginated list of all country fuel rates for admin management.
+   */
+  static async getAllCountryRates(search?: string, page = 1, limit = 50) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(250, Math.max(1, limit));
+    const skip = (safePage - 1) * safeLimit;
+
+    const where: any = {};
+    if (search && search.trim()) {
+      const q = search.trim();
+      where.OR = [
+        { countryCode: { contains: q, mode: 'insensitive' } },
+        { countryName: { contains: q, mode: 'insensitive' } },
+        { currency: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    try {
+      const [total, items] = await Promise.all([
+        (prisma as any).countryFuelRate.count({ where }),
+        (prisma as any).countryFuelRate.findMany({
+          where,
+          orderBy: { countryName: 'asc' },
+          skip,
+          take: safeLimit
+        })
+      ]);
+
+      return {
+        total,
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.ceil(total / safeLimit),
+        items
+      };
+    } catch (err) {
+      console.error('[FuelRateService] Error fetching all country fuel rates:', err);
+      return {
+        total: 0,
+        page: safePage,
+        limit: safeLimit,
+        totalPages: 0,
+        items: []
+      };
+    }
+  }
+
+  /**
+   * Updates fuel price per liter or active status for a specific country and invalidates cache.
+   */
+  static async updateCountryRate(countryCode: string, fuelPricePerLiter: number, isActive?: boolean) {
+    const normCountry = countryCode.toUpperCase();
+    const data: any = {
+      fuelPricePerLiter: Number(fuelPricePerLiter)
+    };
+    if (isActive !== undefined) {
+      data.isActive = Boolean(isActive);
+    }
+
+    const updated = await (prisma as any).countryFuelRate.update({
+      where: { countryCode: normCountry },
+      data
+    });
+
+    this.invalidateCache(normCountry);
+    return updated;
+  }
+
+  /**
+   * Invalidates memory cache for a given country or all countries.
+   */
+  static invalidateCache(countryCode?: string) {
+    if (countryCode) {
+      this.cache.delete(countryCode.toUpperCase());
+    } else {
+      this.cache.clear();
+    }
   }
 
   /**

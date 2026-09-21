@@ -1220,5 +1220,18 @@ model DeliveryBatchItem {
   @@index([orderId])
 }
 
+// Country Fuel Rates Management (Global Benchmark Endpoint)
+model CountryFuelRate {
+  id                String   @id @default(uuid())
+  countryCode       String   @unique // ISO 3166-1 alpha-2 (e.g. "NP", "IN", "US", "AE", etc.)
+  countryName       String   // e.g. "Nepal", "India", "United States", "United Arab Emirates"
+  currency          String   // ISO 4217, e.g. "NPR", "INR", "USD", "AED", "GBP"
+  currencySymbol    String   // e.g. "रू", "₹", "$", "AED", "£"
+  fuelPricePerLiter Float    // Current retail fuel price per liter in local currency
+  isActive          Boolean  @default(true)
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
 
-
+  @@index([countryCode])
+  @@index([isActive])
+}

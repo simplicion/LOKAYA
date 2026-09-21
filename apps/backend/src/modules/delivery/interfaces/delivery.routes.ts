@@ -367,6 +367,31 @@ router.post('/pricing/multi-store-blended', async (req: Request, res: Response, 
   }
 });
 
+router.get('/fuel-rates', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { FuelRateService } = require('../application/fuel-rate.service');
+    const search = req.query.search as string | undefined;
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 200;
+    const result = await FuelRateService.getAllCountryRates(search, page, limit);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/fuel-rates/:countryCode', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { FuelRateService } = require('../application/fuel-rate.service');
+    const countryCode = req.params.countryCode;
+    const rate = await FuelRateService.getCountryFuelRate(countryCode);
+    const benchmark = await FuelRateService.getFuelBenchmark(countryCode);
+    res.status(200).json({ rate, benchmark });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export const deliveryRouter = router;
 
 
