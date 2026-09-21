@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "924762867355",
+    "project_id": "lokaya",
+    "storage_bucket": "lokaya.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:924762867355:android:0433ff1d871f650a87a83e",
+        "android_client_info": {
+          "package_name": "shop.lokaya.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "924762867355-6lfudinvj763rl4usv256svhtu3muemi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_droV1ayojZ2wSABtJ4FYyWa7tIhI-c8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "924762867355-6lfudinvj763rl4usv256svhtu3muemi.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
