@@ -82,7 +82,30 @@ function OrderSuccessContent() {
 
   const items = order?.items || [];
   const itemsCount = order?.itemsCount || items.reduce((acc: number, item: any) => acc + (item.quantity || item.qty || 1), 0);
-  const itemsSubtotal = Math.max(0, totalAmountNum - (order?.shippingFee || 0));
+
+  // Exact money breakdown computation
+  const calculatedItemsTotal = items.reduce((sum: number, item: any) => {
+    const price = Number(item.priceAt || item.price || item.product?.sellingPrice || 0);
+    const qty = Number(item.quantity || item.qty || 1);
+    return sum + (price * qty);
+  }, 0);
+
+  const deliveryFee = Number(order?.shippingFee ?? 0);
+  const discountAmount = Number(order?.discountAmount ?? 0);
+  const rawPlatformFee = Number(order?.platformFee ?? 0);
+  const platformFee = rawPlatformFee > 0
+    ? rawPlatformFee
+    : calculatedItemsTotal > 0
+      ? Math.max(0, Math.round((totalAmountNum - calculatedItemsTotal - deliveryFee + discountAmount) * 100) / 100)
+      : 0;
+
+  const itemsSubtotal = calculatedItemsTotal > 0 
+    ? calculatedItemsTotal 
+    : Math.max(0, totalAmountNum - deliveryFee - platformFee + discountAmount);
+
+  const deliveryEstimate = (!order?.estimatedDelivery || order.estimatedDelivery.includes('2 - 4 hours'))
+    ? '2-3 days'
+    : order.estimatedDelivery;
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] pb-safe flex flex-col max-w-md mx-auto relative shadow-2xl">
@@ -136,11 +159,7 @@ function OrderSuccessContent() {
                 <span className="text-gray-500 font-medium">Payment Method</span>
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-gray-900 text-right">{displayPaymentMethod}</span>
-                  {isCod ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                      Cash/UPI
-                    </span>
-                  ) : (
+                  {!isCod && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Paid
                     </span>
@@ -178,7 +197,7 @@ function OrderSuccessContent() {
                       Doorstep Delivery
                     </p>
                     <p className="font-bold text-gray-900 text-xs">
-                      {order?.estimatedDelivery || 'Within 2 - 4 hours (Express Local)'}
+                      {deliveryEstimate}
                     </p>
                   </div>
                 </div>
@@ -297,10 +316,22 @@ function OrderSuccessContent() {
                   </div>
                   <div className="flex justify-between text-gray-500">
                     <span>Delivery Fee</span>
-                    <span className="font-semibold text-emerald-600">
-                      {order?.shippingFee ? formatPrice(order.shippingFee) : 'FREE'}
+                    <span className={`font-semibold ${deliveryFee > 0 ? 'text-gray-800' : 'text-emerald-600'}`}>
+                      {deliveryFee > 0 ? formatPrice(deliveryFee) : 'FREE'}
                     </span>
                   </div>
+                  {platformFee > 0 && (
+                    <div className="flex justify-between text-gray-500">
+                      <span>Platform Fee</span>
+                      <span className="font-semibold text-gray-800">{formatPrice(platformFee)}</span>
+                    </div>
+                  )}
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-600 font-medium">
+                      <span>Discount</span>
+                      <span className="font-semibold">-{formatPrice(discountAmount)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center pt-2 border-t border-gray-100 font-bold text-sm">
                     <span className="text-gray-900">{amountLabel}</span>
                     <span className="font-black text-[#FF5A36] text-base">{displayAmount}</span>

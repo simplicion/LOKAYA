@@ -76,7 +76,29 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
   const deliveredDateStr = formatDateTime(order.deliveredAt);
   const pickedUpDateStr = formatDateTime(order.pickedUpAt);
 
-  const estimatedDelivery = order.estimatedDelivery || '3 - 5 business days';
+  const rawEstimatedDelivery = order.estimatedDelivery;
+  const estimatedDelivery = (!rawEstimatedDelivery || rawEstimatedDelivery.includes('2 - 4 hours'))
+    ? '2-3 days'
+    : rawEstimatedDelivery;
+
+  // Exact money breakdown computation
+  const calculatedItemsTotal = (order.items || []).reduce((sum: number, item: any) => {
+    const price = Number(item.priceAt || item.price || item.product?.sellingPrice || 0);
+    const qty = Number(item.quantity || item.qty || 1);
+    return sum + (price * qty);
+  }, 0);
+  const deliveryFee = Number(order.shippingFee || 0);
+  const discountAmount = Number(order.discountAmount || 0);
+  const rawPlatformFee = Number(order.platformFee || 0);
+  const totalAmountNum = Number(order.totalAmount || 0);
+  const platformFee = rawPlatformFee > 0
+    ? rawPlatformFee
+    : calculatedItemsTotal > 0
+      ? Math.max(0, Math.round((totalAmountNum - calculatedItemsTotal - deliveryFee + discountAmount) * 100) / 100)
+      : 0;
+  const itemsSubtotal = calculatedItemsTotal > 0 
+    ? calculatedItemsTotal 
+    : Math.max(0, totalAmountNum - deliveryFee - platformFee + discountAmount);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28 flex flex-col max-w-md mx-auto relative shadow-2xl">
@@ -250,15 +272,27 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
             <div className="flex justify-between text-gray-600">
               <span>Items Total</span>
               <span className="font-semibold text-gray-900">
-                {formatPrice((order.totalAmount || 0) - (order.shippingFee || 0))}
+                {formatPrice(itemsSubtotal)}
               </span>
             </div>
             <div className="flex justify-between text-gray-600">
               <span>Delivery Charges</span>
-              <span className="font-semibold text-emerald-600">
-                {order.shippingFee ? formatPrice(order.shippingFee) : 'FREE'}
+              <span className={`font-semibold ${deliveryFee > 0 ? 'text-gray-900' : 'text-emerald-600'}`}>
+                {deliveryFee > 0 ? formatPrice(deliveryFee) : 'FREE'}
               </span>
             </div>
+            {platformFee > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span>Platform Fee</span>
+                <span className="font-semibold text-gray-900">{formatPrice(platformFee)}</span>
+              </div>
+            )}
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-emerald-600 font-medium">
+                <span>Discount</span>
+                <span className="font-semibold">-{formatPrice(discountAmount)}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-between items-center">

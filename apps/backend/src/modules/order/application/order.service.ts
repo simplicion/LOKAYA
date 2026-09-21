@@ -597,6 +597,7 @@ export class OrderService {
       isManualBooking: Boolean(order.isManualBooking),
       notes: order.notes || null,
       shippingFee: order.shippingFee || 0,
+      platformFee: order.platformFee || 0,
       status: uiStatus,
       rawStatus: order.status,
       timeLabel,
@@ -616,7 +617,7 @@ export class OrderService {
         vehicleNumber: order.deliveryPartner.vehicleNumber,
         avatarUrl: order.deliveryPartner.user.avatarUrl
       } : null,
-      estimatedDelivery: order.estimatedDelivery || (order.deliveryAddress ? 'Within 2 - 4 hours (Express Local)' : 'Ready for Pickup'),
+      estimatedDelivery: order.estimatedDelivery && !order.estimatedDelivery.includes('2 - 4 hours') ? order.estimatedDelivery : (order.deliveryAddress ? '2-3 days' : 'Ready for Pickup'),
       awbCode: order.awbCode,
       courierName: order.courierName,
       trackingUrl: order.trackingUrl,
@@ -1016,7 +1017,7 @@ export class OrderService {
       awbCode: (order as any).awbCode,
       shippingLabelUrl: (order as any).shippingLabelUrl,
       trackingUrl: (order as any).trackingUrl,
-      estimatedDelivery: (order as any).estimatedDelivery || 'Within 2 - 4 hours (Express Local)',
+      estimatedDelivery: (order as any).estimatedDelivery && !(order as any).estimatedDelivery.includes('2 - 4 hours') ? (order as any).estimatedDelivery : '2-3 days',
       storeName: order.store?.name,
       itemsCount: order.items.reduce((s, i) => s + i.quantity, 0),
       timeline

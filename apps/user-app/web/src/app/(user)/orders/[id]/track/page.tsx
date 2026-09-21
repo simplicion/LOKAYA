@@ -47,7 +47,10 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
   const courierName = trackingData?.courierName || orderDetails?.courierName || (rawStatus === 'SHIPPED' ? 'Standard Surface' : null);
   const awbCode = trackingData?.awbCode || orderDetails?.awbCode;
   const trackingUrl = trackingData?.trackingUrl || orderDetails?.trackingUrl;
-  const estimatedDelivery = trackingData?.estimatedDelivery || orderDetails?.estimatedDelivery || 'Within 2 - 4 hours (Express Local)';
+  const rawEstimatedDelivery = trackingData?.estimatedDelivery || orderDetails?.estimatedDelivery;
+  const estimatedDelivery = (!rawEstimatedDelivery || rawEstimatedDelivery.includes('2 - 4 hours'))
+    ? '2-3 days'
+    : rawEstimatedDelivery;
   const deliveryAddress = trackingData?.deliveryAddress || orderDetails?.deliveryAddress || 'Customer Address';
   const deliveryOtp = trackingData?.deliveryOtp || orderDetails?.deliveryOtp || '4829';
   const deliveryPartner = trackingData?.deliveryPartner || orderDetails?.deliveryPartner;
