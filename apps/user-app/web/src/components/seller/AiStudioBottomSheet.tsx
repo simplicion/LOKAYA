@@ -244,13 +244,6 @@ export function AiStudioBottomSheet({
           {/* STEP 1: UPLOAD REFERENCE PHOTOS */}
           {step === 'UPLOAD' && (
             <div className="space-y-4 animate-in fade-in">
-              <div className="bg-[#FAF9F6] border border-[#E5E2DC] rounded-xl p-3.5">
-                <p className="text-xs font-semibold text-brand-navy">Upload Reference Product Photos</p>
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  The AI analyzes physical materials, brand markings, and form factor to render 5 studio angles: Hero, Lifestyle, Macro Detail, Perspective, and Editorial.
-                </p>
-              </div>
-
               {/* Upload Slots Grid */}
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {/* Slot 1: Front / Primary */}
@@ -350,23 +343,6 @@ export function AiStudioBottomSheet({
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Optional Custom Direction */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-gray-700">
-                    Custom Environment / Theme (Optional)
-                  </label>
-                  <span className="text-[10px] text-gray-400">Auto-detected if blank</span>
-                </div>
-                <input 
-                  type="text"
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder="e.g. Minimalist white marble surface, warm softbox lighting"
-                  className="w-full p-3 bg-white border border-[#E5E2DC] rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-xs"
-                />
               </div>
 
               {/* Shoot CTA */}
