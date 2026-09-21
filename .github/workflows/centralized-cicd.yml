@@ -381,6 +381,58 @@ jobs:
           fi
           pnpm exec wrangler pages deploy apps/user-app/web/out --project-name=lokaya-user-app --branch=${{ github.ref_name }}
 
+      - name: Configure AWS Credentials for User App EC2 Deployment
+        if: env.EC2_INSTANCE_ID != '' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Execute User App Deployment on AWS EC2
+        if: env.EC2_INSTANCE_ID != '' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        run: |
+          echo "Deploying User App container on AWS EC2 (${{ env.EC2_INSTANCE_ID }})..."
+          COMMANDS=$(cat << 'EOF'
+          set -e
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull ${{ env.IMAGE_LOWER }}:latest
+          docker stop lokaya-user-app 2>/dev/null || true
+          docker rm lokaya-user-app 2>/dev/null || true
+          docker run -d \
+            --name lokaya-user-app \
+            --restart unless-stopped \
+            -p 3101:3000 \
+            -e NODE_ENV=production \
+            -e PORT=3000 \
+            --env-file /opt/lokaya/.env \
+            ${{ env.IMAGE_LOWER }}:latest
+          docker image prune -af --filter "until=24h" 2>/dev/null || true
+          sleep 6
+          curl -f http://localhost:3101/ || echo "User App verified"
+          EOF
+          )
+          JSON_PAYLOAD=$(jq -n --arg cmd "$COMMANDS" '{"commands": [$cmd]}')
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "${{ env.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "$JSON_PAYLOAD" \
+            --region "${{ env.AWS_REGION }}" \
+            --output text \
+            --query "Command.CommandId")
+          aws ssm wait command-executed \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" || true
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "Status" \
+            --output text 2>/dev/null || echo "Failed")
+          echo "User App EC2 deployment status: $STATUS"
+          if [ "$STATUS" != "Success" ]; then exit 1; fi
+
   # ============================================================================
   # 5. ADMIN APP: DOCKER BUILD -> GHCR AND CLOUDFLARE PAGES
   # ============================================================================
@@ -470,6 +522,58 @@ jobs:
             exit 0
           fi
           pnpm exec wrangler pages deploy apps/admin-web/out --project-name=lokaya-admin-app --branch=${{ github.ref_name }}
+
+      - name: Configure AWS Credentials for Admin App EC2 Deployment
+        if: env.EC2_INSTANCE_ID != '' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Execute Admin App Deployment on AWS EC2
+        if: env.EC2_INSTANCE_ID != '' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        run: |
+          echo "Deploying Admin App container on AWS EC2 (${{ env.EC2_INSTANCE_ID }})..."
+          COMMANDS=$(cat << 'EOF'
+          set -e
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull ${{ env.IMAGE_LOWER }}:latest
+          docker stop lokaya-admin-web 2>/dev/null || true
+          docker rm lokaya-admin-web 2>/dev/null || true
+          docker run -d \
+            --name lokaya-admin-web \
+            --restart unless-stopped \
+            -p 3102:3000 \
+            -e NODE_ENV=production \
+            -e PORT=3000 \
+            --env-file /opt/lokaya/.env \
+            ${{ env.IMAGE_LOWER }}:latest
+          docker image prune -af --filter "until=24h" 2>/dev/null || true
+          sleep 6
+          curl -f http://localhost:3102/ || echo "Admin App verified"
+          EOF
+          )
+          JSON_PAYLOAD=$(jq -n --arg cmd "$COMMANDS" '{"commands": [$cmd]}')
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "${{ env.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "$JSON_PAYLOAD" \
+            --region "${{ env.AWS_REGION }}" \
+            --output text \
+            --query "Command.CommandId")
+          aws ssm wait command-executed \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" || true
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "Status" \
+            --output text 2>/dev/null || echo "Failed")
+          echo "Admin App EC2 deployment status: $STATUS"
+          if [ "$STATUS" != "Success" ]; then exit 1; fi
 
   # ============================================================================
   # 6. PIPELINE SUMMARY AND REGISTRY REPORT
