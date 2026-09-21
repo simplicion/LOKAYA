@@ -5,11 +5,25 @@ async function run() {
   console.log('🧪 RUNNING TEST 06: Handshake #1 - Store Pickup OTP Verification & Dispatch');
 
   let customer = await prisma.user.findFirst({ where: { email: 'test_buyer_e2e@lokaya.com' } });
+  if (!customer) customer = await prisma.user.create({ data: { email: 'test_buyer_e2e@lokaya.com', phone: '+919876543210', name: 'Test Customer' } });
+
   let merchant = await prisma.user.findFirst({ where: { email: 'test_merchant_e2e@lokaya.com' } });
+  if (!merchant) merchant = await prisma.user.create({ data: { email: 'test_merchant_e2e@lokaya.com', phone: '+919876543211', name: 'Test Store Owner' } });
+
   let store = await prisma.store.findFirst({ where: { users: { some: { userId: merchant.id } } } });
+  if (!store) store = await prisma.store.create({ data: { name: 'Lokaya Organic Hub', address: 'Sector 14, Main Road', contactPhone: '+919876543211', users: { create: { userId: merchant.id } } } });
+
   let partnerUser = await prisma.user.findFirst({ where: { email: 'test_rider_offline@lokaya.com' } });
-  let deliveryProfile = await prisma.deliveryPartner.findUnique({ where: { userId: partnerUser.id } });
+  if (!partnerUser) partnerUser = await prisma.user.create({ data: { email: 'test_rider_offline@lokaya.com', phone: '+919876543299', name: 'Arjun Verma (Offline Rider)' } });
+
+  let deliveryProfile = await prisma.deliveryPartner.upsert({
+    where: { userId: partnerUser.id },
+    update: { isOnline: false, vehicleType: 'MOTORCYCLE', status: 'APPROVED' },
+    create: { userId: partnerUser.id, isOnline: false, vehicleType: 'MOTORCYCLE', status: 'APPROVED', vehicleNumber: 'DL 04 EF 1234', vehiclePhotoUrl: 'https://test.com/bike.jpg', vehicleDocumentUrl: 'https://test.com/rc.jpg', selfieUrl: 'https://test.com/selfie.jpg', identityDocumentUrl: 'https://test.com/id.jpg' }
+  });
+
   let testProduct = await prisma.product.findFirst({ where: { storeId: store.id } });
+  if (!testProduct) testProduct = await prisma.product.create({ data: { storeId: store.id, title: 'Fresh Apples (1kg)', price: 350, stock: 50 } });
 
   const order = await prisma.order.create({
     data: {
