@@ -195,9 +195,22 @@ jobs:
             const currentRecords = refreshedDns.body.result || [];
 
             async function ensureDnsRecord(name, type, content) {
-              const found = currentRecords.find(r => r.name === name);
-              if (!found) {
-                console.log(`Adding missing DNS [${type}] ${name} -> ${content}...`);
+              const matches = currentRecords.filter(r => r.name === name);
+              let hasExactMatch = false;
+
+              for (const record of matches) {
+                if (record.type === type && record.content.toLowerCase() === content.toLowerCase()) {
+                  console.log(`Record for ${name} already matches [${type}] -> ${content}`);
+                  hasExactMatch = true;
+                } else {
+                  console.log(`Deleting obsolete DNS record for ${name}: [${record.type}] -> ${record.content} (id: ${record.id})`);
+                  const delRes = await requestWithAuth(`/zones/${zoneId}/dns_records/${record.id}`, 'DELETE');
+                  console.log(`Deleted ${name} (${record.id}):`, delRes.body?.success);
+                }
+              }
+
+              if (!hasExactMatch) {
+                console.log(`Creating fresh DNS [${type}] ${name} -> ${content}...`);
                 const res = await requestWithAuth(`/zones/${zoneId}/dns_records`, 'POST', {
                   type,
                   name,
@@ -205,9 +218,7 @@ jobs:
                   ttl: 1,
                   proxied: true
                 });
-                console.log(`Created ${name}:`, res.body.success);
-              } else {
-                console.log(`Record for ${name} already exists: [${found.type}] -> ${found.content}`);
+                console.log(`Created ${name}:`, res.body?.success);
               }
             }
 

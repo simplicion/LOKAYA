@@ -987,9 +987,13 @@ adminRouter.post('/notifications/broadcast', requireAuth, requireAdmin, async (r
       createdBy: req.user?.id
     });
 
+    const message = 'deliveredCount' in result
+      ? `Push notification campaign broadcast initiated to ${result.deliveredCount} devices`
+      : result.message || 'Push notification campaign broadcast enqueued successfully';
+
     res.status(200).json({
       success: true,
-      message: `Push notification campaign broadcast initiated to ${result.deliveredCount} devices`,
+      message,
       campaign: result.campaign
     });
   } catch (error) {
