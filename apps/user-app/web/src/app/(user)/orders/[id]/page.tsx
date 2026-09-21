@@ -77,7 +77,15 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
   const pickedUpDateStr = formatDateTime(order.pickedUpAt);
 
   const rawEstimatedDelivery = order.estimatedDelivery;
-  const estimatedDelivery = (!rawEstimatedDelivery || rawEstimatedDelivery.includes('2 - 4 hours'))
+  const isHoursOrExpress = rawEstimatedDelivery && (
+    rawEstimatedDelivery.toLowerCase().includes('hour') || 
+    rawEstimatedDelivery.toLowerCase().includes('express') ||
+    rawEstimatedDelivery.includes('2-4') ||
+    rawEstimatedDelivery.includes('2 - 4') ||
+    rawEstimatedDelivery.includes('2 – 4') ||
+    rawEstimatedDelivery.includes('2—4')
+  );
+  const estimatedDelivery = (!rawEstimatedDelivery || isHoursOrExpress)
     ? '2-3 days'
     : rawEstimatedDelivery;
 
@@ -101,39 +109,39 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
     : Math.max(0, totalAmountNum - deliveryFee - platformFee + discountAmount);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28 flex flex-col max-w-md mx-auto relative shadow-2xl">
+    <div className="min-h-screen bg-[#FAF9F6] pb-28 flex flex-col max-w-md mx-auto relative shadow-2xl font-sans">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 z-20 px-4 py-3.5 flex items-center justify-between">
+      <div className="bg-white border-b border-[#E5E2DC] sticky top-0 z-20 px-4 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button 
             onClick={() => router.back()} 
-            className="p-1.5 -ml-1.5 rounded-full hover:bg-gray-100 text-gray-800 transition-colors"
+            className="p-1.5 -ml-1.5 rounded-full hover:bg-gray-100 text-[#171717] transition-colors"
             aria-label="Back"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-lg font-black text-gray-900 tracking-tight">Order Details</h1>
+          <h1 className="text-lg font-extrabold text-[#171717] tracking-tight">Order Details</h1>
         </div>
         <span className="text-xs font-mono font-bold text-gray-500">#{order.id.slice(0, 8)}</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-3 p-4">
+      <div className="flex-1 overflow-y-auto space-y-3.5 p-4">
         
         {/* Status Banner */}
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
+        <div className="bg-white rounded-2xl p-5 border border-[#E5E2DC] shadow-xs space-y-3.5">
           <div className="flex justify-between items-center text-xs">
             <span className="font-bold text-gray-500">Placed on {orderDateStr}</span>
-            <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-orange-50 text-[#FF6B00] border border-orange-200">
+            <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-orange-50 text-[#FF5A36] border border-orange-200">
               {rawStatus.replace(/_/g, ' ')}
             </span>
           </div>
 
           <div className="bg-orange-50/70 border border-orange-100 rounded-xl p-3.5 flex items-start gap-3.5">
-            <div className="w-9 h-9 rounded-xl bg-[#FF6B00] text-white flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-orange-50 text-[#FF5A36] border border-orange-100 flex items-center justify-center shrink-0 shadow-xs">
               <Truck className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-gray-900 text-xs">
+              <h3 className="font-bold text-[#171717] text-xs">
                 {isDelivered ? 'Delivered Successfully' : 
                  rawStatus === 'ARRIVED_AT_CUSTOMER' || rawStatus === 'ARRIVED_AT_DESTINATION' ? 'Rider Arrived at Destination' :
                  rawStatus === 'SHIPPED' ? (order.awbCode ? `In Transit (${order.courierName || 'Shiprocket Express'})` : 'In Transit (Dispatched)') :
@@ -148,7 +156,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
               
               <Button 
                 onClick={() => router.push(`/orders/${order.id}/track`)}
-                className="mt-3 w-full h-8 rounded-lg bg-[#FF6B00] hover:bg-[#ff7a1f] text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5"
+                className="mt-3 w-full h-8 rounded-lg bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5"
               >
                 <span>Live Delivery Tracking</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -156,44 +164,44 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
-          {/* Secure Handover OTP Banner */}
+          {/* Secure Handover OTP Banner (Lokaya Design System) */}
           {!isDelivered && (order.deliveryOtp || order.pickupOtp) && (
-            <div className="bg-[#0F172A] text-white rounded-xl p-3 flex items-center justify-between border border-slate-800 shadow-sm">
-              <div className="flex items-center gap-2 text-xs font-bold">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <div className="bg-emerald-50/80 rounded-xl p-3.5 flex items-center justify-between border border-emerald-200 shadow-xs">
+              <div className="flex items-center gap-2.5 text-xs font-bold text-emerald-950">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>Delivery OTP:</span>
-                <span className="font-mono text-sm tracking-widest text-emerald-300 font-black">
+                <span className="font-mono text-sm tracking-widest text-emerald-700 font-black">
                   {order.deliveryOtp || order.pickupOtp}
                 </span>
               </div>
-              <span className="text-[10px] text-slate-400">Share with Rider at Doorstep</span>
+              <span className="text-[11px] text-emerald-700 font-medium">Share with Rider at Doorstep</span>
             </div>
           )}
 
           {/* Courier Telemetry if assigned */}
           {order.awbCode && (
-            <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px]">
-              <span className="text-gray-500">AWB: <span className="font-mono font-bold text-gray-900">{order.awbCode}</span></span>
+            <div className="pt-2 border-t border-[#E5E2DC] flex items-center justify-between text-[11px]">
+              <span className="text-gray-500">AWB: <span className="font-mono font-bold text-[#171717]">{order.awbCode}</span></span>
               <span className="font-semibold text-gray-700">{order.courierName || 'Standard Surface'}</span>
             </div>
           )}
         </div>
 
         {/* Items List */}
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
+        <div className="bg-white rounded-2xl p-5 border border-[#E5E2DC] shadow-xs space-y-3">
           <div className="flex justify-between items-center">
-            <h3 className="font-extrabold text-gray-900 text-sm">Items in this Order</h3>
+            <h3 className="font-extrabold text-[#171717] text-sm">Items in this Order</h3>
             <span className="text-xs text-gray-400 font-semibold">{order.items?.length || 0} items</span>
           </div>
 
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-[#E5E2DC]">
             {order.items?.map((item: any) => {
               const itemImg = item.product?.media?.[0]?.url || item.product?.imageUrl || '';
               return (
                 <div key={item.id} className="py-3 flex gap-3.5 items-center first:pt-0 last:pb-0">
                   <div 
                     onClick={() => item.productId && router.push(`/product/${item.productId}`)}
-                    className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-100 bg-gray-50 shrink-0 cursor-pointer flex items-center justify-center"
+                    className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#E5E2DC] bg-[#FAF9F6] shrink-0 cursor-pointer flex items-center justify-center"
                   >
                     {itemImg ? (
                       <Image 
@@ -211,7 +219,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                   <div className="flex-1 min-w-0">
                     <h4 
                       onClick={() => item.productId && router.push(`/product/${item.productId}`)}
-                      className="font-bold text-gray-900 text-xs leading-tight truncate cursor-pointer hover:text-[#FF6B00]"
+                      className="font-bold text-[#171717] text-xs leading-tight truncate cursor-pointer hover:text-[#FF5A36]"
                     >
                       {item.productName || item.product?.name}
                     </h4>
@@ -223,7 +231,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                     )}
 
                     <div className="flex justify-between items-center mt-1.5">
-                      <span className="font-black text-gray-900 text-xs">
+                      <span className="font-black text-[#171717] text-xs">
                         {formatPrice((item.priceAt || item.product?.sellingPrice || 0) * (item.quantity || 1))}
                       </span>
                       <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
@@ -248,10 +256,10 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Delivery Address */}
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-2.5">
-          <h3 className="font-extrabold text-gray-900 text-sm">Delivery Address</h3>
+        <div className="bg-white rounded-2xl p-5 border border-[#E5E2DC] shadow-xs space-y-2.5">
+          <h3 className="font-extrabold text-[#171717] text-sm">Delivery Address</h3>
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#FF5A36] border border-orange-100 flex items-center justify-center shrink-0 mt-0.5">
               <MapPin className="w-4 h-4" />
             </div>
             <div className="flex-1 text-xs leading-relaxed text-gray-700">
@@ -265,26 +273,26 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Payment Summary */}
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
-          <h3 className="font-extrabold text-gray-900 text-sm">Payment Summary</h3>
+        <div className="bg-white rounded-2xl p-5 border border-[#E5E2DC] shadow-xs space-y-3">
+          <h3 className="font-extrabold text-[#171717] text-sm">Payment Summary</h3>
           
-          <div className="space-y-2 text-xs border-b border-gray-100 pb-3">
+          <div className="space-y-2 text-xs border-b border-[#E5E2DC] pb-3">
             <div className="flex justify-between text-gray-600">
               <span>Items Total</span>
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-[#171717]">
                 {formatPrice(itemsSubtotal)}
               </span>
             </div>
             <div className="flex justify-between text-gray-600">
               <span>Delivery Charges</span>
-              <span className={`font-semibold ${deliveryFee > 0 ? 'text-gray-900' : 'text-emerald-600'}`}>
+              <span className={`font-semibold ${deliveryFee > 0 ? 'text-[#171717]' : 'text-emerald-600'}`}>
                 {deliveryFee > 0 ? formatPrice(deliveryFee) : 'FREE'}
               </span>
             </div>
             {platformFee > 0 && (
               <div className="flex justify-between text-gray-600">
                 <span>Platform Fee</span>
-                <span className="font-semibold text-gray-900">{formatPrice(platformFee)}</span>
+                <span className="font-semibold text-[#171717]">{formatPrice(platformFee)}</span>
               </div>
             )}
             {discountAmount > 0 && (
@@ -296,8 +304,8 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="font-extrabold text-gray-900 text-sm">Total Paid</span>
-            <span className="font-black text-[#FF6B00] text-base">
+            <span className="font-extrabold text-[#171717] text-sm">Total Paid</span>
+            <span className="font-black text-[#FF5A36] text-base">
               {formatPrice(order.totalAmount || 0)}
             </span>
           </div>
@@ -309,12 +317,12 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Action Grid */}
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm grid grid-cols-2 gap-2.5 text-xs">
+        <div className="bg-white rounded-2xl p-5 border border-[#E5E2DC] shadow-xs grid grid-cols-2 gap-2.5 text-xs">
           {isDelivered && (
             <Button 
               variant="outline" 
               onClick={() => router.push(`/orders/${order.id}/review`)}
-              className="h-10 rounded-xl border-gray-200 font-bold text-gray-800 text-xs"
+              className="h-10 rounded-xl border-[#E5E2DC] font-bold text-[#171717] text-xs hover:bg-[#FAF9F6]"
             >
               Rate & Review
             </Button>
@@ -323,16 +331,16 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           <Button 
             variant="outline" 
             onClick={() => router.push(`/orders/${order.id}/invoice`)}
-            className="h-10 rounded-xl border-gray-200 font-bold text-gray-800 text-xs flex items-center justify-center gap-1.5 hover:bg-orange-50 hover:border-orange-200 hover:text-[#FF6B00] transition-colors"
+            className="h-10 rounded-xl border-[#E5E2DC] font-bold text-[#171717] text-xs flex items-center justify-center gap-1.5 hover:bg-orange-50 hover:border-orange-200 hover:text-[#FF5A36] transition-colors"
           >
-            <Download className="w-3.5 h-3.5 text-[#FF6B00]" />
+            <Download className="w-3.5 h-3.5 text-[#FF5A36]" />
             Tax Invoice
           </Button>
 
           <Button 
             variant="outline" 
             onClick={() => router.push(`/support?orderId=${order.id}&tab=raise`)}
-            className="h-10 rounded-xl border-gray-200 font-bold text-gray-800 text-xs flex items-center justify-center gap-1.5 hover:bg-orange-50 hover:border-orange-200 hover:text-[#FF6B00] transition-colors"
+            className="h-10 rounded-xl border-[#E5E2DC] font-bold text-[#171717] text-xs flex items-center justify-center gap-1.5 hover:bg-orange-50 hover:border-orange-200 hover:text-[#FF5A36] transition-colors"
           >
             <HeadphonesIcon className="w-3.5 h-3.5" />
             Help
@@ -342,10 +350,10 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Sticky Bottom Action */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 p-3.5 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20">
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-[#E5E2DC] p-3.5 shadow-sm z-20">
         <Button 
           onClick={() => router.push('/')}
-          className="w-full h-11 rounded-xl bg-[#FF6B00] hover:bg-[#ff7a1f] text-white font-bold text-xs tracking-wide uppercase shadow-md flex items-center justify-center gap-2"
+          className="w-full h-11 rounded-xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold text-xs tracking-wide uppercase shadow-xs flex items-center justify-center gap-2"
         >
           <Box className="w-4 h-4" />
           Continue Shopping

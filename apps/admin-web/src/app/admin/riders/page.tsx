@@ -240,7 +240,7 @@ export default function RiderVerificationCenter() {
                 onClick={() => setSelectedStatus(tab.id)}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   isActive
-                    ? 'bg-[#0F172A] text-white shadow-sm'
+                    ? 'bg-[#FF5A36] text-white shadow-xs'
                     : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200'
                 }`}
               >
@@ -598,7 +598,7 @@ export default function RiderVerificationCenter() {
               </div>
 
               {/* Active Document Viewer */}
-              <div className="bg-gray-900 rounded-2xl p-4 flex flex-col items-center justify-center min-h-[320px] relative overflow-hidden border border-gray-800">
+              <div className="bg-[#FAF9F6] rounded-2xl p-4 flex flex-col items-center justify-center min-h-[320px] relative overflow-hidden border border-[#E5E2DC]">
                 {(() => {
                   let currentUrl = '';
                   let currentTitle = '';
@@ -619,7 +619,7 @@ export default function RiderVerificationCenter() {
                   if (!currentUrl) {
                     return (
                       <div className="text-center text-gray-400 p-8 space-y-2">
-                        <AlertCircle className="w-8 h-8 mx-auto text-gray-500" />
+                        <AlertCircle className="w-8 h-8 mx-auto text-gray-400" />
                         <p className="text-xs font-medium">No document uploaded for this requirement.</p>
                       </div>
                     );
@@ -627,23 +627,23 @@ export default function RiderVerificationCenter() {
 
                   return (
                     <div className="w-full flex flex-col items-center gap-3">
-                      <div className="w-full flex items-center justify-between text-xs text-gray-300 px-2">
+                      <div className="w-full flex items-center justify-between text-xs text-gray-700 px-2">
                         <span className="font-bold">{currentTitle}</span>
                         <a 
                           href={currentUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="text-teal-400 hover:text-teal-300 flex items-center gap-1 font-semibold underline"
+                          className="text-[#FF5A36] hover:text-[#e04d2d] flex items-center gap-1 font-semibold underline"
                         >
                           <span>Open Full Resolution</span>
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
                       </div>
-                      <div className="max-h-[400px] w-full flex items-center justify-center overflow-hidden rounded-xl bg-black/40 p-2">
+                      <div className="max-h-[400px] w-full flex items-center justify-center overflow-hidden rounded-xl bg-white p-2 border border-[#E5E2DC]">
                         <img 
                           src={currentUrl} 
                           alt={currentTitle} 
-                          className="max-h-[380px] max-w-full object-contain rounded-lg shadow-lg" 
+                          className="max-h-[380px] max-w-full object-contain rounded-lg" 
                         />
                       </div>
                     </div>

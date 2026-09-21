@@ -40,7 +40,7 @@ function OrderSuccessContent() {
     triggerCelebrationConfetti();
   }, []);
 
-  const displayOrderId = order?.id || orderId || 'ORD-240509-001';
+  const displayOrderId = order?.id || orderId || '';
 
   // Resilient calculation of real total
   const totalAmountNum = Number(order?.totalAmount ?? order?.total ?? 0);
@@ -103,9 +103,18 @@ function OrderSuccessContent() {
     ? calculatedItemsTotal 
     : Math.max(0, totalAmountNum - deliveryFee - platformFee + discountAmount);
 
-  const deliveryEstimate = (!order?.estimatedDelivery || order.estimatedDelivery.includes('2 - 4 hours'))
+  const rawEstimatedDelivery = order?.estimatedDelivery;
+  const isHoursOrExpress = rawEstimatedDelivery && (
+    rawEstimatedDelivery.toLowerCase().includes('hour') || 
+    rawEstimatedDelivery.toLowerCase().includes('express') ||
+    rawEstimatedDelivery.includes('2-4') ||
+    rawEstimatedDelivery.includes('2 - 4') ||
+    rawEstimatedDelivery.includes('2 – 4') ||
+    rawEstimatedDelivery.includes('2—4')
+  );
+  const deliveryEstimate = (!rawEstimatedDelivery || isHoursOrExpress)
     ? '2-3 days'
-    : order.estimatedDelivery;
+    : rawEstimatedDelivery;
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] pb-safe flex flex-col max-w-md mx-auto relative shadow-2xl">

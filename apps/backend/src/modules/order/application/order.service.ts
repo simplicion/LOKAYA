@@ -617,7 +617,7 @@ export class OrderService {
         vehicleNumber: order.deliveryPartner.vehicleNumber,
         avatarUrl: order.deliveryPartner.user.avatarUrl
       } : null,
-      estimatedDelivery: order.estimatedDelivery && !order.estimatedDelivery.includes('2 - 4 hours') ? order.estimatedDelivery : (order.deliveryAddress ? '2-3 days' : 'Ready for Pickup'),
+      estimatedDelivery: order.estimatedDelivery && !order.estimatedDelivery.toLowerCase().includes('hour') && !order.estimatedDelivery.toLowerCase().includes('express local') && !order.estimatedDelivery.includes('2-4') && !order.estimatedDelivery.includes('2 - 4') && !order.estimatedDelivery.includes('2 – 4') ? order.estimatedDelivery : (order.deliveryAddress ? '2-3 days' : 'Ready for Pickup'),
       awbCode: order.awbCode,
       courierName: order.courierName,
       trackingUrl: order.trackingUrl,
@@ -862,7 +862,7 @@ export class OrderService {
 
     const createdAt = order.createdAt;
     const updatedAt = order.updatedAt;
-    const deliveryOtp = order.deliveryOtp || '4829';
+    const deliveryOtp = order.deliveryOtp || null;
     const latestAssignment = order.deliveryAssignments?.[0];
     const riderName = order.deliveryPartner?.user.name || 'Partner Rider';
 
@@ -1017,7 +1017,7 @@ export class OrderService {
       awbCode: (order as any).awbCode,
       shippingLabelUrl: (order as any).shippingLabelUrl,
       trackingUrl: (order as any).trackingUrl,
-      estimatedDelivery: (order as any).estimatedDelivery && !(order as any).estimatedDelivery.includes('2 - 4 hours') ? (order as any).estimatedDelivery : '2-3 days',
+      estimatedDelivery: (order as any).estimatedDelivery && !(order as any).estimatedDelivery.toLowerCase().includes('hour') && !(order as any).estimatedDelivery.toLowerCase().includes('express local') && !(order as any).estimatedDelivery.includes('2-4') && !(order as any).estimatedDelivery.includes('2 - 4') && !(order as any).estimatedDelivery.includes('2 – 4') ? (order as any).estimatedDelivery : '2-3 days',
       storeName: order.store?.name,
       itemsCount: order.items.reduce((s, i) => s + i.quantity, 0),
       timeline
