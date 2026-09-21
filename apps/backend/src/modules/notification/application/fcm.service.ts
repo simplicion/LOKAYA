@@ -3,6 +3,7 @@ import { getMessaging, MulticastMessage } from 'firebase-admin/messaging';
 import { prisma, DevicePlatform } from '@workspace/db';
 import fs from 'fs';
 import path from 'path';
+import { getNotificationQueue } from './notification-queue';
 
 export interface PushNotificationPayload {
   title: string;
@@ -79,6 +80,24 @@ export class FcmService {
   }
 
   /**
+   * Helper: Resolves Android Notification Channel based on message type
+   */
+  private static getChannelId(type?: string): string {
+    switch (type) {
+      case 'ORDER_UPDATE':
+      case 'DELIVERY_DISPATCH':
+        return 'lokaya_orders';
+      case 'NEW_PRODUCT':
+      case 'NEW_STORY':
+      case 'NEW_POST':
+        return 'lokaya_social';
+      case 'MARKETING':
+      default:
+        return 'lokaya_promotions';
+    }
+  }
+
+  /**
    * Registers or updates a device FCM token for a user.
    */
   static async registerDeviceToken(
@@ -134,9 +153,25 @@ export class FcmService {
   }
 
   /**
-   * Dispatches a push notification to a specific user and records it in the in-app notification inbox.
+   * Async Queued Send to User: Enqueues to BullMQ if available, otherwise executes directly.
    */
   static async sendToUser(userId: string, payload: PushNotificationPayload) {
+    const queue = getNotificationQueue();
+    if (queue) {
+      try {
+        await queue.add('send-to-user', { userId, payload });
+        return { success: true, queued: true };
+      } catch (e) {
+        console.warn('[FCM] Failed to enqueue send-to-user job, falling back to direct send:', e);
+      }
+    }
+    return this.sendToUserDirect(userId, payload);
+  }
+
+  /**
+   * Direct Dispatch to specific user with database record insertion.
+   */
+  static async sendToUserDirect(userId: string, payload: PushNotificationPayload) {
     this.initialize();
 
     // 1. Create in-app Notification record
@@ -169,7 +204,7 @@ export class FcmService {
     }
 
     const tokenList = tokens.map((t: any) => t.token);
-    const pushResult = await this.sendToTokens(tokenList, payload);
+    const pushResult = await this.sendToTokensDirect(tokenList, payload);
 
     return {
       success: true,
@@ -180,9 +215,25 @@ export class FcmService {
   }
 
   /**
-   * Sends multicast push notifications to a list of raw FCM tokens in chunks of 500.
+   * Async Queued Multicast Send: Enqueues to BullMQ if available, otherwise executes directly.
    */
   static async sendToTokens(tokens: string[], payload: PushNotificationPayload) {
+    const queue = getNotificationQueue();
+    if (queue) {
+      try {
+        await queue.add('send-to-tokens', { tokens, payload });
+        return { success: true, queued: true };
+      } catch (e) {
+        console.warn('[FCM] Failed to enqueue send-to-tokens job, falling back to direct send:', e);
+      }
+    }
+    return this.sendToTokensDirect(tokens, payload);
+  }
+
+  /**
+   * Direct multicast push notifications to a list of raw FCM tokens in chunks of 500.
+   */
+  static async sendToTokensDirect(tokens: string[], payload: PushNotificationPayload) {
     this.initialize();
 
     if (!tokens || tokens.length === 0) {
@@ -204,6 +255,7 @@ export class FcmService {
     let failureCount = 0;
     const invalidTokens: string[] = [];
     const messaging = getMessaging(this.app);
+    const channelId = this.getChannelId(payload.type);
 
     // Process in chunks of 500 (Google FCM limit)
     const chunkSize = 500;
@@ -222,6 +274,7 @@ export class FcmService {
           body: payload.body,
           deepLink: payload.deepLink || '/',
           type: payload.type || 'SYSTEM',
+          channelId,
           ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
           ...(payload.data || {})
         },
@@ -229,8 +282,10 @@ export class FcmService {
           priority: 'high',
           notification: {
             sound: 'default',
-            channelId: 'lokaya_high_importance',
-            priority: 'max',
+            channelId,
+            priority: payload.type === 'ORDER_UPDATE' || payload.type === 'DELIVERY_DISPATCH' ? 'max' : 'high',
+            defaultSound: true,
+            defaultVibrateTimings: true,
             ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {})
           }
         },
@@ -295,7 +350,7 @@ export class FcmService {
   }
 
   /**
-   * Broadcasts a marketing campaign to selected audience segment.
+   * Broadcasts a marketing campaign (Queued or Direct).
    */
   static async broadcastCampaign(campaignData: {
     title: string;
@@ -306,7 +361,7 @@ export class FcmService {
     targetFilter?: any;
     createdBy?: string;
   }) {
-    // 1. Create campaign record
+    // 1. Create campaign record immediately
     const campaign = await (prisma as any).notificationCampaign.create({
       data: {
         title: campaignData.title,
@@ -319,6 +374,55 @@ export class FcmService {
         createdBy: campaignData.createdBy || null
       }
     });
+
+    const queue = getNotificationQueue();
+    if (queue) {
+      try {
+        await queue.add('broadcast-campaign', { campaignId: campaign.id, campaignData });
+        return { success: true, queued: true, campaign, message: 'Campaign broadcast enqueued successfully' };
+      } catch (e) {
+        console.warn('[FCM] Failed to enqueue broadcast campaign, falling back to direct execution:', e);
+      }
+    }
+    return this.broadcastCampaignDirect(campaignData, campaign.id);
+  }
+
+  /**
+   * Direct execution of marketing campaign broadcast.
+   */
+  static async broadcastCampaignDirect(
+    campaignData: {
+      title: string;
+      body: string;
+      imageUrl?: string;
+      deepLink?: string;
+      targetAudience: 'ALL_USERS' | 'STORE_OWNERS' | 'RIDERS' | 'CUSTOM_SEGMENT' | 'SPECIFIC_USER' | string;
+      targetFilter?: any;
+      createdBy?: string;
+    },
+    existingCampaignId?: string
+  ) {
+    let campaign;
+    if (existingCampaignId) {
+      campaign = await (prisma as any).notificationCampaign.findUnique({
+        where: { id: existingCampaignId }
+      });
+    }
+
+    if (!campaign) {
+      campaign = await (prisma as any).notificationCampaign.create({
+        data: {
+          title: campaignData.title,
+          body: campaignData.body,
+          imageUrl: campaignData.imageUrl || null,
+          deepLink: campaignData.deepLink || '/',
+          targetAudience: campaignData.targetAudience,
+          targetFilter: campaignData.targetFilter || null,
+          status: 'PROCESSING',
+          createdBy: campaignData.createdBy || null
+        }
+      });
+    }
 
     try {
       let targetUserIds: string[] = [];
@@ -401,7 +505,7 @@ export class FcmService {
       }
 
       // Dispatch FCM Push
-      const pushResult = await this.sendToTokens(tokenList, {
+      const pushResult = await this.sendToTokensDirect(tokenList, {
         title: campaignData.title,
         body: campaignData.body,
         imageUrl: campaignData.imageUrl,
@@ -444,7 +548,20 @@ export class FcmService {
   /**
    * Automated Trigger: Order & Delivery Lifecycle Status Updates
    */
-  static async notifyOrderStatusChanged(orderId: string, newStatus: string) {
+  static async notifyOrderStatusChanged(orderId: string, newStatus: string, deliveryOtp?: string) {
+    const queue = getNotificationQueue();
+    if (queue) {
+      try {
+        await queue.add('order-lifecycle-push', { orderId, status: newStatus, deliveryOtp });
+        return { success: true, queued: true };
+      } catch (e) {
+        console.warn('[FCM] Failed to queue order notification, falling back to direct:', e);
+      }
+    }
+    return this.notifyOrderStatusChangedDirect(orderId, newStatus, deliveryOtp);
+  }
+
+  static async notifyOrderStatusChangedDirect(orderId: string, newStatus: string, deliveryOtp?: string) {
     try {
       const order = await prisma.order.findUnique({
         where: { id: orderId },
@@ -473,7 +590,9 @@ export class FcmService {
         case 'SHIPPED':
         case 'OUT_FOR_DELIVERY':
           title = 'Out for Delivery 🚴';
-          body = `Your rider is on the way! Tap to track live delivery.`;
+          body = deliveryOtp 
+            ? `Your rider is on the way! Your Delivery OTP is ${deliveryOtp}.`
+            : `Your rider is on the way! Tap to track live delivery.`;
           type = 'DELIVERY_DISPATCH';
           break;
         case 'DELIVERED':
@@ -486,12 +605,12 @@ export class FcmService {
           break;
       }
 
-      await this.sendToUser(order.buyerId, {
+      await this.sendToUserDirect(order.buyerId, {
         title,
         body,
         deepLink: `/orders/${orderId}/track`,
         type,
-        data: { orderId, status: newStatus }
+        data: { orderId, status: newStatus, ...(deliveryOtp ? { deliveryOtp } : {}) }
       });
     } catch (err) {
       console.warn('[FCM] Failed to dispatch order status notification:', err);
@@ -502,6 +621,19 @@ export class FcmService {
    * Automated Trigger: Store Follower Notification on New Product Upload
    */
   static async notifyStoreNewProduct(storeId: string, productId: string, productName: string, imageUrl?: string) {
+    const queue = getNotificationQueue();
+    if (queue) {
+      try {
+        await queue.add('new-product-push', { storeId, productId, productName, imageUrl });
+        return { success: true, queued: true };
+      } catch (e) {
+        console.warn('[FCM] Failed to queue product notification, calling direct:', e);
+      }
+    }
+    return this.notifyStoreNewProductDirect(storeId, productId, productName, imageUrl);
+  }
+
+  static async notifyStoreNewProductDirect(storeId: string, productId: string, productName: string, imageUrl?: string) {
     try {
       const store = await prisma.store.findUnique({
         where: { id: storeId },
@@ -548,7 +680,7 @@ export class FcmService {
         select: { token: true }
       });
 
-      await this.sendToTokens(deviceTokens.map((dt: any) => dt.token), {
+      await this.sendToTokensDirect(deviceTokens.map((dt: any) => dt.token), {
         title,
         body,
         imageUrl,
@@ -565,6 +697,19 @@ export class FcmService {
    * Automated Trigger: Store Follower Notification on New 24h Story
    */
   static async notifyStoreNewStory(storeId: string, storyId: string, storeName?: string, mediaUrl?: string) {
+    const queue = getNotificationQueue();
+    if (queue) {
+      try {
+        await queue.add('new-story-push', { storeId, storyId, storeName, mediaUrl });
+        return { success: true, queued: true };
+      } catch (e) {
+        console.warn('[FCM] Failed to queue story notification, calling direct:', e);
+      }
+    }
+    return this.notifyStoreNewStoryDirect(storeId, storyId, storeName, mediaUrl);
+  }
+
+  static async notifyStoreNewStoryDirect(storeId: string, storyId: string, storeName?: string, mediaUrl?: string) {
     try {
       const store = await prisma.store.findUnique({
         where: { id: storeId },
@@ -592,7 +737,7 @@ export class FcmService {
         select: { token: true }
       });
 
-      await this.sendToTokens(deviceTokens.map((dt: any) => dt.token), {
+      await this.sendToTokensDirect(deviceTokens.map((dt: any) => dt.token), {
         title,
         body,
         imageUrl: mediaUrl,
@@ -609,6 +754,19 @@ export class FcmService {
    * Automated Trigger: Creator / Store Follower Notification on New Post/Reel
    */
   static async notifyFollowersNewPost(creatorUserId: string, itemId: string, type: 'POST' | 'REEL', titleOrCaption?: string, mediaUrl?: string) {
+    const queue = getNotificationQueue();
+    if (queue) {
+      try {
+        await queue.add('new-post-push', { creatorUserId, itemId, type, titleOrCaption, mediaUrl });
+        return { success: true, queued: true };
+      } catch (e) {
+        console.warn('[FCM] Failed to queue post notification, calling direct:', e);
+      }
+    }
+    return this.notifyFollowersNewPostDirect(creatorUserId, itemId, type, titleOrCaption, mediaUrl);
+  }
+
+  static async notifyFollowersNewPostDirect(creatorUserId: string, itemId: string, type: 'POST' | 'REEL', titleOrCaption?: string, mediaUrl?: string) {
     try {
       const creator = await prisma.user.findUnique({
         where: { id: creatorUserId },
@@ -633,7 +791,7 @@ export class FcmService {
         select: { token: true }
       });
 
-      await this.sendToTokens(deviceTokens.map((dt: any) => dt.token), {
+      await this.sendToTokensDirect(deviceTokens.map((dt: any) => dt.token), {
         title,
         body,
         imageUrl: mediaUrl,
@@ -650,16 +808,21 @@ export class FcmService {
   // In-App Notification Feed Methods
   // ==========================================
 
-  static async getUserNotifications(userId: string, page = 1, limit = 20) {
+  static async getUserNotifications(userId: string, page = 1, limit = 20, type?: string) {
     const safePage = Math.max(1, page);
     const safeLimit = Math.min(100, Math.max(1, limit));
     const skip = (safePage - 1) * safeLimit;
 
+    const where: any = { userId };
+    if (type && type !== 'ALL') {
+      where.type = type;
+    }
+
     const [total, unreadCount, items] = await Promise.all([
-      (prisma as any).notification.count({ where: { userId } }),
+      (prisma as any).notification.count({ where }),
       (prisma as any).notification.count({ where: { userId, isRead: false } }),
       (prisma as any).notification.findMany({
-        where: { userId },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: safeLimit

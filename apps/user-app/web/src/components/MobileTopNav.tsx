@@ -9,6 +9,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { useGetMyStoreQuery } from '@/lib/api';
+import { NotificationBell } from './common/NotificationBell';
 
 export function MobileTopNav() {
   const pathname = usePathname();
@@ -103,10 +104,7 @@ export function MobileTopNav() {
     );
     rightContent = (
       <div className="flex items-center gap-3.5">
-        <Link href="/notifications" prefetch={false} className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5">
-          <Bell className="w-6 h-6" />
-          <span className="absolute top-0 right-0.5 w-2 h-2 bg-[#FF5A36] rounded-full ring-2 ring-white" />
-        </Link>
+        <NotificationBell />
         <Link href="/cart" prefetch={false} className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5">
           <ShoppingCart className="w-6 h-6" />
           {cartTotalItems > 0 && (

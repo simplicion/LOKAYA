@@ -31,7 +31,7 @@ export const api = createApi({
   refetchOnFocus: false,
   refetchOnReconnect: true,
   keepUnusedDataFor: 300, // 5 minutes cache retention to eliminate redundant network fetches
-  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'Story', 'Highlight', 'SavedPost', 'FollowedStores', 'SupportTicket', 'Review', 'DeliveryPartner', 'DeliveryAssignment', 'StorePartner'],
+  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'UserNotifications', 'Story', 'Highlight', 'SavedPost', 'FollowedStores', 'SupportTicket', 'Review', 'DeliveryPartner', 'DeliveryAssignment', 'StorePartner'],
   endpoints: (builder) => ({
     checkAuth: builder.query<any, void>({
       query: () => '/identity/me',
@@ -890,6 +890,38 @@ export const api = createApi({
       invalidatesTags: ['SellerNotifications'],
     }),
 
+    // Consumer In-App Notifications
+    getUserNotifications: builder.query<{
+      total: number;
+      unreadCount: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+      items: any[];
+    }, { page?: number; limit?: number; type?: string } | void>({
+      query: (params) => {
+        const page = params?.page || 1;
+        const limit = params?.limit || 20;
+        const typeQuery = params?.type && params.type !== 'ALL' ? `&type=${encodeURIComponent(params.type)}` : '';
+        return `/notifications/me?page=${page}&limit=${limit}${typeQuery}`;
+      },
+      providesTags: ['UserNotifications'],
+    }),
+    markUserNotificationRead: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/notifications/${id}/read`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['UserNotifications'],
+    }),
+    markAllUserNotificationsRead: builder.mutation<any, void>({
+      query: () => ({
+        url: '/notifications/read-all',
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['UserNotifications'],
+    }),
+
     // Analytics
     getAnalyticsOverview: builder.query<{ stats: any[]; chartData: any[] }, string | void>({
       query: (range = 'This Month') => `/seller/analytics/overview?range=${encodeURIComponent(range || 'This Month')}`,
@@ -1300,6 +1332,11 @@ export const {
   useVerifyBatchDropOtpMutation,
   useGetMultiStoreBlendedPricingMutation,
   useGetPublicParcelVerificationQuery,
+
+  // Consumer User Notifications Hooks
+  useGetUserNotificationsQuery,
+  useMarkUserNotificationReadMutation,
+  useMarkAllUserNotificationsReadMutation,
 } = api;
 
 

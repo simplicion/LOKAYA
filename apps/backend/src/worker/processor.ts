@@ -4,12 +4,16 @@ import { prisma, OrderStatus } from '@workspace/db';
 import { mediaWorker } from '../modules/media/application/media-worker.service';
 import { createRedisConnection } from '../shared/services/redis.service';
 import { StoryRetentionService } from './cron/story-retention.cron';
+import { startNotificationWorker } from '../modules/notification/application/notification-worker';
 
 export function startWorker() {
   const connection = createRedisConnection();
 
   // Start 30-day story retention and R2 permanent purge schedule
   StoryRetentionService.startScheduledJob();
+
+  // Start BullMQ Async Notification Worker
+  const notificationWorker = startNotificationWorker();
 
   const worker = new Worker('ecom-queue', async job => {
     console.log(`[Worker] Processing job ${job.name} (ID: ${job.id})`);

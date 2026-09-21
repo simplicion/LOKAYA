@@ -45,14 +45,15 @@ notificationRouter.delete('/devices', requireAuth, async (req: AuthRequest, res:
   }
 });
 
-// GET /api/v1/notifications/me - In-app notification inbox
+// GET /api/v1/notifications/me - In-app notification inbox with category filters
 notificationRouter.get('/me', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.id;
     const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const type = req.query.type ? (req.query.type as string) : undefined;
 
-    const result = await FcmService.getUserNotifications(userId, page, limit);
+    const result = await FcmService.getUserNotifications(userId, page, limit, type);
     res.status(200).json(result);
   } catch (error) {
     next(error);

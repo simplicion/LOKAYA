@@ -69,6 +69,43 @@ export function usePushNotifications({ token, apiUrl }: UsePushNotificationsProp
           return;
         }
 
+        // Create Android Notification Channels
+        if (Capacitor.getPlatform() === 'android') {
+          try {
+            await PushNotifications.createChannel({
+              id: 'lokaya_orders',
+              name: 'Orders & Deliveries',
+              description: 'Urgent order status updates, OTPs, and rider delivery dispatches',
+              importance: 5,
+              visibility: 1,
+              vibration: true,
+              lights: true,
+              lightColor: '#FF5722',
+            });
+
+            await PushNotifications.createChannel({
+              id: 'lokaya_social',
+              name: 'Social & Stores',
+              description: 'Updates from stores and creators you follow (Stories, Products, Reels)',
+              importance: 4,
+              visibility: 1,
+              vibration: true,
+            });
+
+            await PushNotifications.createChannel({
+              id: 'lokaya_promotions',
+              name: 'Promotions & Deals',
+              description: 'Discounts, flash sales, and marketing campaigns',
+              importance: 3,
+              visibility: 0,
+              vibration: false,
+            });
+            console.log('[FCM-Client] Android Notification Channels configured');
+          } catch (channelErr) {
+            console.warn('[FCM-Client] Error creating notification channels:', channelErr);
+          }
+        }
+
         await PushNotifications.register();
 
         // 1. Token Registration Listener
