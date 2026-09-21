@@ -99,20 +99,6 @@ export default function SellerDeliveryPartnersPage() {
       </div>
 
       <div className="p-4 max-w-lg mx-auto space-y-4">
-        
-        {/* Intro Card */}
-        <div className="bg-gradient-to-tr from-[#171717] to-[#2A2A2A] text-white p-5 rounded-3xl shadow-sm space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-orange-500/20 text-[#FF5A36] border border-orange-500/30">
-              <Bike className="w-5 h-5" />
-            </span>
-            <h2 className="font-bold text-base text-white">Preferred Store Riders</h2>
-          </div>
-          <p className="text-xs text-gray-300 leading-relaxed">
-            Approved partner riders can be assigned your store orders directly when dispatching parcels for rapid local fulfillment.
-          </p>
-        </div>
-
         {/* Tab Toggle */}
         <div className="grid grid-cols-2 bg-[#ECE9E2] p-1 rounded-2xl text-xs font-bold">
           <button
