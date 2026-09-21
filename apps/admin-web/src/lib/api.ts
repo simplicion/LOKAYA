@@ -39,7 +39,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates'],
+  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates', 'Notifications'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
       query: () => '/seller/pending',
@@ -318,6 +318,26 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['FuelRates'],
     }),
+    // Push Notification Marketing Endpoints
+    getNotificationCampaigns: builder.query<{ total: number; page: number; limit: number; totalPages: number; items: any[] }, { page?: number; limit?: number } | void>({
+      query: (params) => ({
+        url: '/admin/notifications/campaigns',
+        params: params || {},
+      }),
+      providesTags: ['Notifications'],
+    }),
+    broadcastNotification: builder.mutation<any, { title: string; body: string; imageUrl?: string; deepLink?: string; targetAudience: string; targetFilter?: any }>({
+      query: (body) => ({
+        url: '/admin/notifications/broadcast',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Notifications'],
+    }),
+    getNotificationStats: builder.query<{ totalDevices: number; androidDevices: number; iosDevices: number; webDevices: number; totalCampaigns: number; totalInApp: number }, void>({
+      query: () => '/admin/notifications/stats',
+      providesTags: ['Notifications'],
+    }),
   }),
 });
 
@@ -364,4 +384,7 @@ export const {
   useGetFuelRateByCountryQuery,
   useUpdateFuelRateMutation,
   useSeedFuelRatesMutation,
+  useGetNotificationCampaignsQuery,
+  useBroadcastNotificationMutation,
+  useGetNotificationStatsQuery,
 } = adminApi;

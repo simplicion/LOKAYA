@@ -229,6 +229,16 @@ export class CatalogService {
     MemoryCacheService.invalidatePrefix(`store:products:${data.storeId}`);
     MemoryCacheService.invalidatePrefix('catalog:products:');
 
+    // Automated Push Notification Trigger to Store Followers
+    try {
+      const { FcmService } = require('../../notification/application/fcm.service');
+      FcmService.notifyStoreNewProduct(product.storeId, product.id, product.name, product.imageUrl).catch((err: any) =>
+        console.warn('[FCM] Product follower push dispatch error:', err)
+      );
+    } catch (e) {
+      // ignore
+    }
+
     return await prisma.product.findUnique({
       where: { id: product.id },
       include: { variants: true, media: true, categoryModel: true }

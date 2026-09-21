@@ -39,6 +39,7 @@ import { StoryViewerModal } from '../feed/StoryViewerModal';
 import { BlueTickVerificationSheet } from './BlueTickVerificationSheet';
 import { cn, getMediaUrl } from '@/lib/utils';
 import Link from 'next/link';
+import { DownloadAppBanner } from './DownloadAppBanner';
 
 export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
   const router = useRouter();
@@ -421,6 +422,11 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
           >
             Visit Store
           </button>
+        </div>
+
+        {/* Download Native Android App Banner */}
+        <div className="px-1">
+          <DownloadAppBanner />
         </div>
       </div>
       

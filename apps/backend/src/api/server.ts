@@ -18,6 +18,7 @@ import { adminRouter } from '../modules/admin/interfaces/admin.routes';
 import { supportRoutes } from '../modules/support/interfaces/support.routes';
 import { metaRoutes } from '../modules/common/meta.routes';
 import { deliveryRouter as deliveryRoutes } from '../modules/delivery/interfaces/delivery.routes';
+import { notificationRouter } from '../modules/notification/interfaces/notification.routes';
 import { initSocket } from './socket';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -117,6 +118,7 @@ export function startApiServer() {
   app.use('/api/v1/support', supportRoutes);
   app.use('/api/v1/admin', adminRouter);
   app.use('/api/v1/delivery', deliveryRoutes);
+  app.use('/api/v1/notifications', notificationRouter);
   app.use('/api/v1/meta', metaRoutes);
 
   app.get('/health', (req, res) => {

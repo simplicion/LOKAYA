@@ -33,6 +33,7 @@ import { CurrencyProvider } from '@/context/CurrencyContext';
 import { FeedSoundProvider } from '@/context/FeedSoundContext';
 import { Toaster } from '@/components/ui/sonner';
 import { OfflineDetector } from '@/components/OfflineDetector';
+import { NativeBridgeProvider } from '@/components/NativeBridgeProvider';
 
 export default function RootLayout({
   children,
@@ -50,9 +51,11 @@ export default function RootLayout({
           <CurrencyProvider>
             <FeedSoundProvider>
               <UploadProvider>
-                <OfflineDetector />
-                <main className="flex-1">{children}</main>
-                <Toaster position="top-center" />
+                <NativeBridgeProvider>
+                  <OfflineDetector />
+                  <main className="flex-1">{children}</main>
+                  <Toaster position="top-center" />
+                </NativeBridgeProvider>
               </UploadProvider>
             </FeedSoundProvider>
           </CurrencyProvider>

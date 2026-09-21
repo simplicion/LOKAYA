@@ -114,6 +114,8 @@ model User {
   savedPosts   SavedPost[]
   addresses    Address[]
   supportTickets SupportTicket[]
+  deviceTokens DeviceToken[]
+  notifications Notification[]
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -1235,3 +1237,74 @@ model CountryFuelRate {
   @@index([countryCode])
   @@index([isActive])
 }
+
+// ==========================================
+// Push Notifications & Device Token Registry
+// ==========================================
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+model DeviceToken {
+  id          String         @id @default(uuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String         @unique
+  platform    DevicePlatform @default(ANDROID)
+  deviceModel String?
+  osVersion   String?
+  appVersion  String?
+  isActive    Boolean        @default(true)
+  lastUsedAt  DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([token])
+  @@index([platform, isActive])
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  imageUrl    String?
+  deepLink    String?   // e.g. "/orders/abc/track", "/store/store-id", "/product/prod-id", "/reel/reel-id"
+  type        String    @default("SYSTEM") // "ORDER_UPDATE" | "DELIVERY_DISPATCH" | "NEW_PRODUCT" | "NEW_STORY" | "NEW_POST" | "MARKETING" | "SYSTEM"
+  data        Json?
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+model NotificationCampaign {
+  id             String    @id @default(uuid())
+  title          String
+  body           String
+  imageUrl       String?
+  deepLink       String?
+  targetAudience String    // "ALL_USERS" | "STORE_OWNERS" | "RIDERS" | "CUSTOM_SEGMENT" | "SPECIFIC_USER"
+  targetFilter   Json?     // e.g. { city: "Kathmandu", countryCode: "NP" } or { userId: "..." }
+  sentCount      Int       @default(0)
+  successCount   Int       @default(0)
+  failureCount   Int       @default(0)
+  status         String    @default("SENT") // "DRAFT" | "PROCESSING" | "SENT" | "FAILED"
+  scheduledAt    DateTime?
+  sentAt         DateTime  @default(now())
+  createdBy      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+

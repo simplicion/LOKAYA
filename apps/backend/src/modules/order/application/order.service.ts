@@ -736,6 +736,16 @@ export class OrderService {
       console.warn('Socket emit failed (order status update)', e);
     }
 
+    // Automated Push Notification Trigger to Customer
+    try {
+      const { FcmService } = require('../../notification/application/fcm.service');
+      FcmService.notifyOrderStatusChanged(orderId, resolvedStatus).catch((err: any) =>
+        console.warn('[FCM] Order push dispatch error:', err)
+      );
+    } catch (e) {
+      // ignore
+    }
+
     return updatedOrder;
   }
 

@@ -106,6 +106,16 @@ export class StoryService {
     MemoryCacheService.invalidatePrefix('stories:');
     await ContentService.invalidateFeedCaches('cache:stories:*');
 
+    // Automated Push Notification Trigger to Store Followers
+    try {
+      const { FcmService } = require('../../notification/application/fcm.service');
+      FcmService.notifyStoreNewStory(story.storeId, story.id, story.store?.name, story.mediaUrl).catch((err: any) =>
+        console.warn('[FCM] Story follower push dispatch error:', err)
+      );
+    } catch (e) {
+      // ignore
+    }
+
     return story;
   }
 

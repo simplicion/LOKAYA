@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { DownloadAppBanner } from './DownloadAppBanner';
 
 export function RegularProfile() {
   const router = useRouter();
@@ -286,6 +287,9 @@ export function RegularProfile() {
             </div>
           </div>
         </div>
+
+        {/* Download Native Android App Banner */}
+        <DownloadAppBanner />
 
         {/* Quick Links Card */}
         <div className="bg-white rounded-3xl shadow-sm border border-[#E5E2DC] overflow-hidden mb-4">

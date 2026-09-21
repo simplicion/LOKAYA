@@ -3,6 +3,7 @@ import { requireAuth, requireAdmin, AuthRequest } from '../../../shared/middlewa
 import { prisma } from '@workspace/db';
 import { SupportService } from '../../support/application/support.service';
 import { FuelRateService } from '../../delivery/application/fuel-rate.service';
+import { FcmService } from '../../notification/application/fcm.service';
 
 export const adminRouter: Router = Router();
 
@@ -929,6 +930,92 @@ adminRouter.post('/fuel-rates/seed', requireAuth, requireAdmin, async (req: Auth
     res.status(200).json({
       success: true,
       message: 'Fuel rate cache refreshed and seeder triggered'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// Notification Marketing & Campaign Studio
+// ==========================================
+
+// GET /api/v1/admin/notifications/campaigns - List campaign history
+adminRouter.get('/notifications/campaigns', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+    const skip = (page - 1) * limit;
+
+    const [total, items] = await Promise.all([
+      (prisma as any).notificationCampaign.count(),
+      (prisma as any).notificationCampaign.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit
+      })
+    ]);
+
+    res.status(200).json({
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      items
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/v1/admin/notifications/broadcast - Dispatch a new push notification marketing campaign
+adminRouter.post('/notifications/broadcast', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { title, body, imageUrl, deepLink, targetAudience, targetFilter } = req.body;
+
+    if (!title || !body) {
+      return res.status(400).json({ message: 'Title and body are required for push broadcast' });
+    }
+
+    const result = await FcmService.broadcastCampaign({
+      title,
+      body,
+      imageUrl: imageUrl || null,
+      deepLink: deepLink || '/',
+      targetAudience: targetAudience || 'ALL_USERS',
+      targetFilter: targetFilter || null,
+      createdBy: req.user?.id
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Push notification campaign broadcast initiated to ${result.deliveredCount} devices`,
+      campaign: result.campaign
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/v1/admin/notifications/stats - Device token & audience metrics
+adminRouter.get('/notifications/stats', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const [totalDevices, androidDevices, iosDevices, webDevices, totalCampaigns, totalInApp] = await Promise.all([
+      (prisma as any).deviceToken.count({ where: { isActive: true } }),
+      (prisma as any).deviceToken.count({ where: { platform: 'ANDROID', isActive: true } }),
+      (prisma as any).deviceToken.count({ where: { platform: 'IOS', isActive: true } }),
+      (prisma as any).deviceToken.count({ where: { platform: 'WEB', isActive: true } }),
+      (prisma as any).notificationCampaign.count(),
+      (prisma as any).notification.count()
+    ]);
+
+    res.status(200).json({
+      totalDevices,
+      androidDevices,
+      iosDevices,
+      webDevices,
+      totalCampaigns,
+      totalInApp
     });
   } catch (error) {
     next(error);
