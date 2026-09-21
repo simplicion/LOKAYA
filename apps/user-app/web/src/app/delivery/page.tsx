@@ -47,7 +47,7 @@ import { toast } from 'sonner';
 
 export default function DeliveryDashboardPage() {
   const router = useRouter();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currency } = useCurrency();
 
   const { data: profile, isLoading: isProfileLoading, refetch: refetchProfile } = useGetDeliveryProfileQuery();
   const { data: activeTask, isLoading: isTaskLoading, refetch: refetchTask } = useGetDeliveryActiveTaskQuery(undefined, {
@@ -444,6 +444,29 @@ export default function DeliveryDashboardPage() {
                 </div>
               </div>
 
+              {/* Real-time Petrol & Labor Economics Strip */}
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between text-slate-700 font-bold flex-wrap gap-1">
+                  <span className="flex items-center gap-1 text-[11px]">
+                    <span>⛽ Live Petrol:</span>
+                    <span className="text-[#FF5A36] font-black">{formatPrice(task.economics?.fuelPricePerLiter || (currency === 'NPR' ? 175 : 102))}/L</span>
+                    <span className="text-gray-400 font-normal">({task.economics?.standardBikeMileage || (currency === 'NPR' ? 45 : 50)} km/L)</span>
+                  </span>
+                  <span className="text-slate-600 text-[11px] font-mono">
+                    📍 {task.economics?.distanceKm || 5} km ({task.economics?.twoWayDistanceKm || 10} km round trip)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60 font-mono text-[11px] flex-wrap">
+                  <span className="bg-orange-100/70 text-orange-900 px-2 py-0.5 rounded-md font-bold">
+                    Fuel: ~{formatPrice(task.economics?.estimatedFuelCost || 35)}
+                  </span>
+                  <span className="bg-emerald-100/70 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
+                    Rider Labor: {formatPrice(task.economics?.estimatedLaborPayout || 29)} ({task.economics?.laborPercentage || 50}%)
+                  </span>
+                </div>
+              </div>
+
               <div className="flex gap-2 pt-1">
                 <Button
                   variant="outline"
@@ -734,6 +757,29 @@ export default function DeliveryDashboardPage() {
                   <Phone className="w-4 h-4" />
                 </a>
               )}
+            </div>
+          </div>
+
+          {/* Real-time Petrol & Labor Economics Strip */}
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between text-slate-700 font-bold flex-wrap gap-1">
+              <span className="flex items-center gap-1 text-[11px]">
+                <span>⛽ Live Petrol:</span>
+                <span className="text-[#FF5A36] font-black">{formatPrice(activeTask.economics?.fuelPricePerLiter || (currency === 'NPR' ? 175 : 102))}/L</span>
+                <span className="text-gray-400 font-normal">({activeTask.economics?.standardBikeMileage || (currency === 'NPR' ? 45 : 50)} km/L)</span>
+              </span>
+              <span className="text-slate-600 text-[11px] font-mono">
+                📍 {activeTask.economics?.distanceKm || 5} km ({activeTask.economics?.twoWayDistanceKm || 10} km round trip)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60 font-mono text-[11px] flex-wrap">
+              <span className="bg-orange-100/70 text-orange-900 px-2 py-0.5 rounded-md font-bold">
+                Fuel: ~{formatPrice(activeTask.economics?.estimatedFuelCost || 35)}
+              </span>
+              <span className="bg-emerald-100/70 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
+                Rider Labor: {formatPrice(activeTask.economics?.estimatedLaborPayout || 29)} ({activeTask.economics?.laborPercentage || 50}%)
+              </span>
             </div>
           </div>
 

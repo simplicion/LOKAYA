@@ -766,6 +766,8 @@ function OrderDetailsContent() {
         isSubmitting={isDispatchingFulfillment}
         customerPaidShipping={order.shippingFee || orderEconomics?.customerPaidShippingFee || 50}
         orderDistanceKm={orderEconomics?.distanceKm || 5}
+        fuelPricePerLiter={orderEconomics?.fuelPricePerLiter}
+        standardBikeMileage={orderEconomics?.standardBikeMileage}
       />
 
       {/* STORE PICKUP OTP MODAL (Handshake #1: Rider -> Merchant Verification) */}

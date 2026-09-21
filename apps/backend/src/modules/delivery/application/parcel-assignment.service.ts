@@ -71,6 +71,14 @@ export class ParcelAssignmentService {
       benchmarkDeliveryFee: feeCalculation.deliveryFee,
       customerPaidShippingFee: order.shippingFee || feeCalculation.deliveryFee,
       isLongDistance: feeCalculation.isLongDistance,
+      fuelPricePerLiter: feeCalculation.fuelPricePerLiter,
+      standardBikeMileage: feeCalculation.standardBikeMileage,
+      fuelCostPerKm: feeCalculation.fuelCostPerKm,
+      estimatedFuelExpense: feeCalculation.estimatedFuelCost,
+      estimatedLaborPayout: feeCalculation.estimatedLaborCost,
+      laborPercentage: feeCalculation.laborPercentage,
+      currency: benchmark.currency,
+      currencySymbol: benchmark.currencySymbol,
       benchmark
     };
   }

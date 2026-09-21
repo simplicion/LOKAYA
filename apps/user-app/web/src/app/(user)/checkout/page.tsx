@@ -242,13 +242,29 @@ function CheckoutContent() {
 
   // Multi-Store Fulfillment Packages Breakdown & Blended Distance Calculation
   const storePackages = React.useMemo(() => {
+    const activeAddress = addresses.find((a: any) => a.id === selectedAddressId) || addresses[0];
+    const customerLat = activeAddress?.latitude || user?.latitude;
+    const customerLng = activeAddress?.longitude || user?.longitude;
+
+    // Helper Haversine Great Circle Distance in KM
+    const calculateHaversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return Math.max(1.0, Math.round(R * c * 10) / 10);
+    };
+
     const map = new Map<string, { storeId: string; storeName: string; store: any; items: any[]; isFreeDelivery: boolean; distanceKm: number; deliveryFee: number }>();
     for (const item of orderItems) {
       const sId = item.storeId || item.store?.id || 'default_store';
       if (!map.has(sId)) {
-        // Estimated store-to-customer distance (defaults to ~5km if GPS not present)
-        const estDistance = item.store?.latitude && user?.latitude
-          ? Math.max(1.5, Math.round(Math.sqrt(Math.pow(item.store.latitude - user.latitude, 2) + Math.pow(item.store.longitude - user.longitude, 2)) * 111 * 10) / 10)
+        // Precise store-to-customer distance calculation
+        const estDistance = item.store?.latitude && customerLat
+          ? calculateHaversineKm(item.store.latitude, item.store.longitude || item.store.latitude, customerLat, customerLng || customerLat)
           : 5.0;
 
         map.set(sId, {
@@ -258,7 +274,7 @@ function CheckoutContent() {
           items: [],
           isFreeDelivery: false,
           distanceKm: estDistance,
-          deliveryFee: 50
+          deliveryFee: currency === 'NPR' ? 80 : 50
         });
       }
       const pkg = map.get(sId)!;
@@ -269,30 +285,34 @@ function CheckoutContent() {
     }
 
     return Array.from(map.values());
-  }, [orderItems, user]);
+  }, [orderItems, user, addresses, selectedAddressId, currency]);
 
-  // Multi-Store Blended Delivery Fee Calculation (Average Distance Model)
+  // Multi-Store Blended Delivery Fee Calculation (Country-aware Fuel Benchmark Model)
   const { deliveryFee, blendedDistanceKm, multiStoreSavings } = React.useMemo(() => {
     const payableStores = storePackages.filter(p => !p.isFreeDelivery);
     if (payableStores.length === 0) {
       return { deliveryFee: 0, blendedDistanceKm: 0, multiStoreSavings: 0 };
     }
 
+    const minFloor = currency === 'NPR' ? 80 : 50;
+    const standardPerKmRate = currency === 'NPR' ? 24 : 15;
+    const longDistanceFlat = currency === 'NPR' ? 150 : 90;
+
     // Calculate blended average distance
     const totalDist = payableStores.reduce((sum, p) => sum + p.distanceKm, 0);
     const avgDist = Math.round((totalDist / payableStores.length) * 10) / 10;
 
     // Single blended 2-way round trip delivery fee
-    let singleBlendedFee = 50;
+    let singleBlendedFee = minFloor;
     if (avgDist > 10) {
-      singleBlendedFee = 90; // Regional courier slab
+      singleBlendedFee = longDistanceFlat; // Regional courier slab
     } else {
-      singleBlendedFee = Math.max(50, Math.round(2 * avgDist * 8));
+      singleBlendedFee = Math.max(minFloor, Math.round(2 * avgDist * (standardPerKmRate / 2)));
     }
 
     // If standalone was charged per store
     const standaloneSum = payableStores.reduce((sum, p) => {
-      const single = p.distanceKm > 10 ? 90 : Math.max(50, Math.round(2 * p.distanceKm * 8));
+      const single = p.distanceKm > 10 ? longDistanceFlat : Math.max(minFloor, Math.round(2 * p.distanceKm * (standardPerKmRate / 2)));
       return sum + single;
     }, 0);
 
@@ -303,13 +323,13 @@ function CheckoutContent() {
       blendedDistanceKm: avgDist,
       multiStoreSavings: savings
     };
-  }, [storePackages]);
+  }, [storePackages, currency]);
 
   // Pricing calculations
   const itemsSubtotal = orderItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
-  const platformFee = Math.round(itemsSubtotal * 0.015 * 100) / 100; // 1.5% Platform Convenience Fee
+  const platformFee = Math.round(itemsSubtotal * 0.015 * 100) / 100; // 1.5% Total Platform Fee (0.5% convenience + 0.5% handling + 0.5% logistics)
   const prepaidDiscount = paymentMethod === 'ONLINE' ? Math.min(Math.round(itemsSubtotal * 0.05), 100) : 0;
-  const codFee = paymentMethod === 'COD' ? 49 : 0;
+  const codFee = paymentMethod === 'COD' ? (currency === 'NPR' ? 78 : 49) : 0;
   const grandTotal = Math.max(0, Math.round((itemsSubtotal + deliveryFee + platformFee - prepaidDiscount + codFee) * 100) / 100);
 
   // Address creation handler
@@ -828,8 +848,13 @@ function CheckoutContent() {
             </div>
           )}
 
-          <div className="flex justify-between text-gray-600">
-            <span>Platform Convenience Fee (1.5%)</span>
+          <div className="flex justify-between items-start text-gray-600">
+            <div>
+              <span className="block font-medium">Platform Fee (1.5%)</span>
+              <span className="block text-[10px] text-gray-400">
+                0.5% Convenience • 0.5% Handling • 0.5% Logistics
+              </span>
+            </div>
             <span className="font-semibold text-gray-900">+{formatPrice(platformFee)}</span>
           </div>
 

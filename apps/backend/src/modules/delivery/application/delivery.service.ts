@@ -247,7 +247,7 @@ export class DeliveryService {
           include: {
             store: true,
             buyer: {
-              select: { id: true, name: true, phone: true, avatarUrl: true }
+              select: { id: true, name: true, phone: true, avatarUrl: true, latitude: true, longitude: true, locationArea: true }
             },
             items: true,
             pickupOtp: true
@@ -257,7 +257,49 @@ export class DeliveryService {
       orderBy: { createdAt: 'desc' }
     });
 
-    return assignments;
+    const enriched = await Promise.all(
+      assignments.map(async (assignment) => {
+        const order = assignment.order;
+        if (!order) return assignment;
+
+        const storeLat = order.store?.latitude || 28.6139;
+        const storeLng = order.store?.longitude || 77.2090;
+        const buyerLat = order.buyer?.latitude || (storeLat + 0.045);
+        const buyerLng = order.buyer?.longitude || (storeLng + 0.045);
+
+        const distanceKm = ParcelAssignmentService.calculateDistanceKm(
+          { latitude: storeLat, longitude: storeLng },
+          { latitude: buyerLat, longitude: buyerLng }
+        );
+        const twoWayDistanceKm = Math.round(distanceKm * 2 * 10) / 10;
+        const countryCode = FuelRateService.detectCountry(storeLat, storeLng);
+        const benchmark = await FuelRateService.getFuelBenchmark(countryCode);
+
+        const fuelCostPerKm = Math.round((benchmark.fuelPricePerLiter / benchmark.standardBikeMileage) * 100) / 100;
+        const estimatedFuelCost = Math.round(twoWayDistanceKm * fuelCostPerKm * 10) / 10;
+        const payout = assignment.deliveryFee || 50;
+        const estimatedLaborPayout = Math.max(0, Math.round((payout - estimatedFuelCost) * 10) / 10);
+        const laborPercentage = payout > 0 ? Math.round((estimatedLaborPayout / payout) * 100) : 0;
+
+        return {
+          ...assignment,
+          economics: {
+            distanceKm,
+            twoWayDistanceKm,
+            fuelPricePerLiter: benchmark.fuelPricePerLiter,
+            standardBikeMileage: benchmark.standardBikeMileage,
+            fuelCostPerKm,
+            estimatedFuelCost,
+            estimatedLaborPayout,
+            laborPercentage,
+            currency: benchmark.currency,
+            currencySymbol: benchmark.currencySymbol
+          }
+        };
+      })
+    );
+
+    return enriched;
   }
 
   /**
@@ -291,7 +333,7 @@ export class DeliveryService {
           include: {
             store: true,
             buyer: {
-              select: { id: true, name: true, phone: true, avatarUrl: true }
+              select: { id: true, name: true, phone: true, avatarUrl: true, latitude: true, longitude: true, locationArea: true }
             },
             items: true,
             pickupOtp: true
@@ -301,7 +343,45 @@ export class DeliveryService {
       orderBy: { createdAt: 'desc' }
     });
 
-    return assignment;
+    if (!assignment || !assignment.order) {
+      return assignment;
+    }
+
+    const order = assignment.order;
+    const storeLat = order.store?.latitude || 28.6139;
+    const storeLng = order.store?.longitude || 77.2090;
+    const buyerLat = order.buyer?.latitude || (storeLat + 0.045);
+    const buyerLng = order.buyer?.longitude || (storeLng + 0.045);
+
+    const distanceKm = ParcelAssignmentService.calculateDistanceKm(
+      { latitude: storeLat, longitude: storeLng },
+      { latitude: buyerLat, longitude: buyerLng }
+    );
+    const twoWayDistanceKm = Math.round(distanceKm * 2 * 10) / 10;
+    const countryCode = FuelRateService.detectCountry(storeLat, storeLng);
+    const benchmark = await FuelRateService.getFuelBenchmark(countryCode);
+
+    const fuelCostPerKm = Math.round((benchmark.fuelPricePerLiter / benchmark.standardBikeMileage) * 100) / 100;
+    const estimatedFuelCost = Math.round(twoWayDistanceKm * fuelCostPerKm * 10) / 10;
+    const payout = assignment.deliveryFee || 50;
+    const estimatedLaborPayout = Math.max(0, Math.round((payout - estimatedFuelCost) * 10) / 10);
+    const laborPercentage = payout > 0 ? Math.round((estimatedLaborPayout / payout) * 100) : 0;
+
+    return {
+      ...assignment,
+      economics: {
+        distanceKm,
+        twoWayDistanceKm,
+        fuelPricePerLiter: benchmark.fuelPricePerLiter,
+        standardBikeMileage: benchmark.standardBikeMileage,
+        fuelCostPerKm,
+        estimatedFuelCost,
+        estimatedLaborPayout,
+        laborPercentage,
+        currency: benchmark.currency,
+        currencySymbol: benchmark.currencySymbol
+      }
+    };
   }
 
   /**

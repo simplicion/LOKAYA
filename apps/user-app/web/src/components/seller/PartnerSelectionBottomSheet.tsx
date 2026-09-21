@@ -49,6 +49,8 @@ interface PartnerSelectionBottomSheetProps {
   isSubmitting: boolean;
   customerPaidShipping?: number;
   orderDistanceKm?: number;
+  fuelPricePerLiter?: number;
+  standardBikeMileage?: number;
 }
 
 export function PartnerSelectionBottomSheet({
@@ -61,19 +63,25 @@ export function PartnerSelectionBottomSheet({
   onConfirmAssign,
   isSubmitting,
   customerPaidShipping = 150,
-  orderDistanceKm = 5
+  orderDistanceKm = 5,
+  fuelPricePerLiter,
+  standardBikeMileage = 50
 }: PartnerSelectionBottomSheetProps) {
   const router = useRouter();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currency } = useCurrency();
 
   if (!isOpen) return null;
+
+  const effectivePetrolRate = fuelPricePerLiter || (currency === 'NPR' ? 175.0 : 102.0);
+  const effectiveBikeMileage = standardBikeMileage || (currency === 'NPR' ? 45.0 : 50.0);
+  const fuelCostPerKm = Math.round((effectivePetrolRate / effectiveBikeMileage) * 100) / 100;
 
   const onlineCount = partners.filter(p => p.isOnline).length;
   const offlineCount = partners.length - onlineCount;
   const selectedPartner = partners.find(p => p.id === selectedPartnerId);
 
   const twoWayDistanceKm = Math.round(orderDistanceKm * 2 * 10) / 10;
-
+  const estimatedFuelExpense = Math.round(twoWayDistanceKm * fuelCostPerKm * 10) / 10;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
@@ -101,7 +109,7 @@ export function PartnerSelectionBottomSheet({
                 </span>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
-                Distance: {orderDistanceKm} km ({twoWayDistanceKm} km 2-way round trip) • Customer Paid: ₹{customerPaidShipping}
+                Distance: {orderDistanceKm} km ({twoWayDistanceKm} km round trip) • Customer Paid: {formatPrice(customerPaidShipping)}
               </p>
             </div>
           </div>
@@ -113,6 +121,18 @@ export function PartnerSelectionBottomSheet({
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Real-time Fuel Benchmark Bar for Seller */}
+        <div className="px-4 py-2 bg-amber-50/80 border-b border-amber-200/60 flex items-center justify-between text-xs text-amber-950 flex-wrap gap-2">
+          <div className="flex items-center gap-1.5 font-bold">
+            <span>⛽ Current Petrol Rate:</span>
+            <span className="text-[#FF5A36] font-black">{formatPrice(effectivePetrolRate)}/L</span>
+            <span className="text-gray-400 text-[10px]">({effectiveBikeMileage} km/L benchmark)</span>
+          </div>
+          <div className="text-[11px] font-medium text-amber-900">
+            Trip Fuel Cost: <span className="font-bold">{formatPrice(estimatedFuelExpense)}</span>
+          </div>
         </div>
 
         {/* Roster Quick Status Banner */}
@@ -170,6 +190,8 @@ export function PartnerSelectionBottomSheet({
                 const riderQuote = Math.max(riderBaseFare, Math.round(twoWayDistanceKm * riderRate));
                 const profitDiff = customerPaidShipping - riderQuote;
                 const isProfit = profitDiff >= 0;
+                const riderLaborProfit = Math.max(0, Math.round((riderQuote - estimatedFuelExpense) * 10) / 10);
+                const laborPercentage = riderQuote > 0 ? Math.round((riderLaborProfit / riderQuote) * 100) : 0;
 
                 return (
                   <div
@@ -221,6 +243,16 @@ export function PartnerSelectionBottomSheet({
                           </span>
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${rider.isOnline ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
                             {rider.isOnline ? '● Online' : '○ Offline (Queued)'}
+                          </span>
+                        </div>
+
+                        {/* Real-time Fuel vs Labor Breakdown for Seller/Rider */}
+                        <div className="flex items-center gap-1.5 text-[10px] text-gray-500 mt-1 flex-wrap font-mono">
+                          <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">
+                            ⛽ Fuel: {formatPrice(estimatedFuelExpense)}
+                          </span>
+                          <span className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                            💼 Labor: {formatPrice(riderLaborProfit)} ({laborPercentage}%)
                           </span>
                         </div>
 

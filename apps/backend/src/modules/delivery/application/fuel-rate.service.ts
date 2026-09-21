@@ -194,36 +194,63 @@ export class FuelRateService {
     isFreeDelivery: boolean;
     minFloorApplied: boolean;
     currencySymbol: string;
+    fuelPricePerLiter: number;
+    standardBikeMileage: number;
+    fuelCostPerKm: number;
+    estimatedFuelCost: number;
+    estimatedLaborCost: number;
+    laborPercentage: number;
   } {
+    const twoWayDistanceKm = Math.round(distanceKm * 2 * 10) / 10;
+    const fuelCostPerKm = Math.round((benchmark.fuelPricePerLiter / benchmark.standardBikeMileage) * 100) / 100;
+    const estimatedFuelCost = Math.round(twoWayDistanceKm * fuelCostPerKm * 10) / 10;
+
     if (isDeliveryIncluded) {
       return {
         distanceKm,
-        twoWayDistanceKm: distanceKm * 2,
+        twoWayDistanceKm,
         deliveryFee: 0,
         isLongDistance: distanceKm > 10,
         isFreeDelivery: true,
         minFloorApplied: false,
-        currencySymbol: benchmark.currencySymbol
+        currencySymbol: benchmark.currencySymbol,
+        fuelPricePerLiter: benchmark.fuelPricePerLiter,
+        standardBikeMileage: benchmark.standardBikeMileage,
+        fuelCostPerKm,
+        estimatedFuelCost: 0,
+        estimatedLaborCost: 0,
+        laborPercentage: 0
       };
     }
 
     // Long distance threshold (>10km) switches to flat regional hub rate
     if (distanceKm > 10) {
+      const finalFee = benchmark.longDistanceFlatRate;
+      const estimatedLaborCost = Math.max(0, Math.round((finalFee - estimatedFuelCost) * 10) / 10);
+      const laborPercentage = finalFee > 0 ? Math.round((estimatedLaborCost / finalFee) * 100) : 0;
+
       return {
         distanceKm,
-        twoWayDistanceKm: distanceKm * 2,
-        deliveryFee: benchmark.longDistanceFlatRate,
+        twoWayDistanceKm,
+        deliveryFee: finalFee,
         isLongDistance: true,
         isFreeDelivery: false,
         minFloorApplied: false,
-        currencySymbol: benchmark.currencySymbol
+        currencySymbol: benchmark.currencySymbol,
+        fuelPricePerLiter: benchmark.fuelPricePerLiter,
+        standardBikeMileage: benchmark.standardBikeMileage,
+        fuelCostPerKm,
+        estimatedFuelCost,
+        estimatedLaborCost,
+        laborPercentage
       };
     }
 
     // Hyperlocal 2-way round trip billing
-    const twoWayDistanceKm = Math.round(distanceKm * 2 * 10) / 10;
     const rawFee = twoWayDistanceKm * benchmark.standardPerKmRate;
     const finalFee = Math.max(benchmark.minDeliveryFloor, Math.round(rawFee));
+    const estimatedLaborCost = Math.max(0, Math.round((finalFee - estimatedFuelCost) * 10) / 10);
+    const laborPercentage = finalFee > 0 ? Math.round((estimatedLaborCost / finalFee) * 100) : 0;
 
     return {
       distanceKm: Math.round(distanceKm * 10) / 10,
@@ -232,7 +259,13 @@ export class FuelRateService {
       isLongDistance: false,
       isFreeDelivery: false,
       minFloorApplied: rawFee < benchmark.minDeliveryFloor,
-      currencySymbol: benchmark.currencySymbol
+      currencySymbol: benchmark.currencySymbol,
+      fuelPricePerLiter: benchmark.fuelPricePerLiter,
+      standardBikeMileage: benchmark.standardBikeMileage,
+      fuelCostPerKm,
+      estimatedFuelCost,
+      estimatedLaborCost,
+      laborPercentage
     };
   }
 
