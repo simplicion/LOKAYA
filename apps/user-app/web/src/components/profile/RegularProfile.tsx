@@ -260,7 +260,7 @@ export function RegularProfile() {
             </button>
           </div>
           
-          <div className="flex justify-between items-center text-center overflow-x-auto pb-2 hide-scrollbar">
+          <div className="flex justify-between items-center text-center overflow-x-auto pb-2 no-scrollbar hide-scrollbar">
             <div className="flex flex-col items-center gap-2 min-w-[70px]">
               <div className="relative">
                 <Package className="w-7 h-7 text-[#171717]" strokeWidth={1.5} />

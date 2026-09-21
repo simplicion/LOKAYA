@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Volume2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Volume2, Sparkles, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn, getMediaUrl, formatTimeAgo } from '@/lib/utils';
 import { ProductOverlayCard } from './ProductOverlayCard';
 import { ShareBottomSheet } from '../ui/ShareBottomSheet';
@@ -112,6 +112,18 @@ export function SocialPost({
   const displayTime = timeAgo && timeAgo !== 'Recently' ? timeAgo : formatTimeAgo(createdAt || timeAgo);
 
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToIndex = (index: number) => {
+    if (!scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
+    const width = container.clientWidth;
+    container.scrollTo({
+      left: index * width,
+      behavior: 'smooth',
+    });
+    setCurrentMediaIndex(index);
+  };
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isLikesOpen, setIsLikesOpen] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
@@ -319,19 +331,27 @@ export function SocialPost({
           className="relative w-full aspect-[4/5] bg-gray-900 overflow-hidden cursor-pointer"
           onClick={handleMediaClick}
         >
-          {/* Scrollable Media List */}
+          {/* Scrollable Media List (1-by-1 Instagram Carousel) */}
           <div 
-            className="w-full h-full flex overflow-x-auto snap-x snap-mandatory hide-scrollbar"
+            ref={scrollContainerRef}
+            className="w-full h-full flex overflow-x-auto snap-x snap-mandatory no-scrollbar hide-scrollbar scroll-smooth touch-pan-x select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             onScroll={(e) => {
-              const target = e.target as HTMLElement;
-              const index = Math.round(target.scrollLeft / target.clientWidth);
-              if (index !== currentMediaIndex) {
-                setCurrentMediaIndex(index);
+              const target = e.currentTarget;
+              const width = target.clientWidth;
+              if (width > 0) {
+                const index = Math.round(target.scrollLeft / width);
+                if (index !== currentMediaIndex && index >= 0 && index < media.length) {
+                  setCurrentMediaIndex(index);
+                }
               }
             }}
           >
             {media.map((m, idx) => (
-              <div key={idx} className="relative w-full h-full flex-shrink-0 snap-center">
+              <div 
+                key={idx} 
+                className="relative w-full min-w-full h-full shrink-0 snap-center snap-always flex items-center justify-center overflow-hidden bg-black select-none"
+              >
                 {m.type === 'video' && m.url ? (
                   <VideoPlayer
                     src={m.url}
@@ -386,6 +406,35 @@ export function SocialPost({
             ))}
           </div>
 
+          {/* Instagram-style Carousel Navigation Arrows */}
+          {media.length > 1 && currentMediaIndex > 0 && (
+            <button
+              type="button"
+              aria-label="Previous slide"
+              onClick={(e) => {
+                e.stopPropagation();
+                scrollToIndex(currentMediaIndex - 1);
+              }}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/85 hover:bg-white text-gray-900 shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-xs"
+            >
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 -ml-0.5 text-gray-800 stroke-[2.5]" />
+            </button>
+          )}
+
+          {media.length > 1 && currentMediaIndex < media.length - 1 && (
+            <button
+              type="button"
+              aria-label="Next slide"
+              onClick={(e) => {
+                e.stopPropagation();
+                scrollToIndex(currentMediaIndex + 1);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/85 hover:bg-white text-gray-900 shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-xs"
+            >
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 -mr-0.5 text-gray-800 stroke-[2.5]" />
+            </button>
+          )}
+
           {/* Big Heart Animation on Double Tap */}
           {showHeartPop && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 animate-ping duration-500">
@@ -402,20 +451,31 @@ export function SocialPost({
 
           {/* Multi-image indicators */}
           {media.length > 1 && (
-            <div className="absolute top-4 right-4 bg-black/60 rounded-full px-2 py-1 text-white text-[10px] font-bold backdrop-blur-sm pointer-events-none">
+            <div className="absolute top-3.5 right-3.5 bg-black/60 backdrop-blur-md rounded-full px-2.5 py-1 text-white text-[11px] font-semibold z-20 pointer-events-none tracking-wide shadow-sm">
               {currentMediaIndex + 1}/{media.length}
             </div>
           )}
         </div>
       )}
 
-      {/* Carousel Dots */}
+      {/* Instagram-style Carousel Dots */}
       {media.length > 1 && (
-        <div className="flex items-center justify-center gap-1 mt-3">
+        <div className="flex items-center justify-center gap-1.5 mt-2.5">
           {media.map((_, idx) => (
-            <div 
+            <button 
               key={idx} 
-              className={cn("h-1.5 rounded-full transition-all", idx === currentMediaIndex ? "w-4 bg-[#FF5A36]" : "w-1.5 bg-[#E5E2DC]")}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                scrollToIndex(idx);
+              }}
+              aria-label={`Go to slide ${idx + 1}`}
+              className={cn(
+                "h-1.5 rounded-full transition-all duration-200 cursor-pointer p-0 border-0 outline-none",
+                idx === currentMediaIndex 
+                  ? "w-4 bg-[#FF5A36]" 
+                  : "w-1.5 bg-[#E5E2DC] hover:bg-gray-400"
+              )}
             />
           ))}
         </div>

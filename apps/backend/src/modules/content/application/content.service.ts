@@ -278,7 +278,9 @@ export class ContentService {
         } : undefined,
         orderBy: { createdAt: 'desc' },
         include: {
-          media: true,
+          media: {
+            orderBy: { createdAt: 'asc' }
+          },
           author: {
             select: {
               id: true,
@@ -319,7 +321,9 @@ export class ContentService {
         } : undefined,
         orderBy: { createdAt: 'desc' },
         include: {
-          media: true,
+          media: {
+            orderBy: { createdAt: 'asc' }
+          },
           author: {
             select: {
               id: true,
@@ -461,7 +465,9 @@ export class ContentService {
     const post = await prisma.post.findUnique({
       where: { id: postId },
       include: {
-        media: true,
+        media: {
+          orderBy: { createdAt: 'asc' }
+        },
         author: {
           select: {
             id: true,
@@ -539,7 +545,9 @@ export class ContentService {
     const reel = await prisma.reel.findUnique({
       where: { id: postId },
       include: {
-        media: true,
+        media: {
+          orderBy: { createdAt: 'asc' }
+        },
         author: {
           select: {
             id: true,
