@@ -643,7 +643,7 @@ export default function DeliveryDashboardPage() {
             </div>
           </div>
         </div>
-      ) : activeTask && currentOrder ? (
+      ) : activeTask && currentOrder && activeTask.status !== 'ASSIGNED' ? (
         /* 4. SINGLE ACTIVE DELIVERY TASK CARD */
         <div className="bg-white rounded-3xl p-5 border-2 border-[#FF5A36] shadow-md space-y-4 relative overflow-hidden animate-in fade-in duration-300">
           <div className="flex items-center justify-between">
@@ -739,16 +739,6 @@ export default function DeliveryDashboardPage() {
 
           {/* Dynamic Task Progression CTA Button */}
           <div className="pt-1">
-            {activeTask.status === 'ASSIGNED' && (
-              <Button
-                onClick={() => handleAcceptAssignment()}
-                disabled={isAccepting}
-                className="w-full h-13 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md"
-              >
-                {isAccepting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Accept Delivery Task'}
-              </Button>
-            )}
-
             {activeTask.status === 'ACCEPTED' && (
               <Button
                 onClick={() => handleProgressStatus('ARRIVED_AT_STORE')}
@@ -803,7 +793,7 @@ export default function DeliveryDashboardPage() {
             )}
           </div>
         </div>
-      ) : (
+      ) : incomingTasks.length > 0 ? null : (
         /* Idle Waiting Card */
         <div className="bg-white rounded-3xl p-6 border border-[#E5E2DC] text-center space-y-3 shadow-xs">
           <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FF5A36] flex items-center justify-center mx-auto border border-orange-100">
