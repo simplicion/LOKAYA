@@ -64,7 +64,8 @@ function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
-  const { formatPrice, currencySymbol } = useCurrency();
+  const { formatPrice, currencySymbol, isIndianUser, currency } = useCurrency();
+  const isOnlinePaymentAvailable = isIndianUser || currency === 'INR';
   const user = useSelector((state: RootState) => (state as any).auth?.user);
 
   // URL Query Params for direct buy now
@@ -97,9 +98,16 @@ function CheckoutContent() {
 
   // Local Checkout State
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
+  const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>(isOnlinePaymentAvailable ? 'ONLINE' : 'COD');
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Auto-sync payment method based on country/currency availability
+  useEffect(() => {
+    if (!isOnlinePaymentAvailable && paymentMethod === 'ONLINE') {
+      setPaymentMethod('COD');
+    }
+  }, [isOnlinePaymentAvailable, paymentMethod]);
 
   // New Address Form State
   const [newAddressForm, setNewAddressForm] = useState({
@@ -359,7 +367,10 @@ function CheckoutContent() {
         ? `${chosenAddress.name}, ${chosenAddress.addressLine1}${chosenAddress.addressLine2 ? `, ${chosenAddress.addressLine2}` : ''}, ${chosenAddress.city}, ${chosenAddress.state} - ${chosenAddress.pincode} (Ph: ${chosenAddress.phone})`
         : 'Default Customer Address';
 
-      // 2. Create Order in backend
+      // 2. Resolve effective payment method (strictly COD if outside India)
+      const effectivePaymentMethod = isOnlinePaymentAvailable ? paymentMethod : 'COD';
+
+      // Create Order in backend
       const orderPayload = {
         storeId: primaryStoreId,
         items: orderItems.map((i: any) => ({
@@ -368,14 +379,14 @@ function CheckoutContent() {
           quantity: i.quantity
         })),
         deliveryAddress: deliveryAddressString,
-        paymentMethod,
+        paymentMethod: effectivePaymentMethod,
         shippingFee: deliveryFee
       };
 
       const createdOrder = await createOrder(orderPayload).unwrap();
 
       // 3. Handle Payment Method
-      if (paymentMethod === 'ONLINE') {
+      if (effectivePaymentMethod === 'ONLINE') {
         toast.loading('Initializing payment gateway...', { id: 'payment-init' });
         const isLoaded = await loadRazorpaySDK();
         toast.dismiss('payment-init');
@@ -617,44 +628,69 @@ function CheckoutContent() {
 
         {/* Step 2: Payment Method */}
         <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#FF6B00] flex items-center justify-center font-bold text-xs">
-              2
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#FF6B00] flex items-center justify-center font-bold text-xs">
+                2
+              </div>
+              <h2 className="font-bold text-gray-900 text-sm">Payment Method</h2>
             </div>
-            <h2 className="font-bold text-gray-900 text-sm">Payment Method</h2>
+
+            {!isOnlinePaymentAvailable && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                Cash on Delivery Only ({currency})
+              </span>
+            )}
           </div>
 
           <div className="space-y-3">
-            {/* Online Option */}
-            <div
-              onClick={() => setPaymentMethod('ONLINE')}
-              className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${
-                paymentMethod === 'ONLINE'
-                  ? 'border-[#FF6B00] bg-orange-50/20'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="mt-0.5">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  paymentMethod === 'ONLINE' ? 'border-[#FF6B00]' : 'border-gray-300'
-                }`}>
-                  {paymentMethod === 'ONLINE' && <div className="w-2 h-2 rounded-full bg-[#FF6B00]" />}
+            {/* Online Option (India Only) */}
+            {isOnlinePaymentAvailable ? (
+              <div
+                onClick={() => setPaymentMethod('ONLINE')}
+                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3.5 ${
+                  paymentMethod === 'ONLINE'
+                    ? 'border-[#FF6B00] bg-orange-50/20'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="mt-0.5">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    paymentMethod === 'ONLINE' ? 'border-[#FF6B00]' : 'border-gray-300'
+                  }`}>
+                    {paymentMethod === 'ONLINE' && <div className="w-2 h-2 rounded-full bg-[#FF6B00]" />}
+                  </div>
+                </div>
+
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-gray-900">Prepaid / UPI & Cards</span>
+                      <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5" /> 5% INSTANT OFF
+                      </span>
+                    </div>
+                    <CreditCard className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <p className="text-xs text-gray-500">Google Pay, PhonePe, Paytm, Cards, NetBanking via Razorpay</p>
                 </div>
               </div>
-
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
+            ) : (
+              <div className="p-3.5 rounded-xl border border-dashed border-gray-200 bg-gray-50/80 flex items-start gap-3 opacity-75">
+                <CreditCard className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                <div className="text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-gray-900">Prepaid / UPI & Cards</span>
-                    <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Sparkles className="w-2.5 h-2.5" /> 5% INSTANT OFF
+                    <span className="font-bold text-gray-700">Online Payment (UPI & Cards)</span>
+                    <span className="text-[9px] font-semibold bg-gray-200 text-gray-600 px-1.5 py-0.2 rounded">
+                      India (INR) Only
                     </span>
                   </div>
-                  <CreditCard className="w-4 h-4 text-gray-400" />
+                  <p className="text-gray-500 text-[11px] mt-0.5">
+                    Online Razorpay gateway is currently available for Indian Rupee (INR) payments only. Please use Cash on Delivery.
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500">Google Pay, PhonePe, Paytm, Cards, NetBanking via Razorpay</p>
               </div>
-            </div>
+            )}
 
             {/* Cash on Delivery Option */}
             <div
@@ -675,7 +711,14 @@ function CheckoutContent() {
 
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-sm text-gray-900">Cash on Delivery</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-gray-900">Cash on Delivery</span>
+                    {!isOnlinePaymentAvailable && (
+                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                        Recommended
+                      </span>
+                    )}
+                  </div>
                   <Banknote className="w-4 h-4 text-gray-400" />
                 </div>
                 <p className="text-xs text-gray-500">Pay cash upon delivery. +{formatPrice(49)} verification & handling fee.</p>
