@@ -392,12 +392,22 @@ export class CatalogService {
       return products.map((prod: any) => {
         const avgRating = prod.reviews?.length > 0
           ? Number((prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length).toFixed(1))
-          : null;
+          : 0;
+
+        const price = prod.sellingPrice ?? 0;
+        const mrp = prod.mrp && prod.mrp > price ? prod.mrp : (prod.mrp || undefined);
+        const discountLabel = mrp && mrp > price ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
 
         return {
           ...prod,
-          rating: avgRating,
-          reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
+          mrp,
+          sellingPrice: price,
+          price,
+          originalPrice: mrp,
+          discount: discountLabel,
+          discountLabel,
+          rating: avgRating > 0 ? avgRating : 0,
+          reviews: prod.reviews?.length ? `(${prod.reviews.length})` : '(0)',
           reviewsCount: prod.reviews?.length || 0,
         };
       });
@@ -560,13 +570,13 @@ export class CatalogService {
 
       return products.map((prod: any) => {
         const avgRating = prod.reviews?.length > 0
-          ? prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length
+          ? Number((prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length).toFixed(1))
           : 0;
 
         const primaryImage = prod.media?.[0]?.url || prod.imageUrl || '';
         const price = prod.sellingPrice ?? 0;
-        const mrp = prod.mrp && prod.mrp > price ? prod.mrp : undefined;
-        const discountLabel = mrp ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
+        const mrp = prod.mrp && prod.mrp > price ? prod.mrp : (prod.mrp || undefined);
+        const discountLabel = mrp && mrp > price ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
 
         return {
           id: prod.id,
@@ -588,8 +598,8 @@ export class CatalogService {
             isVerified: prod.store?.status === 'VERIFIED',
             logoUrl: prod.store?.logoUrl
           },
-          rating: avgRating > 0 ? avgRating.toFixed(1) : null,
-          reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
+          rating: avgRating > 0 ? avgRating : 0,
+          reviews: prod.reviews?.length ? `(${prod.reviews.length})` : '(0)',
           reviewsCount: prod.reviews?.length || 0,
           category: prod.category
         };
@@ -623,13 +633,13 @@ export class CatalogService {
     const productMap = new Map<string, any>();
     products.forEach((prod) => {
       const avgRating = prod.reviews?.length
-        ? prod.reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / prod.reviews.length
+        ? Number((prod.reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / prod.reviews.length).toFixed(1))
         : 0;
 
       const primaryImage = prod.media?.[0]?.url || prod.imageUrl || '';
       const price = prod.sellingPrice ?? 0;
-      const mrp = prod.mrp && prod.mrp > price ? prod.mrp : undefined;
-      const discountLabel = mrp ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
+      const mrp = prod.mrp && prod.mrp > price ? prod.mrp : (prod.mrp || undefined);
+      const discountLabel = mrp && mrp > price ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
 
       productMap.set(prod.id, {
         id: prod.id,
@@ -653,8 +663,8 @@ export class CatalogService {
           isVerified: prod.store?.status === 'VERIFIED',
           logoUrl: prod.store?.logoUrl
         },
-        rating: avgRating > 0 ? avgRating.toFixed(1) : null,
-        reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
+        rating: avgRating > 0 ? avgRating : 0,
+        reviews: prod.reviews?.length ? `(${prod.reviews.length})` : '(0)',
         reviewsCount: prod.reviews?.length || 0,
         category: prod.category
       });

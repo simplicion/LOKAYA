@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Image as ImageIcon, Upload, ChevronRight, X, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Image as ImageIcon, Upload, ChevronRight, X, RefreshCw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SellerHeader } from '@/components/seller/SellerHeader';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import { Dropdown } from '@/components/ui/dropdown';
 import { getMediaUrl, generateStandardSku } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 import { useCurrency } from '@/context/CurrencyContext';
+import { AiStudioBottomSheet } from '@/components/seller/AiStudioBottomSheet';
 const variantSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'Variant name is required'),
@@ -63,6 +64,7 @@ export default function ManualAddProductPage() {
   const [uploadMedia] = useUploadMediaMutation();
   const [getPresignedUrl] = useGetPresignedUrlMutation();
   const [uploadingFiles, setUploadingFiles] = useState<{ [key: string]: boolean }>({});
+  const [isAiStudioOpen, setIsAiStudioOpen] = useState(false);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -209,6 +211,7 @@ export default function ManualAddProductPage() {
         imageUrl: primaryMedia?.url || undefined,
         sellingPrice: computedSellingPrice,
         mrp: computedMrp,
+        costPrice: data.costPrice !== undefined && data.costPrice !== null && !isNaN(Number(data.costPrice)) ? Number(data.costPrice) : undefined,
         stockCount: computedStockCount,
       };
 
@@ -266,6 +269,7 @@ export default function ManualAddProductPage() {
         imageUrl: primaryMedia?.url || undefined,
         sellingPrice: computedSellingPrice,
         mrp: computedMrp,
+        costPrice: currentValues.costPrice !== undefined && currentValues.costPrice !== null && !isNaN(Number(currentValues.costPrice)) ? Number(currentValues.costPrice) : undefined,
         stockCount: computedStockCount,
       };
 
@@ -371,6 +375,14 @@ export default function ManualAddProductPage() {
       newMedia[0].isPrimary = true;
     }
     setValue('media', newMedia);
+  };
+
+  const handleApplyAiPhotos = (newPhotos: Array<{ url: string; type: 'IMAGE'; isPrimary?: boolean; displayOrder: number }>) => {
+    const currentMedia = form.getValues('media') || [];
+    // Reset primary flag on existing if AI shot has a primary
+    const existing = currentMedia.map(m => ({ ...m, isPrimary: false }));
+    const merged = [...newPhotos, ...existing];
+    setValue('media', merged);
   };
 
   if (!isLoaded) return null;
@@ -514,48 +526,110 @@ export default function ManualAddProductPage() {
 
             {!watch('hasVariants') ? (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-gray-700">Selling Price ({currencySymbol}) *</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
-                      <input 
-                        {...register('sellingPrice')}
-                        type="number" 
-                        placeholder="0.00"
-                        className={`w-full pl-8 p-3.5 bg-white border ${errors.sellingPrice ? 'border-red-500' : 'border-[#E5E2DC]'} rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-sm`} 
-                      />
-                    </div>
-                    {errors.sellingPrice && <span className="text-xs text-red-500">{errors.sellingPrice.message}</span>}
-                  </div>
+                {(() => {
+                  const watchSellingPrice = Number(watch('sellingPrice')) || 0;
+                  const watchMrp = Number(watch('mrp')) || 0;
+                  const liveDiscount = watchMrp > 0 && watchSellingPrice > 0 && watchMrp > watchSellingPrice
+                    ? Math.round(((watchMrp - watchSellingPrice) / watchMrp) * 100)
+                    : 0;
 
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-gray-700">Cost Price ({currencySymbol})</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
-                      <input 
-                        {...register('costPrice')}
-                        type="number" 
-                        placeholder="0.00"
-                        className="w-full pl-8 p-3.5 bg-white border border-[#E5E2DC] rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-sm" 
-                      />
-                    </div>
-                    <p className="text-[10px] text-gray-400">Used for 5% margin commission</p>
-                  </div>
+                  return (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* 1. MRP (Showing Reference Price) */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-semibold text-gray-800">
+                              MRP ({currencySymbol})
+                            </label>
+                            <span className="text-[10px] text-gray-500 font-medium">Showing Price</span>
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
+                            <input 
+                              {...register('mrp')}
+                              type="number" 
+                              placeholder="e.g. 1000"
+                              className="w-full pl-8 p-3.5 bg-white border border-[#E5E2DC] rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-sm font-medium" 
+                            />
+                          </div>
+                          <p className="text-[10px] text-gray-400">Reference price crossed out on product card</p>
+                        </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-gray-700">MRP ({currencySymbol})</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
-                      <input 
-                        {...register('mrp')}
-                        type="number" 
-                        placeholder="0.00"
-                        className="w-full pl-8 p-3.5 bg-white border border-[#E5E2DC] rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-sm" 
-                      />
+                        {/* 2. Selling Price (Actual Customer Price) */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-semibold text-gray-800">
+                              Selling Price ({currencySymbol}) *
+                            </label>
+                            <span className="text-[10px] font-bold text-[#FF5A36]">Actual Price</span>
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
+                            <input 
+                              {...register('sellingPrice')}
+                              type="number" 
+                              placeholder="e.g. 500"
+                              className={`w-full pl-8 p-3.5 bg-white border ${errors.sellingPrice ? 'border-red-500' : 'border-[#E5E2DC]'} rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-sm font-bold text-[#171717]`} 
+                            />
+                          </div>
+                          {errors.sellingPrice ? (
+                            <span className="text-xs text-red-500">{errors.sellingPrice.message}</span>
+                          ) : (
+                            <p className="text-[10px] text-gray-400">Actual amount the customer pays at checkout</p>
+                          )}
+                        </div>
+
+                        {/* 3. Cost Price (Wholesale / Internal) */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-semibold text-gray-800">
+                              Cost Price ({currencySymbol})
+                            </label>
+                            <span className="text-[10px] text-gray-500 font-medium">Internal Only</span>
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">{currencySymbol}</span>
+                            <input 
+                              {...register('costPrice')}
+                              type="number" 
+                              placeholder="e.g. 350"
+                              className="w-full pl-8 p-3.5 bg-white border border-[#E5E2DC] rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-sm font-medium" 
+                            />
+                          </div>
+                          <p className="text-[10px] text-gray-400">Your wholesale cost (used for merchant margin)</p>
+                        </div>
+                      </div>
+
+                      {/* Live Discount Preview Badge */}
+                      {liveDiscount > 0 && (
+                        <div className="p-3 bg-orange-50/80 border border-orange-200/80 rounded-xl flex items-center justify-between animate-in fade-in duration-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">🎉</span>
+                            <div>
+                              <p className="text-xs font-bold text-[#FF5A36]">
+                                {liveDiscount}% OFF discount badge will appear on your product card!
+                              </p>
+                              <p className="text-[11px] text-gray-500">
+                                Buyers will see: <span className="line-through text-gray-400">{currencySymbol}{watchMrp}</span> → <span className="font-extrabold text-[#171717]">{currencySymbol}{watchSellingPrice}</span>
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-black text-[#FF5A36] bg-white px-2.5 py-1 rounded-md border border-orange-200 shadow-2xs shrink-0">
+                            {liveDiscount}% OFF
+                          </span>
+                        </div>
+                      )}
+
+                      {watchMrp > 0 && watchSellingPrice > watchMrp && (
+                        <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium flex items-center gap-2">
+                          <span>⚠️</span>
+                          <span>Selling price ({currencySymbol}{watchSellingPrice}) is greater than MRP ({currencySymbol}{watchMrp}). To display a discount, MRP should be greater than selling price.</span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700">Stock Quantity</label>
@@ -675,8 +749,40 @@ export default function ManualAddProductPage() {
 
         {currentStep === 2 && (
           <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
-            <h2 className="text-xl font-bold text-brand-navy">Product Media</h2>
-            <p className="text-sm text-gray-500">Upload high quality images or videos of your product.</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-brand-navy">Product Media</h2>
+                <p className="text-sm text-gray-500">Upload high quality images or videos of your product.</p>
+              </div>
+            </div>
+
+            {/* AI Studio Photoshoot Trigger Card */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-lg border border-indigo-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center shrink-0 text-slate-950 shadow-md">
+                  <Sparkles className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm text-white">AI Virtual Photo Studio</h4>
+                    <span className="bg-amber-400/20 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-amber-400/30">
+                      5 Studio Shots
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Click 1–2 phone photos and get 5 studio-grade commercial images automatically.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                onClick={() => setIsAiStudioOpen(true)}
+                className="h-10 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 font-bold text-xs shadow-md shrink-0 flex items-center gap-1.5 active:scale-95 transition-all"
+              >
+                <Sparkles className="w-3.5 h-3.5 fill-current" />
+                Launch AI Studio
+              </Button>
+            </div>
             
             <div className="relative w-full h-48 border-2 border-dashed border-[#E5E2DC] rounded-2xl flex flex-col items-center justify-center text-gray-500 bg-white hover:bg-gray-50 cursor-pointer transition-colors overflow-hidden">
               <input 
@@ -863,6 +969,15 @@ export default function ManualAddProductPage() {
           </div>
         )}
       </div>
+
+      {/* AI Studio Bottom Sheet */}
+      <AiStudioBottomSheet
+        isOpen={isAiStudioOpen}
+        onClose={() => setIsAiStudioOpen(false)}
+        onApplyPhotos={handleApplyAiPhotos}
+        productName={watch('name')}
+        category={categories.find((c: any) => c.id === watch('category'))?.name || watch('category')}
+      />
     </div>
   );
 }

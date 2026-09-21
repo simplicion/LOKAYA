@@ -162,13 +162,13 @@ export class SearchService {
       }),
       products: products.map((prod: any) => {
         const avgRating = prod.reviews?.length > 0
-          ? prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length
+          ? Number((prod.reviews.reduce((acc: number, cur: any) => acc + cur.rating, 0) / prod.reviews.length).toFixed(1))
           : 0;
         
         const primaryImage = prod.media?.[0]?.url || prod.imageUrl || '';
         const price = prod.sellingPrice ?? 0;
-        const mrp = prod.mrp && prod.mrp > price ? prod.mrp : undefined;
-        const discountLabel = mrp ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
+        const mrp = prod.mrp && prod.mrp > price ? prod.mrp : (prod.mrp || undefined);
+        const discountLabel = mrp && mrp > price ? `${Math.round(((mrp - price) / mrp) * 100)}% OFF` : undefined;
 
         return {
           id: prod.id,
@@ -188,8 +188,8 @@ export class SearchService {
             name: prod.store?.name || 'Local Store',
             isVerified: Boolean(prod.store?.isVerified)
           },
-          rating: avgRating > 0 ? avgRating.toFixed(1) : null,
-          reviews: prod.reviews?.length ? `(${prod.reviews.length})` : null,
+          rating: avgRating > 0 ? avgRating : 0,
+          reviews: prod.reviews?.length ? `(${prod.reviews.length})` : '(0)',
           reviewsCount: prod.reviews?.length || 0,
         };
       }),

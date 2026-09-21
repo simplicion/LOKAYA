@@ -203,6 +203,26 @@ export const api = createApi({
         body,
       }),
     }),
+    generateAiPhotoshoot: builder.mutation<{
+      success: boolean;
+      productAnalysis?: any;
+      shots: Array<{
+        id: string;
+        title: string;
+        badge: string;
+        description: string;
+        url: string;
+        publicUrl: string;
+        prompt: string;
+      }>;
+      message?: string;
+    }, FormData>({
+      query: (formData) => ({
+        url: '/media/ai-photoshoot',
+        method: 'POST',
+        body: formData,
+      }),
+    }),
     updateProfile: builder.mutation<any, any>({
       query: (body) => ({
         url: `/identity/profile`,
@@ -1116,6 +1136,7 @@ export const {
   useUploadMediaMutation,
   useGetPresignedUrlMutation,
   useProcessMediaMutation,
+  useGenerateAiPhotoshootMutation,
   useUpdateProfileMutation,
   useGetAddressesQuery,
   useAddAddressMutation,

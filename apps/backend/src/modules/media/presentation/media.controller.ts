@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { MediaService } from '../application/media.service';
+import { AiStudioService } from '../application/ai-studio.service';
 
 const mediaService = new MediaService();
+const aiStudioService = new AiStudioService();
 
 export class MediaController {
   async uploadFile(req: Request, res: Response) {
@@ -18,6 +20,44 @@ export class MediaController {
     } catch (error: any) {
       console.error('Error uploading file directly to R2:', error);
       res.status(500).json({ error: error?.message || 'Failed to upload file to storage' });
+    }
+  }
+
+  async generateAiPhotoshoot(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id || 'anonymous-seller';
+      const files = ((req as any).files as Express.Multer.File[]) || [];
+      const singleFile = (req as any).file as Express.Multer.File;
+
+      const uploadList = files.length > 0 ? files : (singleFile ? [singleFile] : []);
+
+      if (uploadList.length === 0) {
+        return res.status(400).json({ error: 'Please upload at least 1 product reference image' });
+      }
+
+      const { productName, category, customPrompt } = req.body;
+
+      const result = await aiStudioService.runPhotoshoot(
+        userId,
+        uploadList,
+        productName,
+        category,
+        customPrompt
+      );
+
+      if (!result.success && result.shots.length === 0) {
+        return res.status(200).json({
+          success: false,
+          message: 'AI Studio requires a valid GEMINI_API_KEY. Prompt planning succeeded, but image generation was skipped.',
+          productAnalysis: result.productAnalysis,
+          shots: []
+        });
+      }
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error('[MediaController] Error during AI Photoshoot:', error);
+      return res.status(500).json({ error: error?.message || 'Failed to generate AI product photoshoot' });
     }
   }
 

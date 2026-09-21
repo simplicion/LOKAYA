@@ -32,6 +32,7 @@ import {
 import { toast } from 'sonner';
 import { cn, getMediaUrl, generateStandardSku } from '@/lib/utils';
 import { useCurrency } from '@/context/CurrencyContext';
+import { AiStudioBottomSheet } from '@/components/seller/AiStudioBottomSheet';
 
 interface MediaItem {
   id?: string;
@@ -58,6 +59,13 @@ export default function EditProductClient({ params }: { params: { id: string } }
 
   const [isUploading, setIsUploading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [isAiStudioOpen, setIsAiStudioOpen] = useState(false);
+
+  const handleApplyAiPhotos = (newPhotos: Array<{ url: string; type: 'IMAGE'; isPrimary?: boolean; displayOrder: number }>) => {
+    const existing = mediaList.map(m => ({ ...m, isPrimary: false }));
+    const merged = [...newPhotos, ...existing];
+    setMediaList(merged);
+  };
 
   // Form State
   const [name, setName] = useState('');
@@ -370,19 +378,30 @@ export default function EditProductClient({ params }: { params: { id: string } }
               <p className="text-xs text-gray-500">Tap a photo to set it as the cover image</p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-orange-50 text-[#FF5A36] hover:bg-orange-100 transition-all cursor-pointer"
-            >
-              {isUploading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Plus className="w-3.5 h-3.5" />
-              )}
-              Add Photos
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAiStudioOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-xs transition-all cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 fill-current" />
+                AI Studio
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-orange-50 text-[#FF5A36] hover:bg-orange-100 transition-all cursor-pointer"
+              >
+                {isUploading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Plus className="w-3.5 h-3.5" />
+                )}
+                Add Photos
+              </button>
+            </div>
             <input 
               type="file" 
               ref={fileInputRef} 
@@ -597,44 +616,83 @@ export default function EditProductClient({ params }: { params: { id: string } }
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* 1. MRP (Showing Price) */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
-                Selling Price ({currencySymbol}) <span className="text-red-500">*</span>
-              </label>
-              <input 
-                type="number" 
-                value={price}
-                onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="1500"
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#FF5A36] focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
-                Cost Price ({currencySymbol})
-              </label>
-              <input 
-                type="number" 
-                value={costPrice}
-                onChange={(e) => setCostPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="1000"
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
-              />
-              <p className="text-[10px] text-gray-400 mt-1">For 5% profit margin fee</p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">MRP ({currencySymbol})</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-gray-700">MRP ({currencySymbol})</label>
+                <span className="text-[10px] text-gray-500 font-medium">Showing Price</span>
+              </div>
               <input 
                 type="number" 
                 value={mrp}
                 onChange={(e) => setMrp(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="2000"
+                placeholder="e.g. 2000"
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
               />
+              <p className="text-[10px] text-gray-400 mt-1">Crossed-out reference price shown to buyers</p>
+            </div>
+
+            {/* 2. Selling Price (Actual Price) */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-gray-700">
+                  Selling Price ({currencySymbol}) <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[10px] font-bold text-[#FF5A36]">Actual Price</span>
+              </div>
+              <input 
+                type="number" 
+                value={price}
+                onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="e.g. 1500"
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#FF5A36] focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">Actual amount the customer pays</p>
+            </div>
+
+            {/* 3. Cost Price (Wholesale / Internal) */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-gray-700">
+                  Cost Price ({currencySymbol})
+                </label>
+                <span className="text-[10px] text-gray-500 font-medium">Internal Only</span>
+              </div>
+              <input 
+                type="number" 
+                value={costPrice}
+                onChange={(e) => setCostPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="e.g. 1000"
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#FF5A36] focus:bg-white transition-all"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">Wholesale cost (used for 5% margin fee)</p>
             </div>
           </div>
+
+          {/* Live Discount Indicator */}
+          {discountPercent > 0 && (
+            <div className="p-3 bg-orange-50/80 border border-orange-200 rounded-xl flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <span>🎉</span>
+                <span className="font-bold text-[#FF5A36]">
+                  {discountPercent}% OFF discount badge will show on the card!
+                </span>
+                <span className="text-gray-500">
+                  (<span className="line-through text-gray-400">{currencySymbol}{numericMrp}</span> → <span className="font-bold text-gray-800">{currencySymbol}{numericPrice}</span>)
+                </span>
+              </div>
+              <span className="bg-white text-[#FF5A36] font-black px-2 py-0.5 rounded border border-orange-200 shadow-2xs">
+                {discountPercent}% OFF
+              </span>
+            </div>
+          )}
+
+          {numericMrp > 0 && numericPrice > numericMrp && (
+            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium flex items-center gap-2">
+              <span>⚠️</span>
+              <span>Selling price cannot exceed MRP. Please adjust selling price or MRP.</span>
+            </div>
+          )}
 
           {/* Profit Margin & Platform Commission Tooltip Card */}
           {numericPrice > 0 && (
@@ -758,6 +816,15 @@ export default function EditProductClient({ params }: { params: { id: string } }
           </Button>
         </div>
       </div>
+
+      {/* AI Studio Bottom Sheet */}
+      <AiStudioBottomSheet
+        isOpen={isAiStudioOpen}
+        onClose={() => setIsAiStudioOpen(false)}
+        onApplyPhotos={handleApplyAiPhotos}
+        productName={name}
+        category={category}
+      />
     </div>
   );
 }
