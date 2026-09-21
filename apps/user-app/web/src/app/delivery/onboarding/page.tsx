@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -32,8 +32,11 @@ import {
   Flame,
   BadgePercent,
   Banknote,
-  DollarSign
+  DollarSign,
+  Coins,
+  RefreshCw
 } from 'lucide-react';
+import { LocationService, LocationContext } from '@/lib/services/location.service';
 import { logout } from '@/lib/features/authSlice';
 import { clearCart } from '@/lib/features/cartSlice';
 import { Button } from '@/components/ui/button';
@@ -50,6 +53,11 @@ export default function DeliveryOnboardingPage() {
 
   const [step, setStep] = useState(1);
 
+  // Live Location & Dynamic Country State
+  const [locationContext, setLocationContext] = useState<LocationContext | null>(null);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(true);
+  const [locationManuallyEdited, setLocationManuallyEdited] = useState(false);
+
   // Form State
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -59,7 +67,7 @@ export default function DeliveryOnboardingPage() {
     email: user?.email || '',
     latitude: 28.6139,
     longitude: 77.2090,
-    locationArea: 'Delhi Central Hub',
+    locationArea: '',
     vehicleType: 'MOTORCYCLE',
     vehicleNumber: '',
     perKmRate: 8.0,
@@ -71,11 +79,61 @@ export default function DeliveryOnboardingPage() {
     vehicleDocumentUrl: ''
   });
 
+  // Load location automatically on mount
+  const handleDetectLocation = useCallback(async (force = false) => {
+    setIsDetectingLocation(true);
+    try {
+      const loc = await LocationService.detectUserLocation(force);
+      setLocationContext(loc);
+      setFormData(prev => ({
+        ...prev,
+        latitude: loc.latitude || prev.latitude,
+        longitude: loc.longitude || prev.longitude,
+        locationArea: (!locationManuallyEdited || !prev.locationArea) 
+          ? (loc.formattedAddress || [loc.city, loc.state, loc.country].filter(Boolean).join(', ')) 
+          : prev.locationArea,
+      }));
+      if (force) {
+        toast.success(`Location updated: ${loc.city ? `${loc.city}, ` : ''}${loc.state ? `${loc.state}, ` : ''}${loc.country}`);
+      }
+    } catch (err) {
+      console.warn('Failed to detect location:', err);
+      toast.error('Unable to auto-detect location. Default region selected.');
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  }, [locationManuallyEdited]);
+
+  useEffect(() => {
+    handleDetectLocation();
+  }, [handleDetectLocation]);
+
+  // Pre-fill user details from auth
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || user.name || '',
+        phone: prev.phone || user.phone || '',
+        email: prev.email || user.email || '',
+      }));
+    }
+  }, [user]);
+
+  // If user has no phone and location dial code is available, pre-fill country calling code
+  useEffect(() => {
+    if (locationContext?.callingCode && !formData.phone) {
+      setFormData(prev => ({
+        ...prev,
+        phone: `${locationContext.callingCode} `,
+      }));
+    }
+  }, [locationContext, formData.phone]);
+
   const { data: benchmarkData } = useGetPricingBenchmarksQuery(
     { lat: formData.latitude, lng: formData.longitude }
   );
 
-  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
 
   // If already approved, redirect to dashboard
@@ -85,28 +143,9 @@ export default function DeliveryOnboardingPage() {
     }
   }, [profile, router]);
 
-  // Handle GPS detection
-  const handleDetectGPS = () => {
-    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-      setIsDetectingLocation(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setFormData((prev) => ({
-            ...prev,
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            locationArea: `GPS: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`
-          }));
-          setIsDetectingLocation(false);
-          toast.success('Live GPS coordinates acquired!');
-        },
-        (err) => {
-          setIsDetectingLocation(false);
-          toast.error(`Could not detect GPS: ${err.message}. Using default.`);
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    }
+  // Handle GPS detection with high accuracy reverse geocoding
+  const handleDetectGPS = async () => {
+    await handleDetectLocation(true);
   };
 
   // Upload handler for documents
@@ -134,7 +173,7 @@ export default function DeliveryOnboardingPage() {
   };
 
   const currentFloor = benchmarkData?.floors?.[formData.vehicleType] || 3.0;
-  const currencySym = benchmarkData?.benchmark?.currencySymbol || '₹';
+  const currencySym = locationContext?.currencySymbol || benchmarkData?.benchmark?.currencySymbol || '₹';
 
   const handleSubmit = async () => {
     if (!formData.selfieUrl) {
@@ -166,6 +205,14 @@ export default function DeliveryOnboardingPage() {
         latitude: formData.latitude,
         longitude: formData.longitude,
         locationArea: formData.locationArea,
+        // Detected location & currency metadata
+        country: locationContext?.country,
+        countryCode: locationContext?.countryCode,
+        state: locationContext?.state,
+        city: locationContext?.city,
+        currency: locationContext?.currency,
+        currencySymbol: locationContext?.currencySymbol,
+        // Vehicle & Pricing
         vehicleType: formData.vehicleType,
         vehicleNumber: formData.vehicleNumber?.trim() || (isEco ? formData.vehicleType : 'RC_UPLOADED'),
         perKmRate: formData.perKmRate || defaultKm,
@@ -191,7 +238,7 @@ export default function DeliveryOnboardingPage() {
       label: 'Motorbike (100-150cc)', 
       icon: Bike,
       mileage: '50-55 km/L',
-      fuelCost: '~₹1.80/km',
+      fuelCost: `~${currencySym}1.80/km`,
       desc: 'High speed, 0-15km operating range'
     },
     { 
@@ -199,7 +246,7 @@ export default function DeliveryOnboardingPage() {
       label: 'Scooty / Activa (110-125cc)', 
       icon: Bike,
       mileage: '38-45 km/L',
-      fuelCost: '~₹2.20/km',
+      fuelCost: `~${currencySym}2.20/km`,
       desc: 'City commuter, 0-10km operating range'
     },
     { 
@@ -207,7 +254,7 @@ export default function DeliveryOnboardingPage() {
       label: 'Bicycle / Cycle', 
       icon: Bike,
       mileage: '0 Fuel (Eco)',
-      fuelCost: '₹0.00 fuel',
+      fuelCost: `${currencySym}0.00 fuel`,
       desc: 'Rapid hyperlocal dispatch, 0-3.5km range'
     },
     { 
@@ -215,7 +262,7 @@ export default function DeliveryOnboardingPage() {
       label: 'Walker / Footwalk', 
       icon: Footprints,
       mileage: '0 Fuel (Walking)',
-      fuelCost: '₹0.00 fuel',
+      fuelCost: `${currencySym}0.00 fuel`,
       desc: 'Ultra-hyperlocal market orders, 0-1.5km range'
     },
   ];
@@ -287,6 +334,70 @@ export default function DeliveryOnboardingPage() {
           <p className="text-xs text-[#6B6B6B] max-w-sm mx-auto">
             Earn with round-trip 2-way delivery charges, customizable per-km rates, and local merchant connections.
           </p>
+        </div>
+
+        {/* ONE-LINE DYNAMIC LOCATION & CURRENCY BANNER */}
+        <div className="bg-[#FAF9F6] border border-[#E5E2DC] rounded-2xl p-3 md:p-3.5 shadow-sm">
+          {isDetectingLocation ? (
+            <div className="flex items-center justify-center gap-2 py-1 text-xs text-[#6B6B6B]">
+              <Loader2 className="w-4 h-4 text-[#FF5A36] animate-spin" />
+              <span>Detecting your live location...</span>
+            </div>
+          ) : locationContext ? (
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              {/* Left: Flag + Country + Code + Currency + Symbol in one line */}
+              <div className="flex items-center flex-wrap gap-2 text-xs md:text-sm text-[#171717]">
+                <span className="text-xl leading-none select-none" role="img" aria-label={locationContext.country}>
+                  {locationContext.flag}
+                </span>
+                <span className="font-bold text-[#171717]">{locationContext.country}</span>
+                <span className="text-[#888]">•</span>
+                <span className="font-semibold text-[#555] bg-[#EFECE6] px-1.5 py-0.5 rounded text-xs">
+                  {locationContext.countryCode}
+                </span>
+                <span className="text-[#888]">•</span>
+                <div className="flex items-center gap-1 font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md text-xs">
+                  <Coins className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Currency: {locationContext.currency} {locationContext.currencySymbol ? `(${locationContext.currencySymbol})` : ''}</span>
+                </div>
+                {locationContext.state && (
+                  <>
+                    <span className="text-[#888] hidden sm:inline">•</span>
+                    <span className="text-xs text-[#666] hidden sm:inline font-medium">
+                      State: {locationContext.state}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Right: Refresh Button */}
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => handleDetectLocation(true)}
+                  title="Refresh live location"
+                  className="p-1.5 rounded-lg text-[#6B6B6B] hover:text-[#171717] hover:bg-[#EFECE6] border border-[#E5E2DC] bg-white transition-colors cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between text-xs text-[#6B6B6B]">
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-[#FF5A36]" />
+                Location service offline.
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDetectLocation(true)}
+                className="h-7 text-xs text-[#FF5A36] hover:text-[#e04d2d]"
+              >
+                Retry
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Stepper Progress */}
@@ -368,7 +479,7 @@ export default function DeliveryOnboardingPage() {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+91 9876543210"
+                  placeholder={locationContext?.callingCode ? `${locationContext.callingCode} 98XXXXXXXX` : '+977 98XXXXXXXX'}
                   className="w-full h-11 px-3.5 rounded-xl border border-[#E5E2DC] focus:outline-none focus:ring-2 focus:ring-[#FF5A36] font-medium text-xs"
                 />
               </div>
@@ -381,7 +492,7 @@ export default function DeliveryOnboardingPage() {
                     type="button"
                     onClick={handleDetectGPS}
                     disabled={isDetectingLocation}
-                    className="text-[11px] font-extrabold text-[#FF5A36] hover:underline flex items-center gap-1"
+                    className="text-[11px] font-extrabold text-[#FF5A36] hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     {isDetectingLocation ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
                     <span>Auto-Detect GPS</span>
@@ -390,8 +501,11 @@ export default function DeliveryOnboardingPage() {
                 <input
                   type="text"
                   value={formData.locationArea}
-                  onChange={(e) => setFormData({ ...formData, locationArea: e.target.value })}
-                  placeholder="e.g. Connaught Place, New Delhi"
+                  onChange={(e) => {
+                    setLocationManuallyEdited(true);
+                    setFormData({ ...formData, locationArea: e.target.value });
+                  }}
+                  placeholder="e.g. Kathmandu, Bagmati, Nepal"
                   className="w-full h-11 px-3.5 rounded-xl border border-[#E5E2DC] focus:outline-none focus:ring-2 focus:ring-[#FF5A36] font-medium text-xs"
                 />
               </div>

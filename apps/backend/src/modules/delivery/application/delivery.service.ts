@@ -32,7 +32,7 @@ export class DeliveryService {
       where: { userId }
     });
 
-    const operatingCountry = FuelRateService.detectCountry(data.latitude, data.longitude);
+    const operatingCountry = (data.countryCode || FuelRateService.detectCountry(data.latitude, data.longitude)).toUpperCase();
     const benchmark = await FuelRateService.getFuelBenchmark(operatingCountry);
     const vehicleType = data.vehicleType || 'MOTORCYCLE';
     const minFloor = FuelRateService.calculateMinimumRateFloor(vehicleType, benchmark);
@@ -44,6 +44,18 @@ export class DeliveryService {
     const vehiclePhotoUrl = data.vehiclePhotoUrl || data.selfieUrl || '';
     const vehicleDocumentUrl = data.vehicleDocumentUrl || 'NOT_REQUIRED';
     const normalizedGender = typeof data.gender === 'string' ? data.gender.toUpperCase() : 'MALE';
+
+    const detectedCity = data.city || null;
+    const detectedState = data.state || null;
+    const detectedCountry = data.country || null;
+    const detectedCurrency = data.currency || benchmark.currency || null;
+    const detectedCurrencySymbol = data.currencySymbol || benchmark.currencySymbol || null;
+
+    const locationSummary = detectedCountry
+      ? `${detectedCountry} (${operatingCountry}) · Currency: ${detectedCurrency || ''} (${detectedCurrencySymbol || ''})`
+      : null;
+
+    const resolvedLocationArea = data.locationArea || [detectedCity, detectedState, detectedCountry].filter(Boolean).join(', ') || locationSummary || null;
 
     if (existing) {
       if (existing.status === DeliveryPartnerStatus.REJECTED) {
@@ -61,7 +73,7 @@ export class DeliveryService {
             identityDocumentUrl: data.identityDocumentUrl,
             currentLatitude: data.latitude,
             currentLongitude: data.longitude,
-            locationArea: data.locationArea,
+            locationArea: resolvedLocationArea,
             perKmRate,
             baseFare,
             operatingCountry,
@@ -83,7 +95,9 @@ export class DeliveryService {
         phone: data.phone,
         latitude: data.latitude,
         longitude: data.longitude,
-        locationArea: data.locationArea
+        city: detectedCity || undefined,
+        state: detectedState || undefined,
+        locationArea: resolvedLocationArea || undefined
       }
     });
 
@@ -101,7 +115,7 @@ export class DeliveryService {
         identityDocumentUrl: data.identityDocumentUrl,
         currentLatitude: data.latitude,
         currentLongitude: data.longitude,
-        locationArea: data.locationArea,
+        locationArea: resolvedLocationArea,
         perKmRate,
         baseFare,
         operatingCountry,
