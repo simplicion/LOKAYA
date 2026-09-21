@@ -77,7 +77,16 @@ export function startApiServer() {
 
   app.use(cors({
     origin: (origin, callback) => {
-      if (!origin || allAllowedOrigins.has(origin) || /^http:\/\/localhost:\d+$/.test(origin)) {
+      if (
+        !origin || 
+        allAllowedOrigins.has(origin) || 
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /\.pages\.dev$/.test(origin) ||
+        /\.workers\.dev$/.test(origin) ||
+        /\.lokaya\.shop$/.test(origin) ||
+        origin === 'https://lokaya.shop' ||
+        origin === 'https://admin.lokaya.shop'
+      ) {
         return callback(null, true);
       }
       return callback(new Error('Not allowed by CORS'));
