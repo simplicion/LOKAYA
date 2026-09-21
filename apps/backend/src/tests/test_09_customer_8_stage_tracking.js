@@ -51,7 +51,7 @@ async function run() {
   assert.strictEqual(tracking.orderId, order.id);
   assert.strictEqual(tracking.deliveryOtp, '6789', 'Tracking must include Customer Delivery OTP');
   assert(Array.isArray(tracking.timeline), 'Timeline must be an array of milestone events');
-  assert.strictEqual(tracking.timeline.length, 8, 'Timeline must contain exactly 8 synchronized stages');
+  assert.strictEqual(tracking.timeline.length, 9, 'Timeline must contain exactly 9 synchronized stages');
 
   // Verify milestone statuses
   const statuses = tracking.timeline.map(t => t.status);
@@ -62,9 +62,10 @@ async function run() {
   assert(statuses.includes('HEADING_TO_STORE'));
   assert(statuses.includes('SHIPPED'));
   assert(statuses.includes('OUT_FOR_DELIVERY'));
+  assert(statuses.includes('ARRIVED_AT_DESTINATION'));
   assert(statuses.includes('DELIVERED'));
 
-  console.log(`   ✅ Tracking Returned: 8 Stages synchronized for Order #${order.id.slice(0, 8)}`);
+  console.log(`   ✅ Tracking Returned: 9 Stages synchronized for Order #${order.id.slice(0, 8)}`);
   console.log(`   ✅ Delivery OTP for Customer: ${tracking.deliveryOtp}`);
   console.log(`   ✅ Assigned Partner: ${tracking.deliveryPartner?.name} (${tracking.deliveryPartner?.vehicleNumber})`);
 

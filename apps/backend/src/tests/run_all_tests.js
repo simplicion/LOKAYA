@@ -13,6 +13,8 @@ const TEST_FILES = [
   'test_09_customer_8_stage_tracking.js',
   'test_10_edge_cases_and_security.js',
   'test_11_currency_and_geo_localization.js',
+  'test_fcm_notifications.js',
+  'test_onboarding_validation_fix.js',
 ];
 
 async function runMasterTestSuite() {

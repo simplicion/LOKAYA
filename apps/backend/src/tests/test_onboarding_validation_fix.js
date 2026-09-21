@@ -1,7 +1,6 @@
-const axios = require('axios');
+const { registerDeliveryPartnerSchema } = require('../modules/delivery/domain/schemas');
+const { DeliveryService } = require('../modules/delivery/application/delivery.service');
 const { prisma } = require('@workspace/db');
-
-const API_BASE = 'http://localhost:4002/api/v1';
 
 async function runOnboardingValidationTests() {
   console.log('🧪 Testing Delivery Partner Onboarding Bug Fixes...');
@@ -26,16 +25,6 @@ async function runOnboardingValidationTests() {
     where: { userId: user.id }
   });
 
-  require('dotenv').config({ path: 'apps/backend/.env' });
-  const jwt = require('jsonwebtoken');
-  const token = jwt.sign(
-    { id: user.id, phone: user.phone, role: 'USER' },
-    process.env.JWT_SECRET || 'cce165b61b8a327dba615226ec9d266e4401434b552aa7b36eb5125e378ac0a0',
-    { expiresIn: '1h' }
-  );
-
-  const authHeaders = { Authorization: `Bearer ${token}` };
-
   console.log('\n--- Case 1: Testing WALKER Onboarding (Exact screenshot payload) ---');
   const walkerPayload = {
     name: 'PRINCE',
@@ -56,12 +45,13 @@ async function runOnboardingValidationTests() {
   };
 
   try {
-    const res = await axios.post(`${API_BASE}/delivery/register`, walkerPayload, { headers: authHeaders });
-    console.log('   ✅ WALKER Registration Success! Status:', res.status, '| Partner ID:', res.data.id);
-    console.log('   ✅ Assigned vehicleType:', res.data.vehicleType, '| vehicleNumber:', res.data.vehicleNumber);
-    console.log('   ✅ Base Fare:', res.data.baseFare, '| Per Km Rate:', res.data.perKmRate);
+    const validatedWalker = registerDeliveryPartnerSchema.parse(walkerPayload);
+    const res = await DeliveryService.onboardDeliveryPartner(user.id, validatedWalker);
+    console.log('   ✅ WALKER Registration Success! Partner ID:', res.id);
+    console.log('   ✅ Assigned vehicleType:', res.vehicleType, '| vehicleNumber:', res.vehicleNumber);
+    console.log('   ✅ Base Fare:', res.baseFare, '| Per Km Rate:', res.perKmRate);
   } catch (err) {
-    console.error('   ❌ WALKER Registration Failed:', err.response?.data || err.message);
+    console.error('   ❌ WALKER Registration Failed:', err.message || err);
     process.exit(1);
   }
 
@@ -89,11 +79,12 @@ async function runOnboardingValidationTests() {
   };
 
   try {
-    const res = await axios.post(`${API_BASE}/delivery/register`, bikePayload, { headers: authHeaders });
-    console.log('   ✅ MOTORCYCLE Registration Success! Status:', res.status, '| Partner ID:', res.data.id);
-    console.log('   ✅ Assigned vehicleType:', res.data.vehicleType, '| vehicleDocumentUrl:', res.data.vehicleDocumentUrl);
+    const validatedBike = registerDeliveryPartnerSchema.parse(bikePayload);
+    const res = await DeliveryService.onboardDeliveryPartner(user.id, validatedBike);
+    console.log('   ✅ MOTORCYCLE Registration Success! Partner ID:', res.id);
+    console.log('   ✅ Assigned vehicleType:', res.vehicleType, '| vehicleDocumentUrl:', res.vehicleDocumentUrl);
   } catch (err) {
-    console.error('   ❌ MOTORCYCLE Registration Failed:', err.response?.data || err.message);
+    console.error('   ❌ MOTORCYCLE Registration Failed:', err.message || err);
     process.exit(1);
   }
 
