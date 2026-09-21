@@ -7,7 +7,7 @@ async function runOnboardingValidationTests() {
 
   // Find or create a test user
   let user = await prisma.user.findFirst({
-    where: { phone: '+919999888800' }
+    where: { OR: [{ phone: '+919999888800' }, { email: 'testwalkerrider@lokaya.com' }] }
   });
 
   if (!user) {
