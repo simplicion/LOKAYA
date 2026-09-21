@@ -39,7 +39,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets'],
+  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
       query: () => '/seller/pending',
@@ -234,6 +234,41 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['Products'],
     }),
+    // Delivery Partner / Rider Verification Endpoints
+    getAllDeliveryPartners: builder.query<any[], { status?: string; search?: string } | void>({
+      query: (params) => ({
+        url: '/admin/delivery-partners',
+        params: params || {},
+      }),
+      providesTags: ['DeliveryPartners'],
+    }),
+    getDeliveryPartnerStats: builder.query<{ total: number; pending: number; approved: number; rejected: number; suspended: number }, void>({
+      query: () => '/admin/delivery-partners/stats',
+      providesTags: ['DeliveryPartners'],
+    }),
+    verifyDeliveryPartner: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/admin/delivery-partners/${id}/verify`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['DeliveryPartners'],
+    }),
+    rejectDeliveryPartner: builder.mutation<any, { id: string; reason?: string }>({
+      query: ({ id, reason }) => ({
+        url: `/admin/delivery-partners/${id}/reject`,
+        method: 'PATCH',
+        body: { reason },
+      }),
+      invalidatesTags: ['DeliveryPartners'],
+    }),
+    suspendDeliveryPartner: builder.mutation<any, { id: string; reason?: string }>({
+      query: ({ id, reason }) => ({
+        url: `/admin/delivery-partners/${id}/suspend`,
+        method: 'PATCH',
+        body: { reason },
+      }),
+      invalidatesTags: ['DeliveryPartners'],
+    }),
   }),
 });
 
@@ -268,4 +303,9 @@ export const {
   useDeleteAdminReviewMutation,
   useGetAdminSupportTicketsQuery,
   useUpdateAdminSupportTicketMutation,
+  useGetAllDeliveryPartnersQuery,
+  useGetDeliveryPartnerStatsQuery,
+  useVerifyDeliveryPartnerMutation,
+  useRejectDeliveryPartnerMutation,
+  useSuspendDeliveryPartnerMutation,
 } = adminApi;

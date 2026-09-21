@@ -8,12 +8,14 @@ export const adminRouter: Router = Router();
 // GET /api/v1/admin/stats
 adminRouter.get('/stats', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
   try {
-    const [totalStores, pendingStores, verifiedStores, totalUsers, totalOrders] = await Promise.all([
+    const [totalStores, pendingStores, verifiedStores, totalUsers, totalOrders, totalRiders, pendingRiders] = await Promise.all([
       prisma.store.count(),
       prisma.store.count({ where: { status: 'PENDING' } }),
       prisma.store.count({ where: { status: 'VERIFIED' } }),
       prisma.user.count(),
       prisma.order.count(),
+      prisma.deliveryPartner.count(),
+      prisma.deliveryPartner.count({ where: { status: 'PENDING' } }),
     ]);
 
     res.status(200).json({
@@ -22,6 +24,8 @@ adminRouter.get('/stats', requireAuth, requireAdmin, async (req: AuthRequest, re
       verifiedStores,
       totalUsers,
       totalOrders,
+      totalRiders,
+      pendingRiders,
     });
   } catch (error) {
     next(error);
@@ -679,6 +683,175 @@ adminRouter.patch('/products/:productId/reject', requireAuth, requireAdmin, asyn
   }
 });
 
+// ==========================================
+// Delivery Partner / Rider Verification
+// ==========================================
 
+// GET /api/v1/admin/delivery-partners/stats
+adminRouter.get('/delivery-partners/stats', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const [total, pending, approved, rejected, suspended] = await Promise.all([
+      prisma.deliveryPartner.count(),
+      prisma.deliveryPartner.count({ where: { status: 'PENDING' } }),
+      prisma.deliveryPartner.count({ where: { status: 'APPROVED' } }),
+      prisma.deliveryPartner.count({ where: { status: 'REJECTED' } }),
+      prisma.deliveryPartner.count({ where: { status: 'SUSPENDED' } }),
+    ]);
 
+    res.status(200).json({
+      total,
+      pending,
+      approved,
+      rejected,
+      suspended,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/v1/admin/delivery-partners
+adminRouter.get('/delivery-partners', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { status, search } = req.query;
+
+    const where: any = {};
+    if (status && status !== 'ALL') {
+      where.status = status as any;
+    }
+
+    if (search && typeof search === 'string' && search.trim() !== '') {
+      const q = search.trim();
+      where.OR = [
+        { vehicleNumber: { contains: q, mode: 'insensitive' } },
+        { locationArea: { contains: q, mode: 'insensitive' } },
+        { user: { name: { contains: q, mode: 'insensitive' } } },
+        { user: { phone: { contains: q, mode: 'insensitive' } } },
+        { user: { email: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+
+    const partners = await prisma.deliveryPartner.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+            createdAt: true,
+          }
+        },
+        _count: {
+          select: {
+            fulfilledOrders: true,
+            assignments: true,
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    res.status(200).json(partners);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/delivery-partners/:id/verify - Approve Rider
+adminRouter.patch('/delivery-partners/:id/verify', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const partner = await prisma.deliveryPartner.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        rejectionReason: null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+          }
+        }
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Delivery partner verified & approved successfully', partner });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/delivery-partners/:id/reject - Reject Rider
+adminRouter.patch('/delivery-partners/:id/reject', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const partner = await prisma.deliveryPartner.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        rejectionReason: reason || 'Documents did not meet platform verification standards.',
+        isOnline: false,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+          }
+        }
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Delivery partner application rejected', partner });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/delivery-partners/:id/suspend - Suspend Rider
+adminRouter.patch('/delivery-partners/:id/suspend', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const partner = await prisma.deliveryPartner.update({
+      where: { id },
+      data: {
+        status: 'SUSPENDED',
+        rejectionReason: reason || 'Account suspended by platform administrator.',
+        isOnline: false,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+          }
+        }
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Delivery partner suspended', partner });
+  } catch (error) {
+    next(error);
+  }
+});
 

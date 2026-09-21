@@ -4,7 +4,7 @@ import { useGetPlatformStatsQuery, useGetPendingStoresQuery } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Store, Users, ShoppingBag, ShieldAlert, ArrowRight, CheckCircle2, Clock } from 'lucide-react';
+import { Store, Users, ShoppingBag, ShieldAlert, ArrowRight, CheckCircle2, Clock, Bike } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useGetPlatformStatsQuery();
@@ -149,6 +149,28 @@ export default function AdminDashboard() {
             <h3 className="font-bold text-gray-900 text-base">Store Verification Center</h3>
             <p className="text-xs text-gray-500 mt-1">
               Review owner identity documents, owner photographs, and commercial licenses. Approve or reject onboarding applications.
+            </p>
+          </div>
+        </Link>
+
+        <Link href="/admin/riders" className="group">
+          <div className="p-6 bg-white rounded-2xl border border-gray-200 hover:border-teal-500 transition-all shadow-sm hover:shadow-md">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                <Bike className="w-5 h-5" />
+              </div>
+              <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-teal-600 transition-colors" />
+            </div>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 text-base">Rider Verification Center</h3>
+              {Number(stats?.pendingRiders || 0) > 0 && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                  {stats.pendingRiders} Pending
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Inspect government identity, driving license, vehicle registration, and verify rider applications.
             </p>
           </div>
         </Link>
