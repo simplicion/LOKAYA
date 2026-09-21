@@ -162,21 +162,35 @@ export class FuelRateService {
   }
 
   /**
-   * Calculates the dynamic minimum allowed per-km price floor for a rider based on vehicle type and live country fuel.
+   * Calculates the base fuel cost per kilometer based on vehicle type and live country fuel rate.
+   */
+  static calculateBaseFuelCostPerKm(vehicleType: VehicleType | string, benchmark: FuelBenchmarkData): number {
+    let mileage = benchmark.standardBikeMileage || 50.0;
+    if (vehicleType === VehicleType.SCOOTER || vehicleType === 'SCOOTER') {
+      mileage = benchmark.standardScooterMileage || 40.0;
+    } else if (vehicleType === VehicleType.BICYCLE || vehicleType === 'BICYCLE' || vehicleType === 'WALKER') {
+      mileage = benchmark.standardBikeMileage || 50.0;
+    }
+    return Math.round((benchmark.fuelPricePerLiter / mileage) * 100) / 100;
+  }
+
+  /**
+   * Calculates the dynamic minimum allowed per-km price floor for a rider (+20% minimum margin).
+   * Rider cannot decrease their per-km rate below this floor.
    */
   static calculateMinimumRateFloor(vehicleType: VehicleType | string, benchmark: FuelBenchmarkData): number {
-    let mileage = benchmark.standardBikeMileage;
-
-    if (vehicleType === VehicleType.SCOOTER || vehicleType === 'SCOOTER') {
-      mileage = benchmark.standardScooterMileage;
-    } else if (vehicleType === VehicleType.BICYCLE || vehicleType === 'BICYCLE' || vehicleType === 'WALKER') {
-      // Non-fuel eco vehicles inherit the standard motorcycle baseline for fair labor compensation
-      mileage = benchmark.standardBikeMileage;
-    }
-
-    const fuelCostPerKm = benchmark.fuelPricePerLiter / mileage;
-    const floor = fuelCostPerKm + benchmark.baseLaborAllowance;
+    const baseFuelCost = this.calculateBaseFuelCostPerKm(vehicleType, benchmark);
+    const floor = baseFuelCost * 1.20; // 20% minimum margin
     return Math.round(floor * 10) / 10;
+  }
+
+  /**
+   * Calculates the recommended default rate (+50% margin over base fuel cost).
+   */
+  static calculateSuggestedRate(vehicleType: VehicleType | string, benchmark: FuelBenchmarkData): number {
+    const baseFuelCost = this.calculateBaseFuelCostPerKm(vehicleType, benchmark);
+    const suggested = baseFuelCost * 1.50; // 50% recommended margin
+    return Math.round(suggested * 10) / 10;
   }
 
   /**

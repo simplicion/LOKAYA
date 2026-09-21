@@ -139,34 +139,100 @@ export default function DeliveryProfilePage() {
 
       {/* Pricing & Rates Management Card */}
       <div className="bg-white rounded-3xl p-5 border border-[#E5E2DC] shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-orange-50 text-[#FF5A36] flex items-center justify-center border border-orange-100">
               <Banknote className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#171717]">Your Custom Rate</h3>
-              <p className="text-[10px] text-[#6B6B6B]">Set your earnings per kilometer</p>
+              <p className="text-[10px] text-[#6B6B6B]">Set your delivery charge per kilometer</p>
             </div>
           </div>
           <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-            Min Fuel Floor: {currencySym}{minFloor}/km
+            Min 20% Floor: {currencySym}{minFloor}/km
           </span>
         </div>
 
+        {/* Live Country Benchmark Breakdown */}
+        <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2 text-xs">
+          <div className="flex items-center justify-between text-slate-700 font-bold">
+            <span className="flex items-center gap-1.5">
+              <span>⛽ Live Country Petrol Rate:</span>
+              <span className="text-[#FF5A36] font-black">{currencySym}{benchmarkData?.benchmark?.fuelPricePerLiter || 102}/L</span>
+            </span>
+            <span className="text-[11px] text-gray-500 font-mono">
+              🏍️ {benchmarkData?.benchmark?.standardBikeMileage || 50} km/L Avg
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-200/60 font-mono">
+            <div className="bg-white p-2 rounded-xl border border-slate-200">
+              <span className="text-gray-400 block text-[9px] uppercase">Base Fuel Cost</span>
+              <span className="font-bold text-slate-800">{currencySym}{benchmarkData?.baseFuelCost || 2.04}/km</span>
+            </div>
+            <div className="bg-emerald-50/80 p-2 rounded-xl border border-emerald-200">
+              <span className="text-emerald-700 block text-[9px] uppercase font-bold">Suggested (+50%)</span>
+              <span className="font-black text-emerald-800">{currencySym}{benchmarkData?.suggestedRate || 15}/km</span>
+            </div>
+          </div>
+        </div>
+
         {/* Per-Km Rate Input */}
-        <div>
-          <label className="text-[11px] font-bold text-[#171717] block mb-1">
-            Rate Per Km ({currencySym}/km)
-          </label>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-bold text-[#171717] block">
+              Your Rate Per Km ({currencySym}/km)
+            </label>
+            <span className="text-[10px] text-gray-400">Min allowed: {currencySym}{minFloor}</span>
+          </div>
+
           <input
             type="number"
-            step="0.5"
+            step="any"
             min={minFloor}
             value={perKmRate}
             onChange={(e) => setPerKmRate(Number(e.target.value))}
-            className="w-full h-11 px-3.5 rounded-xl border border-[#E5E2DC] focus:outline-none focus:ring-2 focus:ring-[#FF5A36] font-black text-base"
+            className="w-full h-12 px-4 rounded-2xl border-2 border-[#E5E2DC] focus:outline-none focus:border-[#FF5A36] font-black text-lg text-gray-900 bg-white shadow-xs"
           />
+
+          {/* Quick Preset Buttons */}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setPerKmRate(benchmarkData?.suggestedRate || 15)}
+              className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+            >
+              Default: {currencySym}{benchmarkData?.suggestedRate || 15}/km
+            </button>
+            <button
+              type="button"
+              onClick={() => setPerKmRate(20)}
+              className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+            >
+              Premium: {currencySym}20/km
+            </button>
+            <button
+              type="button"
+              onClick={() => setPerKmRate(minFloor)}
+              className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+            >
+              Floor: {currencySym}{minFloor}/km
+            </button>
+          </div>
+        </div>
+
+        {/* Live Trip Simulation Box */}
+        <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-200/80 text-xs text-emerald-950 space-y-1">
+          <div className="flex items-center justify-between font-bold">
+            <span>Example 5 km Delivery (10 km round trip):</span>
+            <span className="text-emerald-800 font-black text-sm">
+              {formatPrice(Math.max(50, Math.round(10 * perKmRate)))}
+            </span>
+          </div>
+          <p className="text-[10px] text-emerald-800/80 leading-relaxed font-mono">
+            Fuel Expense: ~{formatPrice(Math.round(10 * (benchmarkData?.baseFuelCost || 2.04)))} • Net Rider Earnings: +{formatPrice(Math.max(0, Math.max(50, Math.round(10 * perKmRate)) - Math.round(10 * (benchmarkData?.baseFuelCost || 2.04))))}
+          </p>
         </div>
 
         {/* Platform Base Fare Guarantee Banner */}
@@ -185,7 +251,7 @@ export default function DeliveryProfilePage() {
         <Button
           onClick={handleSavePricing}
           disabled={isUpdatingPricing}
-          className="w-full h-11 rounded-xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+          className="w-full h-12 rounded-2xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
         >
           {isUpdatingPricing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
           <span>Save Rate Changes</span>

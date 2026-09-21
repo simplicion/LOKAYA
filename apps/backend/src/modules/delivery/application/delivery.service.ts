@@ -1103,20 +1103,32 @@ export class DeliveryService {
     }
 
     const benchmark = await FuelRateService.getFuelBenchmark(countryCode);
+    const baseFuelCost = FuelRateService.calculateBaseFuelCostPerKm('MOTORCYCLE', benchmark);
+    const minFloor = FuelRateService.calculateMinimumRateFloor('MOTORCYCLE', benchmark);
+    const suggestedRate = FuelRateService.calculateSuggestedRate('MOTORCYCLE', benchmark);
 
     return {
       benchmark,
+      baseFuelCost,
+      minFloor,
+      suggestedRate,
       floors: {
         MOTORCYCLE: FuelRateService.calculateMinimumRateFloor('MOTORCYCLE', benchmark),
         SCOOTER: FuelRateService.calculateMinimumRateFloor('SCOOTER', benchmark),
         BICYCLE: FuelRateService.calculateMinimumRateFloor('BICYCLE', benchmark),
         WALKER: FuelRateService.calculateMinimumRateFloor('WALKER', benchmark)
       },
+      suggestedRates: {
+        MOTORCYCLE: FuelRateService.calculateSuggestedRate('MOTORCYCLE', benchmark),
+        SCOOTER: FuelRateService.calculateSuggestedRate('SCOOTER', benchmark),
+        BICYCLE: FuelRateService.calculateSuggestedRate('BICYCLE', benchmark),
+        WALKER: FuelRateService.calculateSuggestedRate('WALKER', benchmark)
+      },
       mileage: {
         MOTORCYCLE: benchmark.standardBikeMileage,
         SCOOTER: benchmark.standardScooterMileage,
-        BICYCLE: '0 Fuel (Standard Base)',
-        WALKER: '0 Fuel (Standard Base)'
+        BICYCLE: '50 km/L (Standard Equivalent)',
+        WALKER: '50 km/L (Standard Equivalent)'
       }
     };
   }
