@@ -378,7 +378,7 @@ export default function SellerOnboardingPage() {
         {isDetectingLocation ? (
           <div className="flex items-center justify-center gap-2 py-1 text-xs text-[#6B6B6B]">
             <Loader2 className="w-4 h-4 text-[#FF5A36] animate-spin" />
-            <span>Detecting your live location via OpenStreetMap...</span>
+            <span>Detecting your live location...</span>
           </div>
         ) : locationContext ? (
           <div className="flex flex-wrap items-center justify-between gap-2.5">
@@ -407,20 +407,13 @@ export default function SellerOnboardingPage() {
               )}
             </div>
 
-            {/* Right: OpenStreetMap Live Status & Refresh Button */}
+            {/* Right: Refresh Button */}
             <div className="flex items-center gap-2 ml-auto">
-              <div className="flex items-center gap-1.5 text-[11px] text-[#6B6B6B] bg-white border border-[#E5E2DC] px-2 py-1 rounded-full shadow-2xs">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="font-medium text-[#444]">OpenStreetMap Live</span>
-              </div>
               <button
                 type="button"
                 onClick={() => handleDetectLocation(true)}
                 title="Refresh live location"
-                className="p-1 rounded-lg text-[#6B6B6B] hover:text-[#171717] hover:bg-[#EFECE6] transition-colors"
+                className="p-1.5 rounded-lg text-[#6B6B6B] hover:text-[#171717] hover:bg-[#EFECE6] border border-[#E5E2DC] bg-white transition-colors cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
@@ -551,11 +544,6 @@ export default function SellerOnboardingPage() {
                 <MapPin className="w-4 h-4 text-emerald-600" />
                 Store Location / Physical Address <span className="text-red-500">*</span>
               </Label>
-              {formData.address && (
-                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                  Auto-detected from OpenStreetMap
-                </span>
-              )}
             </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#6B6B6B]">

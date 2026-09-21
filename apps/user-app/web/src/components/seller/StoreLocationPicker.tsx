@@ -191,25 +191,33 @@ export function StoreLocationPicker({
 
       {/* Locality Search Input */}
       <div className="relative">
-        <form onSubmit={handleSearchLocality} className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSearchLocality();
+                }
+              }}
               placeholder="Search market, road, or area (e.g. Albando, Main Market)..."
               className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-[#171717] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF5A36]/30 focus:border-[#FF5A36]"
             />
           </div>
           <button
-            type="submit"
+            type="button"
+            onClick={() => handleSearchLocality()}
             disabled={isSearching || !searchQuery.trim()}
             className="px-3 py-2 bg-gray-900 text-white rounded-xl text-xs font-semibold hover:bg-black transition-colors disabled:opacity-40 cursor-pointer"
           >
             {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Search'}
           </button>
-        </form>
+        </div>
 
         {/* Search Results Dropdown */}
         {showResults && searchResults.length > 0 && (
