@@ -17,6 +17,15 @@ interface ShotPrompt {
   prompt: string;
 }
 
+interface GeneratedProductDetails {
+  name?: string;
+  description?: string;
+  category?: string;
+  sellingPrice?: number | null;
+  costPrice?: number | null;
+  mrp?: number | null;
+}
+
 interface GeneratedStudioShot {
   id: string;
   title: string;
@@ -63,46 +72,54 @@ export class AiStudioService {
 
   /**
    * Step 1: Multimodal Vision Analysis (Gemini or OpenAI GPT-4o)
-   * Analyzes 1-2 product photos & generates 5 dynamic commercial prompts
+   * Analyzes 1-2 product photos & seller notes to generate 5 dynamic commercial prompts & auto-filled catalog details
    */
   async analyzeProductAndGeneratePrompts(
     images: ReferenceImage[],
     productName?: string,
     category?: string,
     customPrompt?: string
-  ): Promise<{ productAnalysis: any; shots: ShotPrompt[] }> {
+  ): Promise<{ productAnalysis: any; generatedDetails: GeneratedProductDetails; shots: ShotPrompt[] }> {
     const geminiKey = this.getGeminiApiKey();
     const openAiKey = this.getOpenAiApiKey();
 
     const systemPromptText = `
-You are a world-class commercial product photographer, 3D visual effects director, and high-end advertising creative director for luxury retail and e-commerce.
-Product Name: "${productName || 'Product'}"
-Product Category: "${category || 'General'}"
-${customPrompt ? `Seller custom direction: "${customPrompt}"` : ''}
+You are a world-class commercial e-commerce merchandising director and product photographer.
+Product Name (if provided): "${productName || ''}"
+Category (if provided): "${category || ''}"
+Seller Notes / Description: "${customPrompt || ''}"
 
-Analyze the provided reference product image(s). Identify:
-1. Product type, physical geometry, and exact design elements.
-2. Key materials (e.g. brushed aluminum, glossy glass, premium matte polymer, genuine leather, textured canvas, organic cotton, ceramic).
-3. Primary and secondary color palette, logos, and label placement.
-4. Natural commercial staging contexts.
-
-Generate 5 distinct, photorealistic commercial product photoshoot prompts designed to present THIS EXACT product in studio excellence:
-1. "hero": Clean minimalist studio hero shot on a luxury neutral seamless backdrop with soft studio softbox lighting, crisp reflections, soft contact shadows, front 3/4 beauty angle.
-2. "lifestyle": High-end contextual lifestyle environment matching this specific product (e.g. if cosmetics -> luxury spa marble countertop with soft botanicals; if electronics -> sleek oak desk with warm ambient lamp; if apparel/shoes -> aesthetic modern architecture; if food/spice -> gourmet kitchen).
-3. "detail": Extreme close-up macro shot with shallow depth of field (bokeh), focusing on the finest texture, stitching, craftsmanship, or hardware buttons.
-4. "perspective": Dynamic angled isometric perspective showing dimensions, side silhouette, and volume.
-5. "editorial": Creative magazine editorial cover shot with dynamic colored rim lighting, artistic props, and high-fashion aesthetics.
-
-${customPrompt ? `Important: Strictly blend the seller's custom style: "${customPrompt}".` : ''}
+Analyze the provided reference product image(s) and seller notes:
+1. Product identification: physical geometry, materials (e.g. leather, cotton, glass, metal, plastic), colors, branding, features, and use case.
+2. Auto-generate complete, professional e-commerce product catalog fields:
+   - "name": Clean, compelling, search-optimized product title.
+   - "description": High-converting, structured product description highlighting materials, key features, and specifications.
+   - "category": Recommended store category.
+   - "sellingPrice": Numeric price ONLY if stated or clearly indicated in seller notes/text (e.g. "price 899", "selling for 500", "Rs 800", "₹1200"), otherwise null. DO NOT guess or hallucinate arbitrary prices.
+   - "costPrice": Numeric wholesale/cost price ONLY if explicitly stated in seller notes (e.g. "cost 350", "CP 300"), otherwise null.
+   - "mrp": Numeric maximum retail price / list price ONLY if stated in seller notes (e.g. "MRP 1499", "tag price 1200"), otherwise null.
+3. Formulate 5 distinct commercial studio photoshoot prompts for this EXACT product:
+   - "hero": Clean minimalist studio hero shot on a luxury neutral seamless backdrop with soft studio softbox lighting, crisp reflections, soft contact shadows, front 3/4 beauty angle.
+   - "lifestyle": High-end contextual lifestyle environment matching this specific product (e.g. if cosmetics -> luxury bathroom counter; if electronics -> oak work desk; if apparel -> model in modern architecture).
+   - "detail": Extreme close-up macro shot with shallow depth of field (bokeh), focusing on the finest texture, stitching, craftsmanship, or hardware buttons.
+   - "perspective": Dynamic angled isometric perspective showing dimensions, side silhouette, and volume.
+   - "editorial": Creative magazine editorial cover shot with dynamic lighting and complementary props.
 
 Respond strictly with valid JSON without markdown formatting:
 {
   "productAnalysis": {
-    "name": "${productName || 'Product'}",
-    "category": "${category || 'General'}",
+    "name": "concise product identification",
+    "category": "category identification",
     "materials": ["material 1", "material 2"],
-    "colors": ["color 1", "color 2"],
-    "description": "concise description of the product"
+    "colors": ["color 1", "color 2"]
+  },
+  "generatedDetails": {
+    "name": "High-Converting Product Title",
+    "description": "Engaging bullet-pointed and formatted e-commerce product description...",
+    "category": "Category Name",
+    "sellingPrice": null,
+    "costPrice": null,
+    "mrp": null
   },
   "shots": [
     {
@@ -144,46 +161,60 @@ Respond strictly with valid JSON without markdown formatting:
 }
 `;
 
-    // 1. Try Gemini 3.6 Flash / 3.5 Flash if key exists
+    // 1. Try Gemini Multimodal Flash models if key exists
     if (geminiKey) {
-      try {
-        const imageParts = images.map((img) => ({
-          inlineData: {
-            mimeType: img.mimetype || 'image/jpeg',
-            data: this.fileToBase64(img),
-          },
-        }));
-
-        const response = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${geminiKey}`,
-          {
-            contents: [
-              {
-                role: 'user',
-                parts: [...imageParts, { text: systemPromptText }],
-              },
-            ],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.4,
+      const geminiModels = ['gemini-2.5-flash', 'gemini-3.6-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      for (const model of geminiModels) {
+        try {
+          const imageParts = images.map((img) => ({
+            inlineData: {
+              mimeType: img.mimetype || 'image/jpeg',
+              data: this.fileToBase64(img),
             },
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 30000,
+          }));
+
+          const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+            {
+              contents: [
+                {
+                  role: 'user',
+                  parts: [...imageParts, { text: systemPromptText }],
+                },
+              ],
+              generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.4,
+              },
+            },
+            {
+              headers: { 'Content-Type': 'application/json' },
+              timeout: 30000,
+            }
+          );
+
+          const candidateText =
+            response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const cleanJson = candidateText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+          const parsed = JSON.parse(cleanJson);
+
+          if (parsed.shots && Array.isArray(parsed.shots) && parsed.shots.length > 0) {
+            return {
+              productAnalysis: parsed.productAnalysis || {},
+              generatedDetails: parsed.generatedDetails || {
+                name: productName,
+                description: customPrompt,
+                category: category,
+                sellingPrice: null,
+                costPrice: null,
+                mrp: null
+              },
+              shots: parsed.shots,
+            };
           }
-        );
-
-        const candidateText =
-          response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const cleanJson = candidateText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-        const parsed = JSON.parse(cleanJson);
-
-        if (parsed.shots && Array.isArray(parsed.shots) && parsed.shots.length > 0) {
-          return parsed;
+        } catch (geminiErr: any) {
+          console.warn(`[AiStudioService] Gemini ${model} analysis notice:`, geminiErr?.response?.data || geminiErr?.message);
         }
-      } catch (geminiErr: any) {
-        console.warn('[AiStudioService] Gemini prompt analysis notice:', geminiErr?.response?.data || geminiErr?.message);
       }
     }
 
@@ -219,7 +250,18 @@ Respond strictly with valid JSON without markdown formatting:
         const text = response.data?.choices?.[0]?.message?.content || '{}';
         const parsed = JSON.parse(text);
         if (parsed.shots && Array.isArray(parsed.shots) && parsed.shots.length > 0) {
-          return parsed;
+          return {
+            productAnalysis: parsed.productAnalysis || {},
+            generatedDetails: parsed.generatedDetails || {
+              name: productName,
+              description: customPrompt,
+              category: category,
+              sellingPrice: null,
+              costPrice: null,
+              mrp: null
+            },
+            shots: parsed.shots,
+          };
         }
       } catch (openAiErr: any) {
         console.warn('[AiStudioService] OpenAI prompt analysis notice:', openAiErr?.response?.data || openAiErr?.message);
@@ -230,7 +272,7 @@ Respond strictly with valid JSON without markdown formatting:
   }
 
   /**
-   * Step 2: Render image using OpenAI DALL-E 3 or Google Imagen 3
+   * Step 2: Render image using OpenAI Image models or Google Imagen 3
    */
   async generateSingleImage(prompt: string, shotId: string): Promise<Buffer | null> {
     const openAiKey = this.getOpenAiApiKey();
@@ -315,9 +357,9 @@ Respond strictly with valid JSON without markdown formatting:
     productName?: string,
     category?: string,
     customPrompt?: string
-  ): Promise<{ success: boolean; productAnalysis: any; shots: GeneratedStudioShot[] }> {
+  ): Promise<{ success: boolean; productAnalysis: any; generatedDetails?: GeneratedProductDetails; shots: GeneratedStudioShot[] }> {
     // 1. Analyze and craft prompts
-    const { productAnalysis, shots: shotPrompts } = await this.analyzeProductAndGeneratePrompts(
+    const { productAnalysis, generatedDetails, shots: shotPrompts } = await this.analyzeProductAndGeneratePrompts(
       images,
       productName,
       category,
@@ -364,6 +406,7 @@ Respond strictly with valid JSON without markdown formatting:
       return {
         success: true,
         productAnalysis,
+        generatedDetails,
         shots: generatedShots,
       };
     }
@@ -371,6 +414,7 @@ Respond strictly with valid JSON without markdown formatting:
     return {
       success: false,
       productAnalysis,
+      generatedDetails,
       shots: [],
     };
   }
@@ -387,6 +431,14 @@ Respond strictly with valid JSON without markdown formatting:
         materials: ['Commercial Quality Materials'],
         colors: ['Original Product Colors'],
         description: `Studio photoshoot for ${item} in ${cat} category`,
+      },
+      generatedDetails: {
+        name: item !== 'Product' ? item : undefined,
+        description: customPrompt || undefined,
+        category: cat !== 'Retail Item' ? cat : undefined,
+        sellingPrice: null,
+        costPrice: null,
+        mrp: null
       },
       shots: [
         {

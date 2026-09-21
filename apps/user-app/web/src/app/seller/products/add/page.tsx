@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAddProductMutation, useGetMyStoreQuery, useGetPresignedUrlMutation, useUploadMediaMutation, useGetStoreCategoriesQuery } from '@/lib/api';
+import { useAddProductMutation, useGetMyStoreQuery, useGetPresignedUrlMutation, useUploadMediaMutation, useGetStoreCategoriesQuery, useCreateCategoryMutation } from '@/lib/api';
 import { Dropdown } from '@/components/ui/dropdown';
 import { getMediaUrl, generateStandardSku } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
@@ -48,7 +48,7 @@ const productFormSchema = z.object({
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
 
-const STEPS = ['Basic Info', 'Pricing & Stock', 'Media', 'Publish'];
+const STEPS = ['Media', 'Basic Info', 'Pricing & Stock', 'Publish'];
 
 export default function ManualAddProductPage() {
   const router = useRouter();
@@ -61,6 +61,7 @@ export default function ManualAddProductPage() {
     skip: !storeData?.id
   });
   const [addProduct, { isLoading: isSubmitting }] = useAddProductMutation();
+  const [createCategory] = useCreateCategoryMutation();
   const [uploadMedia] = useUploadMediaMutation();
   const [getPresignedUrl] = useGetPresignedUrlMutation();
   const [uploadingFiles, setUploadingFiles] = useState<{ [key: string]: boolean }>({});
@@ -131,8 +132,13 @@ export default function ManualAddProductPage() {
 
   const handleNext = async () => {
     let fieldsToValidate: any[] = [];
-    if (currentStep === 0) fieldsToValidate = ['name', 'category', 'description', 'sku'];
+    if (currentStep === 0) {
+      fieldsToValidate = [];
+    }
     if (currentStep === 1) {
+      fieldsToValidate = ['name', 'category', 'description', 'sku'];
+    }
+    if (currentStep === 2) {
       if (watch('hasVariants')) {
         const currentVariants = watch('variants') || [];
         if (currentVariants.length === 0) {
@@ -198,117 +204,84 @@ export default function ManualAddProductPage() {
         ? variants.reduce((sum: number, v: any) => sum + (Number(v.stockCount) || 0), 0)
         : (data.stockCount !== undefined && data.stockCount !== null && !isNaN(Number(data.stockCount)) ? Number(data.stockCount) : 0);
 
-      const primaryMedia = data.media?.find((m: any) => m.isPrimary && m.type !== 'VIDEO')
-        || data.media?.find((m: any) => m.type !== 'VIDEO')
-        || data.media?.[0];
-
       const payload = {
-        ...data,
         storeId: storeData.id,
-        category: selectedCategory?.name || data.category || '',
-        categoryId: selectedCategory?.id || (data.category && data.category.includes('-') ? data.category : undefined),
-        status: 'PUBLISHED',
-        imageUrl: primaryMedia?.url || undefined,
+        name: data.name,
+        description: data.description || '',
+        category: selectedCategory ? selectedCategory.name : (data.category || 'General'),
+        categoryId: selectedCategory ? selectedCategory.id : undefined,
+        sku: data.sku || generateStandardSku(),
         sellingPrice: computedSellingPrice,
         mrp: computedMrp,
         costPrice: data.costPrice !== undefined && data.costPrice !== null && !isNaN(Number(data.costPrice)) ? Number(data.costPrice) : undefined,
         stockCount: computedStockCount,
+        isActive: data.isActive ?? true,
+        hasVariants: Boolean(hasVariants),
+        isAvailableForDelivery: data.isAvailableForDelivery ?? true,
+        isAvailableForPickup: data.isAvailableForPickup ?? true,
+        isDeliveryIncluded: data.isDeliveryIncluded ?? false,
+        variants: hasVariants ? variants.map((v: any, index: number) => ({
+          name: v.name,
+          sku: v.sku || `${data.sku || 'SKU'}-V${index + 1}`,
+          price: Number(v.price) || 0,
+          stockCount: Number(v.stockCount) || 0
+        })) : [],
+        media: (data.media || []).map((m: any, index: number) => ({
+          url: m.url,
+          type: m.type || 'IMAGE',
+          isPrimary: m.isPrimary ?? (index === 0),
+          displayOrder: m.displayOrder ?? index
+        }))
       };
 
-      await addProduct({ 
-        storeId: storeData.id, 
-        body: payload 
+      await addProduct({
+        storeId: storeData.id,
+        body: payload
       }).unwrap();
-      
-      toast.success('Product published successfully!');
       localStorage.removeItem('lokaya_product_draft');
+      toast.success('Product created successfully!');
       router.push('/seller/products');
     } catch (error: any) {
-      const errorMsg = error?.data?.message || error?.message || 'Failed to publish product. Please check your inputs.';
-      toast.error(errorMsg);
-      console.error('Failed to publish product:', error);
+      console.error('Failed to create product:', error);
+      toast.error(error?.data?.error || error?.message || 'Failed to create product. Please try again.');
     }
   };
 
-  const handleSaveDraft = async () => {
-    if (!storeData?.id) {
-      toast.error('Store information not found');
-      return;
-    }
-    const currentValues = form.getValues();
-    try {
-      const selectedCategory = categories.find((c: any) => c.id === currentValues.category || c.name === currentValues.category);
-
-      const hasVariants = currentValues.hasVariants;
-      const variants = currentValues.variants || [];
-      const primaryVariant = variants.length > 0 ? variants[0] : null;
-
-      const computedSellingPrice = hasVariants && primaryVariant
-        ? (Number(primaryVariant.price) || 0)
-        : (currentValues.sellingPrice !== undefined && currentValues.sellingPrice !== null && !isNaN(Number(currentValues.sellingPrice)) ? Number(currentValues.sellingPrice) : 0);
-
-      const computedMrp = hasVariants && primaryVariant
-        ? (currentValues.mrp ? Number(currentValues.mrp) : computedSellingPrice)
-        : (currentValues.mrp !== undefined && currentValues.mrp !== null && !isNaN(Number(currentValues.mrp)) ? Number(currentValues.mrp) : computedSellingPrice);
-
-      const computedStockCount = hasVariants && variants.length > 0
-        ? variants.reduce((sum: number, v: any) => sum + (Number(v.stockCount) || 0), 0)
-        : (currentValues.stockCount !== undefined && currentValues.stockCount !== null && !isNaN(Number(currentValues.stockCount)) ? Number(currentValues.stockCount) : 0);
-
-      const primaryMedia = currentValues.media?.find((m: any) => m.isPrimary && m.type !== 'VIDEO')
-        || currentValues.media?.find((m: any) => m.type !== 'VIDEO')
-        || currentValues.media?.[0];
-
-      const payload = {
-        ...currentValues,
-        name: currentValues.name || 'Untitled Product Draft',
-        storeId: storeData.id,
-        category: selectedCategory?.name || currentValues.category || '',
-        categoryId: selectedCategory?.id || (currentValues.category && currentValues.category.includes('-') ? currentValues.category : undefined),
-        status: 'DRAFT',
-        imageUrl: primaryMedia?.url || undefined,
-        sellingPrice: computedSellingPrice,
-        mrp: computedMrp,
-        costPrice: currentValues.costPrice !== undefined && currentValues.costPrice !== null && !isNaN(Number(currentValues.costPrice)) ? Number(currentValues.costPrice) : undefined,
-        stockCount: computedStockCount,
-      };
-
-      await addProduct({ 
-        storeId: storeData.id, 
-        body: payload 
-      }).unwrap();
-      
-      toast.success('Draft saved successfully!');
-      localStorage.removeItem('lokaya_product_draft');
-      router.push('/seller/products');
-    } catch (e) {
-      localStorage.setItem('lokaya_product_draft', JSON.stringify(currentValues));
-      toast.success('Draft saved locally!');
-      router.push('/seller/products');
-    }
+  const handleSaveDraft = () => {
+    localStorage.setItem('lokaya_product_draft', JSON.stringify(form.getValues()));
+    toast.success('Draft saved successfully!');
+    router.push('/seller/products');
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    
-    const files = Array.from(e.target.files);
-    
-    for (const file of files) {
-      const fileId = Math.random().toString(36).substring(7);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const currentMedia = form.getValues('media') || [];
+    if (currentMedia.length + files.length > 5) {
+      toast.error('You can upload a maximum of 5 media files.');
+      return;
+    }
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`File ${file.name} is too large. Max size is 5MB.`);
+        continue;
+      }
+
+      const fileId = `${file.name}-${Date.now()}`;
       setUploadingFiles(prev => ({ ...prev, [fileId]: true }));
-      
+
       try {
         let finalUrl = '';
-
         try {
-          // 1. Direct Multipart upload (fastest, bypasses CORS, returns reliable publicUrl)
           const formData = new FormData();
           formData.append('file', file);
           const res = await uploadMedia(formData).unwrap();
           finalUrl = getMediaUrl(res.publicUrl || res.url);
         } catch (directErr) {
           console.warn('Direct upload fallback to presigned:', directErr);
-          // 2. Presigned URL fallback
           const presignedRes = await getPresignedUrl({
             filename: file.name,
             contentType: file.type,
@@ -331,16 +304,14 @@ export default function ManualAddProductPage() {
 
         if (!finalUrl) throw new Error('Failed to obtain uploaded file URL');
 
-        const currentMedia = form.getValues('media') || [];
-        const isPrimary = currentMedia.length === 0;
-
+        const isPrimary = currentMedia.length === 0 && i === 0;
         setValue('media', [
-          ...currentMedia,
+          ...form.getValues('media') || [],
           {
             url: finalUrl,
             type: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
             isPrimary,
-            displayOrder: currentMedia.length
+            displayOrder: (form.getValues('media') || []).length
           }
         ]);
 
@@ -348,16 +319,15 @@ export default function ManualAddProductPage() {
       } catch (error) {
         console.warn('Backend upload failed, creating local object preview:', error);
         const localPreview = URL.createObjectURL(file);
-        const currentMedia = form.getValues('media') || [];
-        const isPrimary = currentMedia.length === 0;
+        const isPrimary = currentMedia.length === 0 && i === 0;
 
         setValue('media', [
-          ...currentMedia,
+          ...form.getValues('media') || [],
           {
             url: localPreview,
             type: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
             isPrimary,
-            displayOrder: currentMedia.length
+            displayOrder: (form.getValues('media') || []).length
           }
         ]);
         toast.info(`Using local preview for ${file.name}`);
@@ -370,19 +340,79 @@ export default function ManualAddProductPage() {
   const removeMedia = (indexToRemove: number) => {
     const currentMedia = form.getValues('media') || [];
     const newMedia = currentMedia.filter((_, idx) => idx !== indexToRemove);
-    // If we removed the primary, make the first one primary
     if (currentMedia[indexToRemove].isPrimary && newMedia.length > 0) {
       newMedia[0].isPrimary = true;
     }
     setValue('media', newMedia);
   };
 
-  const handleApplyAiPhotos = (newPhotos: Array<{ url: string; type: 'IMAGE'; isPrimary?: boolean; displayOrder: number }>) => {
+  const handleApplyAiPhotos = async (
+    newPhotos: Array<{ url: string; type: 'IMAGE'; isPrimary?: boolean; displayOrder: number }>,
+    details?: any
+  ) => {
     const currentMedia = form.getValues('media') || [];
-    // Reset primary flag on existing if AI shot has a primary
     const existing = currentMedia.map(m => ({ ...m, isPrimary: false }));
     const merged = [...newPhotos, ...existing];
-    setValue('media', merged);
+    setValue('media', merged, { shouldValidate: true, shouldDirty: true });
+
+    if (details) {
+      const updatedFields: string[] = [];
+      if (details.name) {
+        setValue('name', details.name, { shouldValidate: true, shouldDirty: true });
+        updatedFields.push('title');
+      }
+      if (details.description) {
+        setValue('description', details.description, { shouldValidate: true, shouldDirty: true });
+        updatedFields.push('description');
+      }
+      if (details.sellingPrice !== null && details.sellingPrice !== undefined && !isNaN(Number(details.sellingPrice))) {
+        setValue('sellingPrice', Number(details.sellingPrice), { shouldValidate: true, shouldDirty: true });
+        updatedFields.push('price');
+      }
+      if (details.mrp !== null && details.mrp !== undefined && !isNaN(Number(details.mrp))) {
+        setValue('mrp', Number(details.mrp), { shouldValidate: true, shouldDirty: true });
+      }
+      if (details.costPrice !== null && details.costPrice !== undefined && !isNaN(Number(details.costPrice))) {
+        setValue('costPrice', Number(details.costPrice), { shouldValidate: true, shouldDirty: true });
+      }
+      if (details.category) {
+        const rawCatName = details.category.trim();
+        const matched = categories.find((c: any) => 
+          c.name?.toLowerCase() === rawCatName.toLowerCase() ||
+          details.category?.toLowerCase().includes(c.name?.toLowerCase()) ||
+          c.name?.toLowerCase().includes(details.category?.toLowerCase())
+        );
+
+        if (matched) {
+          setValue('category', matched.id, { shouldValidate: true, shouldDirty: true });
+          updatedFields.push(`category (${matched.name})`);
+        } else if (storeData?.id) {
+          try {
+            const newCat = await createCategory({
+              storeId: storeData.id,
+              name: rawCatName
+            }).unwrap();
+            if (newCat?.id) {
+              setValue('category', newCat.id, { shouldValidate: true, shouldDirty: true });
+              updatedFields.push(`new category (${rawCatName})`);
+            } else {
+              setValue('category', rawCatName, { shouldValidate: true, shouldDirty: true });
+              updatedFields.push('category');
+            }
+          } catch (catErr) {
+            console.warn('Could not auto-create category on frontend, setting text value for backend resolution:', catErr);
+            setValue('category', rawCatName, { shouldValidate: true, shouldDirty: true });
+            updatedFields.push('category');
+          }
+        } else {
+          setValue('category', rawCatName, { shouldValidate: true, shouldDirty: true });
+          updatedFields.push('category');
+        }
+      }
+      if (updatedFields.length > 0) {
+        toast.success(`✨ Auto-filled: ${updatedFields.join(', ')}`);
+      }
+    }
   };
 
   if (!isLoaded) return null;
@@ -423,7 +453,97 @@ export default function ManualAddProductPage() {
       </div>
 
       <div className="flex-1 p-4 max-w-2xl mx-auto w-full">
+        {/* STEP 0: PRODUCT MEDIA */}
         {currentStep === 0 && (
+          <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-brand-navy">Product Media</h2>
+                <p className="text-sm text-gray-500">Upload photos or use the AI Studio to generate 5 catalog shots.</p>
+              </div>
+            </div>
+
+            {/* AI Studio Photoshoot Trigger Card */}
+            <div className="p-4 bg-white border border-[#E5E2DC] rounded-2xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 text-brand-navy flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4 text-brand-navy" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm text-brand-navy">AI Product Studio</h4>
+                    <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-blue-100">
+                      5 Angles + Auto-Fill
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Click 1–2 product photos to generate 5 studio-grade catalog shots and auto-fill details.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                onClick={() => setIsAiStudioOpen(true)}
+                className="h-10 px-4 rounded-xl bg-brand-navy hover:bg-brand-dark-navy text-white font-semibold text-xs shrink-0 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Launch Studio
+              </Button>
+            </div>
+            
+            <div className="relative w-full h-48 border-2 border-dashed border-[#E5E2DC] rounded-2xl flex flex-col items-center justify-center text-gray-500 bg-white hover:bg-gray-50 cursor-pointer transition-colors overflow-hidden">
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*,video/*" 
+                onChange={handleFileUpload} 
+                className="absolute inset-0 opacity-0 cursor-pointer z-10"
+              />
+              <Upload className="w-8 h-8 mb-3 text-brand-orange" />
+              <span className="text-sm font-semibold text-brand-navy">Tap to upload</span>
+              <span className="text-xs text-gray-400 mt-1">Up to 5 files (Max 5MB each)</span>
+            </div>
+            
+            {/* Uploading State */}
+            {Object.values(uploadingFiles).some(isUploading => isUploading) && (
+              <div className="text-sm text-brand-orange animate-pulse font-semibold">
+                Uploading media...
+              </div>
+            )}
+            
+            {/* Image Placeholder Grid */}
+            <div className="grid grid-cols-3 gap-3">
+              {(watch('media') || []).map((m, idx) => (
+                <div key={idx} className="aspect-square bg-gray-100 rounded-xl relative overflow-hidden group border border-gray-200">
+                  {m.type === 'IMAGE' ? (
+                    <img src={getMediaUrl(m.url)} alt="Product media" className="w-full h-full object-cover" />
+                  ) : (
+                    <video src={getMediaUrl(m.url)} className="w-full h-full object-cover" />
+                  )}
+                  {m.isPrimary && (
+                    <span className="absolute bottom-2 left-2 bg-brand-navy text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Primary</span>
+                  )}
+                  <button 
+                    onClick={() => removeMedia(idx)}
+                    className="absolute top-2 right-2 bg-black/50 hover:bg-black text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              
+              {/* Fill remaining slots with empty dashed boxes */}
+              {Array.from({ length: Math.max(0, 3 - (watch('media')?.length || 0)) }).map((_, i) => (
+                <div key={`empty-${i}`} className="aspect-square bg-gray-100 rounded-xl flex items-center justify-center border border-dashed border-gray-300">
+                  {i === 0 && !(watch('media')?.length) && <ImageIcon className="w-6 h-6 opacity-30 text-gray-400" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 1: BASIC INFORMATION */}
+        {currentStep === 1 && (
           <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
             <h2 className="text-xl font-bold text-brand-navy">Basic Information</h2>
             
@@ -448,7 +568,6 @@ export default function ManualAddProductPage() {
                     {...field}
                     onChange={(value) => {
                       if (value === '__create_new__') {
-                        // Draft is automatically saved via the form.watch useEffect
                         router.push('/seller/store/categories/add');
                         return;
                       }
@@ -486,7 +605,7 @@ export default function ManualAddProductPage() {
                 <button
                   type="button"
                   onClick={() => setValue('sku', generateStandardSku(), { shouldValidate: true })}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 transition-colors px-2 py-0.5 rounded hover:bg-blue-50"
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 transition-colors px-2 py-0.5 rounded hover:bg-blue-50 cursor-pointer"
                   title="Generate new standard 8-digit SKU"
                 >
                   <RefreshCw className="w-3 h-3" />
@@ -506,7 +625,8 @@ export default function ManualAddProductPage() {
           </div>
         )}
 
-        {currentStep === 1 && (
+        {/* STEP 2: PRICING & INVENTORY */}
+        {currentStep === 2 && (
           <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
             <h2 className="text-xl font-bold text-brand-navy">Pricing & Inventory</h2>
             
@@ -743,94 +863,6 @@ export default function ManualAddProductPage() {
                   className="w-5 h-5 accent-brand-orange" 
                 />
               </label>
-            </div>
-          </div>
-        )}
-
-        {currentStep === 2 && (
-          <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-brand-navy">Product Media</h2>
-                <p className="text-sm text-gray-500">Upload high quality images or videos of your product.</p>
-              </div>
-            </div>
-
-            {/* AI Studio Photoshoot Trigger Card */}
-            <div className="p-4 bg-white border border-[#E5E2DC] rounded-2xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 text-brand-navy flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4 text-brand-navy" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-sm text-brand-navy">AI Product Studio</h4>
-                    <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-blue-100">
-                      5 Angles
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Upload 1–2 product photos to generate 5 studio-grade commercial catalog images.
-                  </p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                onClick={() => setIsAiStudioOpen(true)}
-                className="h-10 px-4 rounded-xl bg-brand-navy hover:bg-brand-dark-navy text-white font-semibold text-xs shrink-0 flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                Launch Studio
-              </Button>
-            </div>
-            
-            <div className="relative w-full h-48 border-2 border-dashed border-[#E5E2DC] rounded-2xl flex flex-col items-center justify-center text-gray-500 bg-white hover:bg-gray-50 cursor-pointer transition-colors overflow-hidden">
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*,video/*" 
-                onChange={handleFileUpload} 
-                className="absolute inset-0 opacity-0 cursor-pointer z-10"
-              />
-              <Upload className="w-8 h-8 mb-3 text-brand-orange" />
-              <span className="text-sm font-semibold text-brand-navy">Tap to upload</span>
-              <span className="text-xs text-gray-400 mt-1">Up to 5 files (Max 5MB each)</span>
-            </div>
-            
-            {/* Uploading State */}
-            {Object.values(uploadingFiles).some(isUploading => isUploading) && (
-              <div className="text-sm text-brand-orange animate-pulse font-semibold">
-                Uploading media...
-              </div>
-            )}
-            
-            {/* Image Placeholder Grid */}
-            <div className="grid grid-cols-3 gap-3">
-              {(watch('media') || []).map((m, idx) => (
-                <div key={idx} className="aspect-square bg-gray-100 rounded-xl relative overflow-hidden group border border-gray-200">
-                  {m.type === 'IMAGE' ? (
-                    <img src={getMediaUrl(m.url)} alt="Product media" className="w-full h-full object-cover" />
-                  ) : (
-                    <video src={getMediaUrl(m.url)} className="w-full h-full object-cover" />
-                  )}
-                  {m.isPrimary && (
-                    <span className="absolute bottom-2 left-2 bg-brand-navy text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Primary</span>
-                  )}
-                  <button 
-                    onClick={() => removeMedia(idx)}
-                    className="absolute top-2 right-2 bg-black/50 hover:bg-black text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              
-              {/* Fill remaining slots with empty dashed boxes */}
-              {Array.from({ length: Math.max(0, 3 - (watch('media')?.length || 0)) }).map((_, i) => (
-                <div key={`empty-${i}`} className="aspect-square bg-gray-100 rounded-xl flex items-center justify-center border border-dashed border-gray-300">
-                  {i === 0 && !(watch('media')?.length) && <ImageIcon className="w-6 h-6 opacity-30 text-gray-400" />}
-                </div>
-              ))}
             </div>
           </div>
         )}

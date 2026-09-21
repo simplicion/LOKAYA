@@ -206,6 +206,14 @@ export const api = createApi({
     generateAiPhotoshoot: builder.mutation<{
       success: boolean;
       productAnalysis?: any;
+      generatedDetails?: {
+        name?: string;
+        description?: string;
+        category?: string;
+        sellingPrice?: number | null;
+        costPrice?: number | null;
+        mrp?: number | null;
+      };
       shots: Array<{
         id: string;
         title: string;

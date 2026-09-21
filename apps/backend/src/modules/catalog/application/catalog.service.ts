@@ -106,6 +106,28 @@ export class CatalogService {
       if (catRecord) {
         categoryName = catRecord.name;
       }
+    } else if (categoryName && !uuidRegex.test(categoryName) && !categoryId) {
+      // Check if matching category already exists in this store
+      let existingCat = await prisma.category.findFirst({
+        where: {
+          storeId: data.storeId,
+          name: { equals: categoryName.trim(), mode: 'insensitive' }
+        }
+      });
+      if (!existingCat) {
+        // Automatically create category for the store
+        existingCat = await prisma.category.create({
+          data: {
+            storeId: data.storeId,
+            name: categoryName.trim(),
+            displayOrder: 1,
+            isActive: true
+          }
+        });
+        MemoryCacheService.invalidatePrefix('store:categories:');
+      }
+      categoryId = existingCat.id;
+      categoryName = existingCat.name;
     }
 
     // Determine primary image URL from media if not explicitly set
@@ -237,6 +259,26 @@ export class CatalogService {
       if (catRecord) {
         categoryName = catRecord.name;
       }
+    } else if (categoryName && !uuidRegex.test(categoryName) && !categoryId) {
+      let existingCat = await prisma.category.findFirst({
+        where: {
+          storeId: product.storeId,
+          name: { equals: categoryName.trim(), mode: 'insensitive' }
+        }
+      });
+      if (!existingCat) {
+        existingCat = await prisma.category.create({
+          data: {
+            storeId: product.storeId,
+            name: categoryName.trim(),
+            displayOrder: 1,
+            isActive: true
+          }
+        });
+        MemoryCacheService.invalidatePrefix('store:categories:');
+      }
+      categoryId = existingCat.id;
+      categoryName = existingCat.name;
     }
 
     // Determine primary image

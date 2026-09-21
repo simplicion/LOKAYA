@@ -12,7 +12,7 @@ import {
   CheckCircle2, 
   Sliders, 
   ArrowRight,
-  Loader2,
+  FileText,
   Image as ImageIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,10 +20,22 @@ import { toast } from 'sonner';
 import { useGenerateAiPhotoshootMutation } from '@/lib/api';
 import { getMediaUrl } from '@/lib/utils';
 
+export interface GeneratedProductDetails {
+  name?: string;
+  description?: string;
+  category?: string;
+  sellingPrice?: number | null;
+  costPrice?: number | null;
+  mrp?: number | null;
+}
+
 interface AiStudioBottomSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplyPhotos: (photos: Array<{ url: string; type: 'IMAGE'; isPrimary?: boolean; displayOrder: number }>) => void;
+  onApplyPhotos: (
+    photos: Array<{ url: string; type: 'IMAGE'; isPrimary?: boolean; displayOrder: number }>,
+    details?: GeneratedProductDetails
+  ) => void;
   productName?: string;
   category?: string;
 }
@@ -43,12 +55,15 @@ export function AiStudioBottomSheet({
   const [preview1, setPreview1] = useState<string>('');
   const [image2, setImage2] = useState<File | null>(null);
   const [preview2, setPreview2] = useState<string>('');
+  const [productNotes, setProductNotes] = useState<string>('');
+  const [autoFillDetails, setAutoFillDetails] = useState<boolean>(true);
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [regenerationsLeft, setRegenerationsLeft] = useState<number>(2);
   const [generatedShots, setGeneratedShots] = useState<any[]>([]);
+  const [generatedDetails, setGeneratedDetails] = useState<GeneratedProductDetails | undefined>(undefined);
   const [selectedShotIds, setSelectedShotIds] = useState<string[]>([]);
   const [previewModalUrl, setPreviewModalUrl] = useState<string | null>(null);
-  const [generationStageText, setGenerationStageText] = useState<string>('Analyzing product geometry and materials...');
+  const [generationStageText, setGenerationStageText] = useState<string>('Analyzing product geometry, materials & notes...');
 
   const fileInputRef1 = useRef<HTMLInputElement>(null);
   const fileInputRef2 = useRef<HTMLInputElement>(null);
@@ -133,7 +148,9 @@ export function AiStudioBottomSheet({
     if (image2) formData.append('images', image2);
     if (productName) formData.append('productName', productName);
     if (category) formData.append('category', category);
-    if (customPrompt) formData.append('customPrompt', customPrompt);
+    if (isRegenerating ? customPrompt : productNotes) {
+      formData.append('customPrompt', isRegenerating ? customPrompt : productNotes);
+    }
 
     try {
       const response = await generatePhotoshoot(formData).unwrap();
@@ -144,6 +161,9 @@ export function AiStudioBottomSheet({
       if (response.shots && response.shots.length > 0) {
         setGeneratedShots(response.shots);
         setSelectedShotIds(response.shots.map((s: any) => s.id));
+        if (response.generatedDetails) {
+          setGeneratedDetails(response.generatedDetails);
+        }
         if (isRegenerating) {
           setRegenerationsLeft(prev => Math.max(0, prev - 1));
           toast.success('Photos updated with your custom direction');
@@ -192,7 +212,7 @@ export function AiStudioBottomSheet({
       displayOrder: idx
     }));
 
-    onApplyPhotos(formattedPhotos);
+    onApplyPhotos(formattedPhotos, autoFillDetails ? generatedDetails : undefined);
     toast.success(`Added ${formattedPhotos.length} studio photos to product`);
     onClose();
   };
@@ -226,7 +246,7 @@ export function AiStudioBottomSheet({
                   5 Angles
                 </span>
               </div>
-              <p className="text-xs text-gray-500">Generate professional catalog photos from 1–2 product shots</p>
+              <p className="text-xs text-gray-500">Generate studio catalog photos & auto-fill product details</p>
             </div>
           </div>
 
@@ -239,9 +259,9 @@ export function AiStudioBottomSheet({
         </div>
 
         {/* Sheet Body */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 bg-white">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 bg-white">
 
-          {/* STEP 1: UPLOAD REFERENCE PHOTOS */}
+          {/* STEP 1: UPLOAD REFERENCE PHOTOS & NOTES */}
           {step === 'UPLOAD' && (
             <div className="space-y-4 animate-in fade-in">
               {/* Upload Slots Grid */}
@@ -345,12 +365,41 @@ export function AiStudioBottomSheet({
                 </div>
               </div>
 
+              {/* Product Description / Notes Box */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-semibold text-gray-700 flex items-center justify-between">
+                  <span>Describe your product (Optional)</span>
+                  <span className="text-[10px] text-gray-400">Include features or price</span>
+                </label>
+                <textarea 
+                  value={productNotes}
+                  onChange={(e) => setProductNotes(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. Handmade cotton shirt, slim fit, breathable, Price 899, MRP 1499"
+                  className="w-full p-3 bg-white border border-[#E5E2DC] rounded-xl outline-none focus:ring-2 focus:ring-brand-navy text-xs resize-none"
+                />
+              </div>
+
+              {/* Auto-fill details checkbox */}
+              <label className="flex items-center gap-2.5 bg-[#FAF9F6] p-3 rounded-xl border border-[#E5E2DC] cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={autoFillDetails} 
+                  onChange={(e) => setAutoFillDetails(e.target.checked)}
+                  className="w-4 h-4 accent-brand-navy rounded cursor-pointer"
+                />
+                <div className="text-xs">
+                  <p className="font-semibold text-brand-navy">Auto-fill product details & pricing</p>
+                  <p className="text-[11px] text-gray-500">Automatically creates title, description and prices for the next step</p>
+                </div>
+              </label>
+
               {/* Shoot CTA */}
               <div className="pt-2">
                 <Button 
                   onClick={() => handleStartGeneration(false)}
                   disabled={!image1 && !image2}
-                  className="w-full h-12 rounded-xl bg-brand-navy hover:bg-brand-dark-navy text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  className="w-full h-12 rounded-xl bg-brand-navy hover:bg-brand-dark-navy text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4" />
                   Generate 5 Studio Photos
@@ -359,7 +408,7 @@ export function AiStudioBottomSheet({
             </div>
           )}
 
-          {/* STEP 2: GENERATION IN PROGRESS (Clean Corporate Spinner) */}
+          {/* STEP 2: GENERATION IN PROGRESS */}
           {step === 'GENERATING' && (
             <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 animate-in fade-in duration-200">
               <div className="w-12 h-12 border-3 border-brand-navy border-t-transparent rounded-full animate-spin" />
@@ -372,7 +421,7 @@ export function AiStudioBottomSheet({
                   {generationStageText}
                 </p>
                 <p className="text-[11px] text-gray-400 mt-1">
-                  Rendering 5 high-resolution commercial views for your product
+                  Rendering 5 high-resolution commercial views and drafting product details
                 </p>
               </div>
 
@@ -400,7 +449,7 @@ export function AiStudioBottomSheet({
                 </div>
                 <button 
                   onClick={toggleSelectAll}
-                  className="text-xs font-semibold text-brand-navy bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded-lg border border-slate-200 transition-colors"
+                  className="text-xs font-semibold text-brand-navy bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded-lg border border-slate-200 transition-colors cursor-pointer"
                 >
                   {selectedShotIds.length === generatedShots.length ? 'Deselect All' : 'Select All (5)'}
                 </button>
@@ -466,7 +515,25 @@ export function AiStudioBottomSheet({
                 })}
               </div>
 
-              {/* Refinement Box */}
+              {/* Generated Details Preview Banner */}
+              {generatedDetails?.name && autoFillDetails && (
+                <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+                    <FileText className="w-3.5 h-3.5 text-blue-600" />
+                    Auto-Generated Product Details Ready
+                  </div>
+                  <p className="text-[11px] text-blue-800 line-clamp-1">
+                    <span className="font-semibold">Title:</span> {generatedDetails.name}
+                  </p>
+                  {generatedDetails.sellingPrice && (
+                    <p className="text-[10px] text-blue-700">
+                      <span className="font-semibold">Detected Price:</span> ₹{generatedDetails.sellingPrice} {generatedDetails.mrp ? `(MRP: ₹${generatedDetails.mrp})` : ''}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Refinement Box (Shown only in Results step) */}
               <div className="p-3.5 bg-[#FAF9F6] border border-[#E5E2DC] rounded-xl space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-brand-navy flex items-center gap-1.5">
@@ -490,7 +557,7 @@ export function AiStudioBottomSheet({
                     onClick={() => handleStartGeneration(true)}
                     disabled={regenerationsLeft <= 0}
                     variant="outline"
-                    className="h-auto py-2 px-3 text-xs font-bold border-[#E5E2DC] text-brand-navy hover:bg-white rounded-xl shrink-0"
+                    className="h-auto py-2 px-3 text-xs font-bold border-[#E5E2DC] text-brand-navy hover:bg-white rounded-xl shrink-0 cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5 mr-1" />
                     Regenerate
@@ -508,14 +575,14 @@ export function AiStudioBottomSheet({
               <Button 
                 variant="outline" 
                 onClick={() => setStep('UPLOAD')} 
-                className="h-11 px-4 text-xs font-semibold text-gray-700 border-[#E5E2DC] rounded-xl hover:bg-gray-50"
+                className="h-11 px-4 text-xs font-semibold text-gray-700 border-[#E5E2DC] rounded-xl hover:bg-gray-50 cursor-pointer"
               >
                 Upload Different Photos
               </Button>
               <Button 
                 onClick={handleApplyToProduct}
                 disabled={selectedShotIds.length === 0}
-                className="flex-1 h-11 bg-brand-orange hover:bg-[#E04B2A] text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-2"
+                className="flex-1 h-11 bg-brand-orange hover:bg-[#E04B2A] text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Add Selected ({selectedShotIds.length}) to Product
@@ -526,7 +593,7 @@ export function AiStudioBottomSheet({
               <Button 
                 variant="outline" 
                 onClick={onClose} 
-                className="h-11 px-5 text-xs font-semibold text-gray-700 border-[#E5E2DC] rounded-xl hover:bg-gray-50"
+                className="h-11 px-5 text-xs font-semibold text-gray-700 border-[#E5E2DC] rounded-xl hover:bg-gray-50 cursor-pointer"
               >
                 Cancel
               </Button>

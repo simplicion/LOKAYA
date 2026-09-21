@@ -27,6 +27,7 @@ import {
   useUpdateProductMutation, 
   useUploadMediaMutation, 
   useGetStoreCategoriesQuery,
+  useCreateCategoryMutation,
   useGetPresignedUrlMutation 
 } from '@/lib/api';
 import { toast } from 'sonner';
@@ -49,6 +50,7 @@ export default function EditProductClient({ params }: { params: { id: string } }
 
   const { data: productData, isLoading, refetch } = useGetProductByIdQuery(params.id);
   const [updateProduct, { isLoading: isSaving }] = useUpdateProductMutation();
+  const [createCategory] = useCreateCategoryMutation();
   const [uploadMedia] = useUploadMediaMutation();
   const [getPresignedUrl] = useGetPresignedUrlMutation();
 
@@ -61,10 +63,80 @@ export default function EditProductClient({ params }: { params: { id: string } }
   const [saved, setSaved] = useState(false);
   const [isAiStudioOpen, setIsAiStudioOpen] = useState(false);
 
-  const handleApplyAiPhotos = (newPhotos: Array<{ url: string; type: 'IMAGE'; isPrimary?: boolean; displayOrder: number }>) => {
+  const handleApplyAiPhotos = async (
+    newPhotos: Array<{ url: string; type: 'IMAGE'; isPrimary?: boolean; displayOrder: number }>,
+    details?: any
+  ) => {
     const existing = mediaList.map(m => ({ ...m, isPrimary: false }));
     const merged = [...newPhotos, ...existing];
     setMediaList(merged);
+
+    if (details) {
+      const updatedFields: string[] = [];
+      if (details.name) {
+        setName(details.name);
+        updatedFields.push('name');
+      }
+      if (details.description) {
+        setDescription(details.description);
+        updatedFields.push('description');
+      }
+      if (details.sellingPrice !== null && details.sellingPrice !== undefined && !isNaN(Number(details.sellingPrice))) {
+        setPrice(Number(details.sellingPrice));
+        updatedFields.push('selling price');
+      }
+      if (details.mrp !== null && details.mrp !== undefined && !isNaN(Number(details.mrp))) {
+        setMrp(Number(details.mrp));
+        updatedFields.push('MRP');
+      }
+      if (details.costPrice !== null && details.costPrice !== undefined && !isNaN(Number(details.costPrice))) {
+        setCostPrice(Number(details.costPrice));
+        updatedFields.push('cost price');
+      }
+      if (details.category) {
+        const rawCatName = details.category.trim();
+        const matched = categories.find((c: any) => 
+          c.name?.toLowerCase() === rawCatName.toLowerCase() ||
+          details.category?.toLowerCase().includes(c.name?.toLowerCase()) ||
+          c.name?.toLowerCase().includes(details.category?.toLowerCase())
+        );
+        if (matched) {
+          setSelectedCategoryId(matched.id);
+          setCategory(matched.name);
+          setIsCustomCategory(false);
+          updatedFields.push(`category (${matched.name})`);
+        } else if (storeId) {
+          try {
+            const newCat = await createCategory({
+              storeId,
+              name: rawCatName
+            }).unwrap();
+            if (newCat?.id) {
+              setSelectedCategoryId(newCat.id);
+              setCategory(newCat.name);
+              setIsCustomCategory(false);
+              updatedFields.push(`new category (${rawCatName})`);
+            } else {
+              setCategory(rawCatName);
+              setIsCustomCategory(true);
+              updatedFields.push('category');
+            }
+          } catch (catErr) {
+            console.warn('Could not auto-create category on frontend, setting custom category:', catErr);
+            setCategory(rawCatName);
+            setIsCustomCategory(true);
+            updatedFields.push('category');
+          }
+        } else {
+          setCategory(rawCatName);
+          setIsCustomCategory(true);
+          updatedFields.push('category');
+        }
+      }
+      if (updatedFields.length > 0) {
+        toast.success(`✨ Auto-filled: ${updatedFields.join(', ')}`);
+      }
+    }
   };
 
   // Form State
