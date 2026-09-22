@@ -1156,6 +1156,7 @@ model StoreDeliveryPartner {
   deliveryPartnerId String
   status            PartnerRequestStatus @default(PENDING)
   notes             String?
+  initiatedBy       String               @default("RIDER")
   
   store             Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
   deliveryPartner   DeliveryPartner      @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)

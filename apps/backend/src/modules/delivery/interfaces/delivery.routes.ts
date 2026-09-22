@@ -184,6 +184,16 @@ router.get('/partner-stores', async (req: Request, res: Response, next: NextFunc
   }
 });
 
+// GET /api/v1/delivery/partner-stores/my-partners - Active connected stores and pending requests for rider
+router.get('/partner-stores/my-partners', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await DeliveryService.getRiderPartnerStores((req as any).user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/partner-stores/request', validateRequest(sendStorePartnerRequestSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const request = await DeliveryService.sendStorePartnerRequest(
@@ -192,6 +202,37 @@ router.post('/partner-stores/request', validateRequest(sendStorePartnerRequestSc
       req.body.notes
     );
     res.status(201).json(request);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/v1/delivery/partner-stores/respond - Rider accepts or rejects store partnership request
+router.post('/partner-stores/respond', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { requestId, status } = req.body;
+    if (!requestId || !['ACCEPTED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'Valid requestId and status (ACCEPTED/REJECTED) required' });
+    }
+    const result = await DeliveryService.respondToStorePartnerRequestAsRider(
+      (req as any).user.id,
+      requestId,
+      status
+    );
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/v1/delivery/partner-stores/:storeId - Rider disconnects from a partner store
+router.delete('/partner-stores/:storeId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await DeliveryService.disconnectStoreAsRider(
+      (req as any).user.id,
+      req.params.storeId
+    );
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

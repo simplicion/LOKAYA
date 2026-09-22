@@ -204,9 +204,15 @@ export default function SellerDeliveryPartnersPage() {
                         </div>
                       </div>
 
-                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shrink-0">
-                        New Applicant
-                      </span>
+                      {req.initiatedBy === 'STORE' ? (
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full shrink-0">
+                          Invite Sent
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shrink-0">
+                          Rider Applied
+                        </span>
+                      )}
                     </div>
 
                     {req.notes && (
@@ -215,28 +221,46 @@ export default function SellerDeliveryPartnersPage() {
                       </div>
                     )}
 
-                    <div className="flex gap-2 pt-1 border-t border-gray-100">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRespond(req.id, 'REJECTED')}
-                        disabled={isResponding}
-                        className="flex-1 h-10 rounded-xl text-xs font-bold text-red-600 border-red-200 hover:bg-red-50"
-                      >
-                        <X className="w-3.5 h-3.5 mr-1" />
-                        <span>Decline</span>
-                      </Button>
+                    {req.initiatedBy === 'STORE' ? (
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                        <span className="inline-flex items-center gap-1.5 text-amber-700 font-medium">
+                          <Clock className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                          <span>Waiting for rider to accept</span>
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRespond(req.id, 'REJECTED')}
+                          disabled={isResponding}
+                          className="h-7 text-xs text-gray-400 hover:text-rose-600"
+                        >
+                          Cancel Invite
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 pt-1 border-t border-gray-100">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRespond(req.id, 'REJECTED')}
+                          disabled={isResponding}
+                          className="flex-1 h-10 rounded-xl text-xs font-bold text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          <X className="w-3.5 h-3.5 mr-1" />
+                          <span>Decline</span>
+                        </Button>
 
-                      <Button
-                        size="sm"
-                        onClick={() => handleRespond(req.id, 'ACCEPTED')}
-                        disabled={isResponding}
-                        className="flex-1 h-10 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                      >
-                        <Check className="w-3.5 h-3.5 mr-1" />
-                        <span>Accept Partner</span>
-                      </Button>
-                    </div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleRespond(req.id, 'ACCEPTED')}
+                          disabled={isResponding}
+                          className="flex-1 h-10 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                        >
+                          <Check className="w-3.5 h-3.5 mr-1" />
+                          <span>Accept Partner</span>
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 );
               })

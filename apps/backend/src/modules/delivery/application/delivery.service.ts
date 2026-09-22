@@ -844,10 +844,12 @@ export class DeliveryService {
         storeId,
         deliveryPartnerId: partner.id,
         status: PartnerRequestStatus.PENDING,
+        initiatedBy: 'RIDER',
         notes
       },
       update: {
         status: PartnerRequestStatus.PENDING,
+        initiatedBy: 'RIDER',
         notes
       },
       include: {
@@ -871,6 +873,145 @@ export class DeliveryService {
     } catch (e) {}
 
     return partnerRequest;
+  }
+
+  /**
+   * For delivery partner: Retrieves their active partner stores and incoming/outgoing requests.
+   */
+  static async getRiderPartnerStores(riderUserId: string) {
+    const partner = await prisma.deliveryPartner.findUnique({
+      where: { userId: riderUserId }
+    });
+    if (!partner) throw new AppError('Delivery partner profile not found', 404);
+
+    const partnerships = await prisma.storeDeliveryPartner.findMany({
+      where: { deliveryPartnerId: partner.id },
+      include: {
+        store: {
+          select: {
+            id: true,
+            name: true,
+            logoUrl: true,
+            bannerUrl: true,
+            address: true,
+            city: true,
+            category: true,
+            contactPhone: true,
+            openingTime: true,
+            closingTime: true,
+            latitude: true,
+            longitude: true
+          }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    const connectedStores = partnerships
+      .filter(p => p.status === PartnerRequestStatus.ACCEPTED)
+      .map(p => ({
+        requestId: p.id,
+        store: p.store,
+        status: p.status,
+        notes: p.notes,
+        initiatedBy: p.initiatedBy,
+        connectedAt: p.updatedAt
+      }));
+
+    // Requests sent by store runners to this rider
+    const incomingRequests = partnerships
+      .filter(p => p.status === PartnerRequestStatus.PENDING && p.initiatedBy === 'STORE')
+      .map(p => ({
+        requestId: p.id,
+        store: p.store,
+        status: p.status,
+        notes: p.notes,
+        initiatedBy: p.initiatedBy,
+        requestedAt: p.createdAt
+      }));
+
+    // Requests sent by this rider to stores
+    const outgoingRequests = partnerships
+      .filter(p => p.status === PartnerRequestStatus.PENDING && p.initiatedBy === 'RIDER')
+      .map(p => ({
+        requestId: p.id,
+        store: p.store,
+        status: p.status,
+        notes: p.notes,
+        initiatedBy: p.initiatedBy,
+        requestedAt: p.createdAt
+      }));
+
+    return {
+      connectedStores,
+      incomingRequests,
+      outgoingRequests
+    };
+  }
+
+  /**
+   * For delivery partner: Responds to a store partnership request (ACCEPTED or REJECTED).
+   */
+  static async respondToStorePartnerRequestAsRider(
+    riderUserId: string,
+    requestId: string,
+    status: 'ACCEPTED' | 'REJECTED'
+  ) {
+    const partner = await prisma.deliveryPartner.findUnique({
+      where: { userId: riderUserId },
+      include: { user: true }
+    });
+    if (!partner) throw new AppError('Delivery partner profile not found', 404);
+
+    const request = await prisma.storeDeliveryPartner.findUnique({
+      where: { id: requestId },
+      include: { store: true }
+    });
+    if (!request || request.deliveryPartnerId !== partner.id) {
+      throw new AppError('Partner request not found or unauthorized', 404);
+    }
+
+    const updated = await prisma.storeDeliveryPartner.update({
+      where: { id: requestId },
+      data: {
+        status: status === 'ACCEPTED' ? PartnerRequestStatus.ACCEPTED : PartnerRequestStatus.REJECTED
+      },
+      include: { store: true }
+    });
+
+    // Notify store seller
+    try {
+      await prisma.sellerNotification.create({
+        data: {
+          storeId: request.storeId,
+          type: NotificationType.SYSTEM,
+          title: status === 'ACCEPTED' ? 'Partner Request Accepted!' : 'Partner Request Declined',
+          message: `${partner.user.name} (${partner.vehicleType}) has ${status === 'ACCEPTED' ? 'accepted your store partnership request' : 'declined the partnership request'}.`,
+          linkUrl: '/seller/delivery-partners'
+        }
+      });
+    } catch (e) {}
+
+    return updated;
+  }
+
+  /**
+   * For delivery partner: Disconnects from a partner store.
+   */
+  static async disconnectStoreAsRider(riderUserId: string, storeId: string) {
+    const partner = await prisma.deliveryPartner.findUnique({
+      where: { userId: riderUserId }
+    });
+    if (!partner) throw new AppError('Delivery partner profile not found', 404);
+
+    await prisma.storeDeliveryPartner.deleteMany({
+      where: {
+        deliveryPartnerId: partner.id,
+        storeId
+      }
+    });
+
+    return { success: true, message: 'Store disconnected from your partners' };
   }
 
   /**
@@ -1243,12 +1384,14 @@ export class DeliveryService {
       create: {
         storeId,
         deliveryPartnerId: partner.id,
-        status: PartnerRequestStatus.ACCEPTED, // Direct invite from merchant: instantly accepted or pending based on store preference
-        notes: notes || `Direct partnership connection from ${store.name}`
+        status: PartnerRequestStatus.PENDING,
+        initiatedBy: 'STORE',
+        notes: notes || `Partnership invite from ${store.name}`
       },
       update: {
-        status: PartnerRequestStatus.ACCEPTED,
-        notes: notes || `Direct partnership connection from ${store.name}`
+        status: PartnerRequestStatus.PENDING,
+        initiatedBy: 'STORE',
+        notes: notes || `Partnership invite from ${store.name}`
       },
       include: {
         deliveryPartner: {

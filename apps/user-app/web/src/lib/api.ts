@@ -1207,6 +1207,50 @@ export const api = createApi({
       }),
       invalidatesTags: ['StorePartner', 'DeliveryPartner'],
     }),
+    getRiderPartnerStores: builder.query<{
+      connectedStores: Array<{
+        requestId: string;
+        store: any;
+        status: string;
+        notes?: string;
+        initiatedBy: string;
+        connectedAt: string;
+      }>;
+      incomingRequests: Array<{
+        requestId: string;
+        store: any;
+        status: string;
+        notes?: string;
+        initiatedBy: string;
+        requestedAt: string;
+      }>;
+      outgoingRequests: Array<{
+        requestId: string;
+        store: any;
+        status: string;
+        notes?: string;
+        initiatedBy: string;
+        requestedAt: string;
+      }>;
+    }, void>({
+      query: () => '/delivery/partner-stores/my-partners',
+      providesTags: ['StorePartner'],
+    }),
+    riderRespondStorePartnerRequest: builder.mutation<any, { requestId: string; status: 'ACCEPTED' | 'REJECTED' }>({
+      query: (body) => ({
+        url: '/delivery/partner-stores/respond',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['StorePartner', 'DeliveryPartner'],
+    }),
+    riderDisconnectStore: builder.mutation<any, string>({
+      query: (storeId) => ({
+        url: `/delivery/partner-stores/${storeId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['StorePartner', 'DeliveryPartner'],
+    }),
     getDeliveryHistory: builder.query<any[], void>({
       query: () => '/delivery/history',
       providesTags: ['DeliveryAssignment'],
@@ -1561,6 +1605,9 @@ export const {
   useVerifyDeliveryOtpMutation,
   useGetNearbyStoresForPartnerQuery,
   useSendStorePartnerRequestMutation,
+  useGetRiderPartnerStoresQuery,
+  useRiderRespondStorePartnerRequestMutation,
+  useRiderDisconnectStoreMutation,
   useGetStorePartnerRequestsQuery,
   useRespondStorePartnerRequestMutation,
   useGetStoreConnectedPartnersQuery,
