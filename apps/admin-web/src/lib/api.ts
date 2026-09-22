@@ -348,7 +348,7 @@ export const adminApi = createApi({
         method: 'PUT',
         body,
       }),
-      invalidatesTags: ['OnboardingConfig'],
+      invalidatesTags: ['OnboardingConfig', 'Products', 'Stores', 'DeliveryPartners'],
     }),
   }),
 });

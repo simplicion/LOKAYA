@@ -1,6 +1,7 @@
 import { prisma } from '@workspace/db';
 import { AppError } from '../../../shared/errors/AppError';
 import { MemoryCacheService } from '../../../shared/services/memory-cache.service';
+import { PlatformConfigService } from '../../common/platform-config.service';
 import crypto from 'crypto';
 
 export class CatalogService {
@@ -150,6 +151,11 @@ export class CatalogService {
       }
     }
 
+    // Dynamic Verification Center Policy
+    const config = await PlatformConfigService.getOnboardingConfig().catch(() => null);
+    const requireVerification = config?.requireProductVerification ?? false;
+    const isAutoApproved = !requireVerification || (config?.autoApproveProducts ?? true);
+
     const productData = {
       storeId: data.storeId,
       name: data.name,
@@ -174,9 +180,9 @@ export class CatalogService {
       costPrice: data.costPrice !== undefined ? Number(data.costPrice) : 0,
       processingTime: data.processingTime || null,
       // Verification Center
-      isVerified: false,
-      verificationStatus: 'PENDING',
-      verificationRequestedAt: new Date(),
+      isVerified: isAutoApproved,
+      verificationStatus: isAutoApproved ? 'APPROVED' : 'PENDING',
+      verificationRequestedAt: isAutoApproved ? null : new Date(),
       rejectionReason: null
     };
 
@@ -312,26 +318,45 @@ export class CatalogService {
       ...(rawUpdateData.isAvailableForPickup !== undefined ? { isAvailableForPickup: Boolean(rawUpdateData.isAvailableForPickup) } : {}),
       ...(rawUpdateData.isDeliveryIncluded !== undefined ? { isDeliveryIncluded: Boolean(rawUpdateData.isDeliveryIncluded) } : {}),
       ...(rawUpdateData.costPrice !== undefined ? { costPrice: Number(rawUpdateData.costPrice) } : {}),
-      // Reset verification only if core product details/pricing/media changed (not when only toggling active status)
-      ...(Boolean(
-        rawUpdateData.name !== undefined ||
-        rawUpdateData.description !== undefined ||
-        rawUpdateData.brand !== undefined ||
-        rawUpdateData.sku !== undefined ||
-        rawUpdateData.mrp !== undefined ||
-        rawUpdateData.sellingPrice !== undefined ||
-        rawUpdateData.costPrice !== undefined ||
-        categoryName !== undefined ||
-        categoryId !== undefined ||
-        imageUrl !== undefined ||
-        (media && Array.isArray(media) && media.length > 0) ||
-        (variants && Array.isArray(variants) && variants.length > 0)
-      ) ? {
-        isVerified: false,
-        verificationStatus: 'PENDING',
-        verificationRequestedAt: new Date(),
-        rejectionReason: null
-      } : {})
+      // Verification Policy for updates
+      ...(await (async () => {
+        const config = await PlatformConfigService.getOnboardingConfig().catch(() => null);
+        const requireVerification = config?.requireProductVerification ?? false;
+
+        if (!requireVerification) {
+          // In fast-track mode, products remain approved/verified
+          return {
+            isVerified: true,
+            verificationStatus: 'APPROVED',
+            rejectionReason: null
+          };
+        }
+
+        const isCoreDetailChanged = Boolean(
+          rawUpdateData.name !== undefined ||
+          rawUpdateData.description !== undefined ||
+          rawUpdateData.brand !== undefined ||
+          rawUpdateData.sku !== undefined ||
+          rawUpdateData.mrp !== undefined ||
+          rawUpdateData.sellingPrice !== undefined ||
+          rawUpdateData.costPrice !== undefined ||
+          categoryName !== undefined ||
+          categoryId !== undefined ||
+          imageUrl !== undefined ||
+          (media && Array.isArray(media) && media.length > 0) ||
+          (variants && Array.isArray(variants) && variants.length > 0)
+        );
+
+        if (isCoreDetailChanged) {
+          return {
+            isVerified: false,
+            verificationStatus: 'PENDING',
+            verificationRequestedAt: new Date(),
+            rejectionReason: null
+          };
+        }
+        return {};
+      })())
     };
 
     // Update core product details
@@ -418,10 +443,12 @@ export class CatalogService {
   }
 
   static async getProductsByStore(storeId: string, isOwner: boolean = false) {
-    const cacheKey = `store:products:${storeId}:${isOwner}`;
+    const config = await PlatformConfigService.getOnboardingConfig().catch(() => null);
+    const requireVerification = config?.requireProductVerification ?? false;
+    const cacheKey = `store:products:${storeId}:${isOwner}:${requireVerification}`;
     return await MemoryCacheService.getOrSet(cacheKey, async () => {
       const where: any = { storeId, status: { not: 'ARCHIVED' } };
-      if (!isOwner) {
+      if (!isOwner && requireVerification) {
         where.OR = [
           { isVerified: true },
           { verificationStatus: 'APPROVED' }
@@ -567,32 +594,45 @@ export class CatalogService {
   }
 
   static async getAllProducts(query?: { category?: string; search?: string; sort?: string; limit?: number }) {
-    const cacheKey = `catalog:products:${query?.category || 'all'}:${query?.search || ''}:${query?.sort || 'default'}:${query?.limit || 50}`;
+    const config = await PlatformConfigService.getOnboardingConfig().catch(() => null);
+    const requireVerification = config?.requireProductVerification ?? false;
+    const cacheKey = `catalog:products:${query?.category || 'all'}:${query?.search || ''}:${query?.sort || 'default'}:${query?.limit || 50}:${requireVerification}`;
     return await MemoryCacheService.getOrSet(cacheKey, async () => {
-      const where: any = {
-        isActive: true,
-        status: { not: 'ARCHIVED' },
-        OR: [
-          { isVerified: true },
-          { verificationStatus: 'APPROVED' }
-        ]
-      };
+      const andConditions: any[] = [
+        { isActive: true },
+        { status: { not: 'ARCHIVED' } }
+      ];
+
+      if (requireVerification) {
+        andConditions.push({
+          OR: [
+            { isVerified: true },
+            { verificationStatus: 'APPROVED' }
+          ]
+        });
+      }
 
       if (query?.category && query.category !== 'all') {
-        where.OR = [
-          { category: { contains: query.category, mode: 'insensitive' } },
-          { categoryModel: { name: { contains: query.category, mode: 'insensitive' } } }
-        ];
+        andConditions.push({
+          OR: [
+            { category: { contains: query.category, mode: 'insensitive' } },
+            { categoryModel: { name: { contains: query.category, mode: 'insensitive' } } }
+          ]
+        });
       }
 
       if (query?.search && query.search.trim().length > 0) {
         const searchTerms = query.search.trim();
-        where.OR = [
-          { name: { contains: searchTerms, mode: 'insensitive' } },
-          { description: { contains: searchTerms, mode: 'insensitive' } },
-          { brand: { contains: searchTerms, mode: 'insensitive' } }
-        ];
+        andConditions.push({
+          OR: [
+            { name: { contains: searchTerms, mode: 'insensitive' } },
+            { description: { contains: searchTerms, mode: 'insensitive' } },
+            { brand: { contains: searchTerms, mode: 'insensitive' } }
+          ]
+        });
       }
+
+      const where: any = { AND: andConditions };
 
       let orderBy: any = { createdAt: 'desc' };
       if (query?.sort === 'price_asc') orderBy = { sellingPrice: 'asc' };

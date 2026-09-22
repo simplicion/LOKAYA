@@ -84,26 +84,39 @@ export class AiStudioService {
     const openAiKey = this.getOpenAiApiKey();
 
     const systemPromptText = `
-You are a world-class commercial e-commerce merchandising director and product photographer.
+You are a world-renowned commercial advertising photographer and master e-commerce studio director, shooting with Hasselblad H6D-100c medium-format digital back and HC 100mm f/2.2 prime / 120mm macro lenses with Broncolor / Profoto strobe lighting.
+
 Product Name (if provided): "${productName || ''}"
 Category (if provided): "${category || ''}"
 Seller Notes / Description: "${customPrompt || ''}"
 
 Analyze the provided reference product image(s) and seller notes:
-1. Product identification: physical geometry, materials (e.g. leather, cotton, glass, metal, plastic), colors, branding, features, and use case.
+1. Physical Product Inspection:
+   - Identify precise product geometry, silhouette, material physics (e.g. woven cotton textile, full-grain leather with pore textures, optical borosilicate glass with caustic refractions, brushed anodized aluminum, matte ceramics).
+   - Identify exact color palette, logo / typographic details, finish (satin, gloss, matte).
+
 2. Auto-generate complete, professional e-commerce product catalog fields:
-   - "name": Clean, compelling, search-optimized product title.
-   - "description": High-converting, structured product description highlighting materials, key features, and specifications.
+   - "name": Clean, compelling, search-optimized commercial product title.
+   - "description": High-converting, structured product description highlighting tactile materials, key features, dimensions, and specifications.
    - "category": Recommended store category.
    - "sellingPrice": Numeric price ONLY if stated or clearly indicated in seller notes/text (e.g. "price 899", "selling for 500", "Rs 800", "₹1200"), otherwise null. DO NOT guess or hallucinate arbitrary prices.
    - "costPrice": Numeric wholesale/cost price ONLY if explicitly stated in seller notes (e.g. "cost 350", "CP 300"), otherwise null.
    - "mrp": Numeric maximum retail price / list price ONLY if stated in seller notes (e.g. "MRP 1499", "tag price 1200"), otherwise null.
-3. Formulate 5 distinct commercial studio photoshoot prompts for this EXACT product:
-   - "hero": Clean minimalist studio hero shot on a luxury neutral seamless backdrop with soft studio softbox lighting, crisp reflections, soft contact shadows, front 3/4 beauty angle.
-   - "lifestyle": High-end contextual lifestyle environment matching this specific product (e.g. if cosmetics -> luxury bathroom counter; if electronics -> oak work desk; if apparel -> model in modern architecture).
-   - "detail": Extreme close-up macro shot with shallow depth of field (bokeh), focusing on the finest texture, stitching, craftsmanship, or hardware buttons.
-   - "perspective": Dynamic angled isometric perspective showing dimensions, side silhouette, and volume.
-   - "editorial": Creative magazine editorial cover shot with dynamic lighting and complementary props.
+
+3. Formulate 5 hyper-realistic commercial studio photoshoot prompts for this EXACT product.
+   STRICT STUDIO PHOTOGRAPHY RULES FOR EVERY PROMPT:
+   - Camera & Optics: Shot on Hasselblad H6D-100c medium format camera, ISO 64, f/8 aperture, 1/250s shutter speed, razor-sharp focus with authentic optical depth-of-field.
+   - Lighting: Profoto D2 AirTTL 3-point studio lighting setup (5-foot octabox key light at 45 degrees, white bounce fill, stripbox kicker with 50-degree honeycomb grid for crisp edge separation).
+   - Material Micro-Textures: Emphasize genuine physical tactile textures (individual fabric weave fibers, organic leather grain and pore details, crisp specular highlights on polished surfaces, subtle Fresnel falloff).
+   - Ground Contact: Genuine contact ambient occlusion shadows beneath the subject with subtle penumbra gradient (never floating, never airbrushed).
+   - Anti-CGI Guardrails: Include negative styling directives (no 3D CGI render, no cartoon, no plastic skin, no illustration, no unreal engine, no airbrushed smooth plastic, strictly award-winning commercial catalog photography).
+
+   The 5 Distinct Angles:
+   - "hero": Clean minimalist studio hero shot on a luxury neutral matte cyclorama backdrop with soft studio softbox lighting, crisp reflections, soft contact shadows, front 3/4 beauty angle.
+   - "lifestyle": Authentic high-end contextual lifestyle environment matching this specific product (e.g. if cosmetics -> polished Calacatta marble counter with morning sun beam; if electronics -> Scandinavian solid oak workspace; if apparel -> editorial daylight architectural atrium).
+   - "detail": Extreme 1:1 macro close-up shot with shallow depth of field (f/2.8 bokeh), focusing on the finest material weave, tactile stitching, edge bevel, or hardware engraving.
+   - "perspective": Dynamic 45-degree dimensional studio perspective showing full scale, depth, ergonomic profile, and dramatic rim light edge separation.
+   - "editorial": Vogue / GQ style commercial lookbook cover staging with harmonious geometric props, sophisticated color temperature balance, and luxury editorial magazine mood.
 
 Respond strictly with valid JSON without markdown formatting:
 {
@@ -127,35 +140,35 @@ Respond strictly with valid JSON without markdown formatting:
       "title": "Hero Studio Shot",
       "badge": "HERO",
       "description": "Clean minimalist studio shot with softbox lighting & gentle shadows",
-      "prompt": "Commercial studio product photography of [detailed product description based on reference image], placed on a sleek minimalist podium, soft diffused studio softbox lighting, subtle reflections, crisp contact shadows, 8k resolution, photorealistic, pristine commercial look"
+      "prompt": "Commercial catalog studio product photography of [exact product], placed on a sleek neutral matte pedestal, Profoto 3-point softbox lighting, crisp specular highlights, soft contact ambient occlusion shadow, Hasselblad H6D-100c medium format camera, 100mm lens, 8k resolution, photorealistic, pristine commercial look, no CGI, no cartoon"
     },
     {
       "id": "lifestyle",
       "title": "Lifestyle Context",
       "badge": "LIFESTYLE",
       "description": "In-situ environment tailored specifically to this product",
-      "prompt": "Commercial lifestyle photography of [detailed product description based on reference image] in [tailored contextual environment], natural cinematic ambient light, shallow depth of field, high-end catalog quality, 8k"
+      "prompt": "Authentic commercial lifestyle catalog photography of [exact product] placed in [contextual environment], cinematic natural ambient light with subtle fill bounce, shallow depth of field, tactile material realism, Phase One IQ4 150MP, 8k photorealistic, no 3D render"
     },
     {
       "id": "detail",
       "title": "Macro & Feature Detail",
       "badge": "DETAIL",
       "description": "Close-up highlighting textures, materials & craftsmanship",
-      "prompt": "Macro commercial product photography extreme close-up of [detailed product description based on reference image], highlighting fine texture, stitching and material craftsmanship, soft bokeh background, razor-sharp focus"
+      "prompt": "Extreme macro commercial product photography of [exact product], extreme close-up showcasing authentic material micro-textures, fine stitching, tactile surface pores, razor-sharp focus with creamy optical bokeh, Schneider Kreuznach 120mm macro lens, 8k"
     },
     {
       "id": "perspective",
       "title": "Angle & Dimension",
       "badge": "PERSPECTIVE",
       "description": "Dimensional angled perspective showing scale & profile",
-      "prompt": "Dynamic angled 45-degree isometric studio product photography of [detailed product description based on reference image], displaying full dimensions and sleek profile, professional studio rim light, soft shadows, 8k"
+      "prompt": "Dynamic 45-degree angled perspective studio product photography of [exact product], displaying dimensional profile, Profoto rim lighting with honeycomb grid, soft contact shadows, Hasselblad medium format, 8k photorealistic"
     },
     {
       "id": "editorial",
       "title": "Creative Editorial",
       "badge": "EDITORIAL",
       "description": "High-fashion artistic staging with complementary aesthetic props",
-      "prompt": "Editorial creative commercial product photoshoot of [detailed product description based on reference image], artistic modern composition with harmonious geometric props, dramatic soft lighting, vogue magazine aesthetic, 8k photorealistic"
+      "prompt": "High-end commercial editorial magazine lookbook photoshoot of [exact product], elegant architectural composition with harmonious minimal props, dramatic soft lighting, luxury brand campaign aesthetic, 8k photorealistic, zero illustration"
     }
   ]
 }
@@ -278,7 +291,7 @@ Respond strictly with valid JSON without markdown formatting:
     const openAiKey = this.getOpenAiApiKey();
 
     if (openAiKey) {
-      const openAiModels = ['gpt-image-1-mini', 'gpt-image-1', 'gpt-image-1.5'];
+      const openAiModels = ['gpt-image-1-mini', 'gpt-image-1'];
       for (const model of openAiModels) {
         try {
           const res = await axios.post(
@@ -292,7 +305,7 @@ Respond strictly with valid JSON without markdown formatting:
                 Authorization: `Bearer ${openAiKey}`,
                 'Content-Type': 'application/json',
               },
-              timeout: 60000,
+              timeout: 10000,
             }
           );
 
@@ -303,7 +316,7 @@ Respond strictly with valid JSON without markdown formatting:
 
           const imgUrl = res.data?.data?.[0]?.url;
           if (imgUrl) {
-            const imgRes = await axios.get(imgUrl, { responseType: 'arraybuffer', timeout: 30000 });
+            const imgRes = await axios.get(imgUrl, { responseType: 'arraybuffer', timeout: 8000 });
             return Buffer.from(imgRes.data);
           }
         } catch (err: any) {
@@ -499,35 +512,35 @@ Respond strictly with valid JSON without markdown formatting:
           title: 'Hero Studio Shot',
           badge: 'HERO',
           description: 'Clean minimalist studio shot with softbox lighting & gentle shadows',
-          prompt: `Commercial studio hero product photography of ${item} (${cat}), minimalist seamless studio pedestal, soft 3-point softbox studio lighting, crisp reflections, soft contact shadow, 8k photorealistic${style}`,
+          prompt: `Commercial catalog studio product photography of ${item} (${cat}), minimalist seamless studio pedestal, Profoto 3-point softbox studio lighting, crisp specular reflections, soft contact ambient occlusion shadow, Hasselblad H6D-100c, 100mm prime lens, authentic textures, 8k photorealistic, no CGI, no cartoon${style}`,
         },
         {
           id: 'lifestyle',
           title: 'Lifestyle Context',
           badge: 'LIFESTYLE',
           description: 'In-situ environment tailored specifically to this product',
-          prompt: `Lifestyle catalog commercial photography of ${item} placed in an authentic modern aesthetic environment, warm natural cinematic lighting, shallow depth of field, 8k${style}`,
+          prompt: `Authentic commercial lifestyle catalog photography of ${item} (${cat}) placed in a modern architectural aesthetic setting, cinematic natural ambient lighting with gentle fill bounce, shallow depth of field, Phase One IQ4 150MP, 8k photorealistic, no 3D render${style}`,
         },
         {
           id: 'detail',
           title: 'Macro & Feature Detail',
           badge: 'DETAIL',
           description: 'Close-up highlighting textures, materials & craftsmanship',
-          prompt: `Macro extreme close-up product photography of ${item}, focusing on fine textures, premium finish and craftsmanship, luxury commercial lighting, soft bokeh, 8k${style}`,
+          prompt: `Extreme macro commercial product photography of ${item} (${cat}), extreme close-up highlighting tactile material micro-textures, fine craftsmanship, stitching and surface finish, luxury studio lighting, optical creamy bokeh, Schneider Kreuznach 120mm macro, 8k${style}`,
         },
         {
           id: 'perspective',
           title: 'Angle & Dimension',
           badge: 'PERSPECTIVE',
           description: 'Dimensional angled perspective showing scale & profile',
-          prompt: `Dynamic 45-degree angled perspective studio product photography of ${item}, displaying dimensional scale and elegant side silhouette, studio rim light, soft shadows, 8k${style}`,
+          prompt: `Dynamic 45-degree angled perspective studio product photography of ${item} (${cat}), displaying dimensional scale and elegant silhouette, Profoto rim lighting with honeycomb grid, soft ground shadows, Hasselblad medium format, 8k photorealistic${style}`,
         },
         {
           id: 'editorial',
           title: 'Creative Editorial',
           badge: 'EDITORIAL',
           description: 'High-fashion artistic staging with complementary aesthetic props',
-          prompt: `Creative editorial magazine photoshoot of ${item}, modern artistic styling with aesthetic geometry and complementary color palette, high fashion commercial photography, 8k${style}`,
+          prompt: `High-fashion commercial editorial magazine lookbook photoshoot of ${item} (${cat}), artistic modern composition with harmonious minimal props, dramatic soft lighting, luxury campaign aesthetic, 8k photorealistic, zero illustration${style}`,
         },
       ],
     };

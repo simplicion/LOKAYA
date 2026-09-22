@@ -1072,6 +1072,27 @@ export const api = createApi({
       }),
       invalidatesTags: ['StorePartner'],
     }),
+    findDeliveryPartnersForStore: builder.query<any[], { storeId: string; search?: string; location?: string; vehicleType?: string; maxRate?: number; onlyOnline?: boolean }>({
+      query: ({ storeId, ...params }) => ({
+        url: `/delivery/store/${storeId}/find-partners`,
+        params: {
+          ...(params.search ? { search: params.search } : {}),
+          ...(params.location ? { location: params.location } : {}),
+          ...(params.vehicleType ? { vehicleType: params.vehicleType } : {}),
+          ...(params.maxRate ? { maxRate: params.maxRate } : {}),
+          ...(params.onlyOnline !== undefined ? { onlyOnline: params.onlyOnline } : {})
+        }
+      }),
+      providesTags: ['StorePartner', 'DeliveryPartner'],
+    }),
+    sellerInviteDeliveryPartner: builder.mutation<any, { storeId: string; deliveryPartnerId: string; notes?: string }>({
+      query: ({ storeId, ...body }) => ({
+        url: `/delivery/store/${storeId}/invite-partner`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['StorePartner', 'DeliveryPartner'],
+    }),
     dispatchOrderWithFulfillment: builder.mutation<any, { orderId: string; fulfillmentType: string; deliveryPartnerId?: string }>({
       query: ({ orderId, ...body }) => ({
         url: `/delivery/store/orders/${orderId}/dispatch-fulfillment`,
@@ -1327,6 +1348,8 @@ export const {
   useRespondStorePartnerRequestMutation,
   useGetStoreConnectedPartnersQuery,
   useDisconnectStorePartnerMutation,
+  useFindDeliveryPartnersForStoreQuery,
+  useSellerInviteDeliveryPartnerMutation,
   useDispatchOrderWithFulfillmentMutation,
   useUpdateDeliveryPricingMutation,
   useGetPricingBenchmarksQuery,

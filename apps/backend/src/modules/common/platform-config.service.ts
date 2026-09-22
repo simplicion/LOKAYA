@@ -6,6 +6,8 @@ export interface OnboardingConfig {
   requireRiderDocs: boolean;
   autoApproveSeller: boolean;
   autoApproveRider: boolean;
+  requireProductVerification: boolean;
+  autoApproveProducts: boolean;
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -15,6 +17,8 @@ export const DEFAULT_ONBOARDING_CONFIG: OnboardingConfig = {
   requireRiderDocs: false,
   autoApproveSeller: true,
   autoApproveRider: true,
+  requireProductVerification: false,
+  autoApproveProducts: true,
 };
 
 const CONFIG_KEY = 'onboarding_config';
@@ -116,6 +120,12 @@ export class PlatformConfigService {
       autoApproveRider: updates.autoApproveRider !== undefined
         ? Boolean(updates.autoApproveRider)
         : (updates.requireRiderDocs !== undefined ? !updates.requireRiderDocs : current.autoApproveRider),
+      requireProductVerification: updates.requireProductVerification !== undefined
+        ? Boolean(updates.requireProductVerification)
+        : current.requireProductVerification,
+      autoApproveProducts: updates.autoApproveProducts !== undefined
+        ? Boolean(updates.autoApproveProducts)
+        : (updates.requireProductVerification !== undefined ? !updates.requireProductVerification : current.autoApproveProducts),
       updatedBy: updatedBy || 'admin',
     };
 

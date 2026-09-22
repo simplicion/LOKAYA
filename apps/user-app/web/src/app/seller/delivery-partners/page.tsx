@@ -24,7 +24,10 @@ import {
   Store,
   ExternalLink,
   Zap,
-  Trash2
+  Trash2,
+  UserPlus,
+  Compass,
+  Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -94,12 +97,39 @@ export default function SellerDeliveryPartnersPage() {
           <h1 className="text-lg font-bold text-gray-900">Delivery Partner Network</h1>
         </div>
 
-        <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
-          {store?.name}
-        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => router.push('/seller/delivery-partners/find')}
+            className="h-8 px-3 rounded-xl bg-[#FF5A36] hover:bg-[#e04f2f] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>+ Find Partners</span>
+          </Button>
+        </div>
       </div>
 
       <div className="p-4 max-w-lg mx-auto space-y-4">
+        {/* Find Delivery Partners Quick Discovery Banner */}
+        <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-[#FF5A36] rounded-3xl p-4 text-white shadow-xs flex items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <Compass className="w-4 h-4 text-white" />
+              <h3 className="text-sm font-black tracking-tight">Expand Your Delivery Fleet</h3>
+            </div>
+            <p className="text-xs text-white/90">
+              Browse nearby riders ranked by nearest distance to your store. Search by location like Lalbandi.
+            </p>
+          </div>
+
+          <Button
+            size="sm"
+            onClick={() => router.push('/seller/delivery-partners/find')}
+            className="bg-white text-gray-900 hover:bg-gray-100 font-black text-xs rounded-2xl shrink-0 shadow-xs h-9 px-3.5 cursor-pointer"
+          >
+            Explore Riders &rarr;
+          </Button>
+        </div>
         {/* Tab Toggle */}
         <div className="grid grid-cols-2 bg-[#ECE9E2] p-1 rounded-2xl text-xs font-bold">
           <button

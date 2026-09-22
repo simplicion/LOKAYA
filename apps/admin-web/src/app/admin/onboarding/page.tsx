@@ -6,7 +6,8 @@ import {
   useGetOnboardingConfigQuery, 
   useUpdateOnboardingConfigMutation,
   useGetAllStoresQuery,
-  useGetAllDeliveryPartnersQuery
+  useGetAllDeliveryPartnersQuery,
+  useGetProductsVerificationQuery
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -27,7 +28,10 @@ import {
   Sparkles,
   Info,
   Lock,
-  Unlock
+  Unlock,
+  Package,
+  PackageCheck,
+  ShoppingBag
 } from 'lucide-react';
 
 export default function OnboardingManagementPage() {
@@ -40,17 +44,20 @@ export default function OnboardingManagementPage() {
 
   const { data: pendingStores = [] } = useGetAllStoresQuery({ status: 'PENDING' });
   const { data: pendingRiders = [] } = useGetAllDeliveryPartnersQuery({ status: 'PENDING' });
+  const { data: pendingProducts = [] } = useGetProductsVerificationQuery({ status: 'PENDING' });
 
   const [updateConfig, { isLoading: isUpdating }] = useUpdateOnboardingConfigMutation();
 
   // Local optimistic toggle state
   const [requireSellerDocs, setRequireSellerDocs] = useState<boolean>(false);
   const [requireRiderDocs, setRequireRiderDocs] = useState<boolean>(false);
+  const [requireProductVerification, setRequireProductVerification] = useState<boolean>(false);
 
   useEffect(() => {
     if (config) {
       setRequireSellerDocs(Boolean(config.requireSellerDocs));
       setRequireRiderDocs(Boolean(config.requireRiderDocs));
+      setRequireProductVerification(Boolean(config.requireProductVerification));
     }
   }, [config]);
 
@@ -92,8 +99,29 @@ export default function OnboardingManagementPage() {
     }
   };
 
+  const handleToggleProductVerification = async () => {
+    const nextVal = !requireProductVerification;
+    setRequireProductVerification(nextVal);
+    try {
+      await updateConfig({
+        requireProductVerification: nextVal,
+        autoApproveProducts: !nextVal,
+      }).unwrap();
+      toast.success(
+        nextVal
+          ? '🛡️ Product Strict Review enabled: Admin review is now required before products go live.'
+          : '⚡ Product Fast-Track enabled: Products are instantly verified and visible to shoppers!'
+      );
+    } catch (err: any) {
+      setRequireProductVerification(!nextVal); // revert
+      toast.error(err?.data?.message || 'Failed to update product verification policy');
+    }
+  };
+
+  const anyStrict = requireSellerDocs || requireRiderDocs || requireProductVerification;
+
   return (
-    <div className="p-6 md:p-8 space-y-8 max-w-6xl mx-auto">
+    <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
         <div>
@@ -102,11 +130,11 @@ export default function OnboardingManagementPage() {
               <Sliders className="w-5 h-5" />
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
-              Onboarding & KYC Management
+              Onboarding & Verification Management
             </h1>
           </div>
-          <p className="text-sm text-gray-500 mt-1.5 max-w-2xl">
-            Configure dynamic onboarding stages for Lokaya. Toggle whether new Store Merchants and Delivery Partners are fast-tracked with instant verification or require document verification before approval.
+          <p className="text-sm text-gray-500 mt-1.5 max-w-3xl">
+            Configure dynamic friction policies across Lokaya. Toggle whether new Store Merchants, Delivery Partners, and Product Listings are fast-tracked with instant verification or require manual admin review before appearing publicly.
           </p>
         </div>
 
@@ -132,23 +160,23 @@ export default function OnboardingManagementPage() {
           </div>
           <div>
             <h3 className="font-bold text-sm text-purple-950">
-              Startup Frictionless Onboarding Control
+              Zero-Friction Fast-Track Marketplace Engine
             </h3>
             <p className="text-xs text-purple-800/80 mt-1 leading-relaxed">
-              When toggles are <strong>OFF (Fast-Track Mode)</strong>, applicants bypass document uploads and are automatically verified upon entering their basic information. Switch to <strong>Strict Mode</strong> whenever you need manual admin approval and compliance document collections.
+              When toggles are <strong>OFF (Fast-Track Mode)</strong>, applicants and products bypass manual queues and are automatically approved upon submission. Switch to <strong>Strict Mode</strong> whenever you need manual admin compliance reviews.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
           <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white border border-purple-200 text-purple-900 shadow-2xs">
-            {requireSellerDocs || requireRiderDocs ? 'Mixed Policy Active' : '🚀 Fast-Track Active for All'}
+            {anyStrict ? '🛡️ Strict Policy Active on Selected Modules' : '🚀 100% Fast-Track Active Across Platform'}
           </span>
         </div>
       </div>
 
       {/* Control Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* ======================================================== */}
         {/* 1. SELLER / MERCHANT ONBOARDING */}
@@ -220,16 +248,16 @@ export default function OnboardingManagementPage() {
                   <span className="text-gray-400 mt-0.5">•</span>
                   <span>
                     <strong>Step 2 (Documents):</strong> {requireSellerDocs 
-                      ? 'Government ID (Front & Back) and Owner Photograph are required to submit.' 
-                      : 'Step 2 is completely hidden. Sellers complete onboarding in 1 single step.'}
+                      ? 'Government ID and Owner Photo required to submit.' 
+                      : 'Step 2 is completely hidden. 1-step onboarding.'}
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-gray-400 mt-0.5">•</span>
                   <span>
-                    <strong>Approval Policy:</strong> {requireSellerDocs 
-                      ? 'Store enters PENDING status; seller waits for admin approval in Store Verification queue.' 
-                      : 'Store is instantly approved (VERIFIED) on submission; seller gets immediate access to dashboard & products.'}
+                    <strong>Approval:</strong> {requireSellerDocs 
+                      ? 'Store enters PENDING; awaits admin approval.' 
+                      : 'Store is instantly approved (VERIFIED) on submission.'}
                   </span>
                 </li>
               </ul>
@@ -318,23 +346,23 @@ export default function OnboardingManagementPage() {
                 <li className="flex items-start gap-2">
                   <span className="text-gray-400 mt-0.5">•</span>
                   <span>
-                    <strong>Step 1:</strong> Legal name, phone, age, operating location & vehicle type selection.
+                    <strong>Step 1:</strong> Legal name, phone, age, operating location & vehicle type.
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-gray-400 mt-0.5">•</span>
                   <span>
                     <strong>Step 2 (Documents):</strong> {requireRiderDocs 
-                      ? 'Selfie photo, Government ID, and Vehicle RC document are mandatory.' 
+                      ? 'Selfie photo, Government ID, and Vehicle RC mandatory.' 
                       : 'Document upload stages are completely bypassed.'}
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-gray-400 mt-0.5">•</span>
                   <span>
-                    <strong>Approval Policy:</strong> {requireRiderDocs 
-                      ? 'Rider is placed in PENDING verification state until an admin verifies documents.' 
-                      : 'Rider is instantly marked APPROVED and can toggle ONLINE to accept delivery dispatches immediately.'}
+                    <strong>Approval:</strong> {requireRiderDocs 
+                      ? 'Rider placed in PENDING verification state.' 
+                      : 'Rider is instantly marked APPROVED and can toggle ONLINE immediately.'}
                   </span>
                 </li>
               </ul>
@@ -360,6 +388,111 @@ export default function OnboardingManagementPage() {
           </div>
         </Card>
 
+        {/* ======================================================== */}
+        {/* 3. PRODUCT LISTING VERIFICATION */}
+        {/* ======================================================== */}
+        <Card className={`rounded-3xl p-6 border transition-all duration-300 shadow-xs flex flex-col justify-between ${
+          requireProductVerification ? 'border-blue-200 bg-white' : 'border-emerald-200 bg-emerald-50/20'
+        }`}>
+          <div className="space-y-5">
+            {/* Card Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                  requireProductVerification ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                }`}>
+                  <PackageCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-black text-base text-gray-900">Product Verification</h2>
+                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                      requireProductVerification 
+                        ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    }`}>
+                      {requireProductVerification ? 'Strict Review Mode' : 'Fast-Track Mode'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">Catalog publishing & marketplace live visibility</p>
+                </div>
+              </div>
+
+              {/* Master Switch */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={requireProductVerification}
+                onClick={handleToggleProductVerification}
+                disabled={isUpdating || isConfigLoading}
+                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${
+                  requireProductVerification ? 'bg-blue-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    requireProductVerification ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Current Behavior Description */}
+            <div className={`p-4 rounded-2xl border text-xs space-y-2.5 ${
+              requireProductVerification ? 'bg-blue-50/60 border-blue-100 text-blue-950' : 'bg-emerald-50/80 border-emerald-100 text-emerald-950'
+            }`}>
+              <div className="flex items-center gap-1.5 font-bold">
+                {requireProductVerification ? <Lock className="w-3.5 h-3.5 text-blue-700" /> : <Unlock className="w-3.5 h-3.5 text-emerald-700" />}
+                <span>
+                  {requireProductVerification ? 'Verification Status: MANDATORY' : 'Verification Status: BYPASSED'}
+                </span>
+              </div>
+              <ul className="space-y-1.5 text-[11px] text-gray-600 pl-1">
+                <li className="flex items-start gap-2">
+                  <span className="text-gray-400 mt-0.5">•</span>
+                  <span>
+                    <strong>Creation & Updates:</strong> Seller creates or updates product titles, images, and pricing.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-gray-400 mt-0.5">•</span>
+                  <span>
+                    <strong>Live Visibility:</strong> {requireProductVerification 
+                      ? 'Product is hidden from customer marketplace until an Admin verifies it in Product Review Center.' 
+                      : 'Product is instantly APPROVED and immediately published to customer store pages & search!'}
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-gray-400 mt-0.5">•</span>
+                  <span>
+                    <strong>Quality Assurance:</strong> {requireProductVerification 
+                      ? 'Admins audit photos, titles, and MRP compliance before going live.' 
+                      : 'Zero-friction launch: Instant seller gratification with immediate live sales.'}
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom Card Footer with Direct Queue Link */}
+          <div className="pt-5 mt-5 border-t border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <Clock className="w-3.5 h-3.5 text-amber-500" />
+              <span>Pending Queue:</span>
+              <span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full text-[11px]">
+                {pendingProducts.length} products
+              </span>
+            </div>
+
+            <Link href="/admin/products">
+              <Button variant="ghost" size="sm" className="h-8 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 font-semibold gap-1">
+                Review Products
+                <ArrowRight className="w-3 h-3" />
+              </Button>
+            </Link>
+          </div>
+        </Card>
+
       </div>
 
       {/* Audit Log / Metadata Card */}
@@ -367,7 +500,7 @@ export default function OnboardingManagementPage() {
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-gray-400" />
           <span>
-            Current Active Policy: <strong>{requireSellerDocs ? 'Strict Seller KYC' : 'Fast-Track Sellers'}</strong> &bull; <strong>{requireRiderDocs ? 'Strict Rider KYC' : 'Fast-Track Riders'}</strong>
+            Current Active Policy: <strong>{requireSellerDocs ? 'Strict Seller KYC' : 'Fast-Track Sellers'}</strong> &bull; <strong>{requireRiderDocs ? 'Strict Rider KYC' : 'Fast-Track Riders'}</strong> &bull; <strong>{requireProductVerification ? 'Strict Product Review' : 'Fast-Track Products'}</strong>
           </span>
         </div>
         {config?.updatedAt && (

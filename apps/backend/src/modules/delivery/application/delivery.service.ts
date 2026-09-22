@@ -1044,6 +1044,221 @@ export class DeliveryService {
   }
 
   /**
+   * For seller: Discovers nearby delivery partners for a store.
+   * Ranks partners in ascending order of distance from store location.
+   * Supports comprehensive search (name, vehicle, phone) and location filter (e.g., 'Lalbandi').
+   */
+  static async findDeliveryPartnersForStore(
+    sellerUserId: string,
+    storeId: string,
+    query?: {
+      search?: string;
+      location?: string;
+      vehicleType?: string;
+      maxRate?: number;
+      onlyOnline?: boolean;
+    }
+  ) {
+    const isStaff = await prisma.storeUser.findFirst({
+      where: { storeId, userId: sellerUserId }
+    });
+    if (!isStaff) throw new AppError('Unauthorized: You do not manage this store', 403);
+
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: { id: true, name: true, address: true, city: true, state: true, latitude: true, longitude: true }
+    });
+    if (!store) throw new AppError('Store not found', 404);
+
+    const storeLat = store.latitude;
+    const storeLng = store.longitude;
+
+    // Fetch existing store partnerships to map statuses (ACCEPTED, PENDING, NOT_REQUESTED)
+    const existingPartnerships = await prisma.storeDeliveryPartner.findMany({
+      where: { storeId },
+      select: { id: true, deliveryPartnerId: true, status: true, notes: true }
+    });
+    const partnershipMap = new Map(existingPartnerships.map(p => [p.deliveryPartnerId, p]));
+
+    // Query active/approved delivery partners
+    const partners = await prisma.deliveryPartner.findMany({
+      where: {
+        status: DeliveryPartnerStatus.APPROVED,
+        ...(query?.onlyOnline ? { isOnline: true } : {}),
+        ...(query?.vehicleType ? { vehicleType: query.vehicleType as any } : {}),
+        ...(query?.maxRate ? { perKmRate: { lte: Number(query.maxRate) } } : {})
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            avatarUrl: true,
+            email: true,
+            locationArea: true,
+            city: true,
+            state: true
+          }
+        }
+      }
+    });
+
+    // Compute distance and build rich partner objects
+    const results = partners.map((partner: any) => {
+      const pLat = partner.currentLatitude;
+      const pLng = partner.currentLongitude;
+
+      let distanceKm: number | null = null;
+      if (storeLat != null && storeLng != null && pLat != null && pLng != null) {
+        distanceKm = ParcelAssignmentService.calculateDistanceKm(
+          { latitude: storeLat, longitude: storeLng },
+          { latitude: pLat, longitude: pLng }
+        );
+      }
+
+      const existingRel = partnershipMap.get(partner.id);
+      const partnershipStatus = existingRel ? existingRel.status : 'NOT_REQUESTED';
+      const requestId = existingRel ? existingRel.id : null;
+
+      // Extract unified location text for robust searching
+      const locationText = [
+        partner.locationArea,
+        partner.user?.locationArea,
+        partner.user?.city,
+        partner.user?.state,
+        partner.operatingCountry
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      return {
+        id: partner.id,
+        userId: partner.userId,
+        name: partner.user?.name || 'Rider',
+        phone: partner.user?.phone || null,
+        avatarUrl: partner.user?.avatarUrl || null,
+        selfieUrl: partner.selfieUrl,
+        vehicleType: partner.vehicleType,
+        vehicleNumber: partner.vehicleNumber,
+        isOnline: partner.isOnline,
+        isBusy: partner.isBusy,
+        rating: partner.rating || 5.0,
+        totalDeliveries: partner.totalDeliveries || 0,
+        perKmRate: partner.perKmRate,
+        baseFare: partner.baseFare,
+        locationArea: partner.locationArea || [partner.user?.city, partner.user?.state].filter(Boolean).join(', ') || 'Service Zone',
+        distanceKm,
+        partnershipStatus,
+        requestId,
+        _locationSearchText: locationText.toLowerCase(),
+        _generalSearchText: `${partner.user?.name || ''} ${partner.user?.phone || ''} ${partner.vehicleNumber || ''} ${partner.vehicleType} ${locationText}`.toLowerCase()
+      };
+    });
+
+    // Apply location filtering (e.g. "Lalbandi")
+    let filtered = results;
+    if (query?.location && query.location.trim().length > 0) {
+      const locQ = query.location.trim().toLowerCase();
+      filtered = filtered.filter(p => p._locationSearchText.includes(locQ));
+    }
+
+    // Apply keyword search (name, vehicle, phone, location)
+    if (query?.search && query.search.trim().length > 0) {
+      const searchQ = query.search.trim().toLowerCase();
+      filtered = filtered.filter(p => p._generalSearchText.includes(searchQ));
+    }
+
+    // Sort in ascending order of nearest distance to the seller's store!
+    // Partners with known distance come first, sorted smallest to largest.
+    filtered.sort((a, b) => {
+      if (a.distanceKm != null && b.distanceKm != null) {
+        return a.distanceKm - b.distanceKm;
+      }
+      if (a.distanceKm != null && b.distanceKm == null) return -1;
+      if (a.distanceKm == null && b.distanceKm != null) return 1;
+      // Secondary sort: online riders first
+      if (a.isOnline && !b.isOnline) return -1;
+      if (!a.isOnline && b.isOnline) return 1;
+      return (b.rating || 5) - (a.rating || 5);
+    });
+
+    // Strip internal search fields before returning
+    return filtered.map(({ _locationSearchText, _generalSearchText, ...rest }) => rest);
+  }
+
+  /**
+   * For seller: Sends a partnership connection request to a delivery partner.
+   */
+  static async sellerInviteDeliveryPartner(
+    sellerUserId: string,
+    storeId: string,
+    deliveryPartnerId: string,
+    notes?: string
+  ) {
+    const isStaff = await prisma.storeUser.findFirst({
+      where: { storeId, userId: sellerUserId }
+    });
+    if (!isStaff) throw new AppError('Unauthorized: You do not manage this store', 403);
+
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: { id: true, name: true, logoUrl: true, address: true, city: true }
+    });
+    if (!store) throw new AppError('Store not found', 404);
+
+    const partner = await prisma.deliveryPartner.findUnique({
+      where: { id: deliveryPartnerId },
+      include: { user: true }
+    });
+    if (!partner) throw new AppError('Delivery partner not found', 404);
+
+    const partnerRequest = await prisma.storeDeliveryPartner.upsert({
+      where: {
+        storeId_deliveryPartnerId: {
+          storeId,
+          deliveryPartnerId: partner.id
+        }
+      },
+      create: {
+        storeId,
+        deliveryPartnerId: partner.id,
+        status: PartnerRequestStatus.ACCEPTED, // Direct invite from merchant: instantly accepted or pending based on store preference
+        notes: notes || `Direct partnership connection from ${store.name}`
+      },
+      update: {
+        status: PartnerRequestStatus.ACCEPTED,
+        notes: notes || `Direct partnership connection from ${store.name}`
+      },
+      include: {
+        deliveryPartner: {
+          include: {
+            user: {
+              select: { id: true, name: true, phone: true, avatarUrl: true }
+            }
+          }
+        },
+        store: true
+      }
+    });
+
+    // Notify delivery partner via user notification
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: partner.userId,
+          type: 'SYSTEM',
+          title: 'Store Partner Added You!',
+          body: `${store.name} added you as their delivery partner. You can now deliver store orders!`,
+          deepLink: '/delivery'
+        }
+      });
+    } catch (e) {}
+
+    return partnerRequest;
+  }
+
+  /**
    * Updates custom perKmRate and baseFare for a delivery partner with floor checks.
    */
   static async updatePartnerPricing(userId: string, data: { perKmRate?: number; baseFare?: number; isCustomPricingEnabled?: boolean }) {

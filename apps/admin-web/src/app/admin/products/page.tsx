@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { 
   useGetProductsVerificationQuery, 
   useVerifyProductMutation, 
-  useRejectProductMutation 
+  useRejectProductMutation,
+  useGetOnboardingConfigQuery,
+  useUpdateOnboardingConfigMutation
 } from '@/lib/api';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
@@ -30,7 +32,8 @@ import {
   Package, 
   ExternalLink,
   ChevronRight,
-  User
+  User,
+  Sliders
 } from 'lucide-react';
 
 export default function ProductVerificationCenter() {
@@ -41,6 +44,9 @@ export default function ProductVerificationCenter() {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  const { data: config, isLoading: isConfigLoading } = useGetOnboardingConfigQuery();
+  const [updateConfig, { isLoading: isUpdatingConfig }] = useUpdateOnboardingConfigMutation();
 
   const { 
     data: products = [], 
@@ -126,6 +132,78 @@ export default function ProductVerificationCenter() {
           <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
+      </div>
+
+      {/* Dynamic Product Policy Toggle Banner */}
+      <div className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs ${
+        config?.requireProductVerification 
+          ? 'bg-blue-50/70 border-blue-200' 
+          : 'bg-emerald-50/80 border-emerald-200'
+      }`}>
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-xl text-white shrink-0 ${
+            config?.requireProductVerification ? 'bg-blue-600' : 'bg-emerald-600'
+          }`}>
+            <PackageCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-black uppercase tracking-wider text-gray-900">
+                Product Verification Policy:
+              </h3>
+              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                config?.requireProductVerification 
+                  ? 'bg-blue-100 text-blue-800 border border-blue-300' 
+                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+              }`}>
+                {config?.requireProductVerification ? 'Strict Review Mode' : '🚀 Fast-Track Mode (Bypassed)'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 mt-0.5">
+              {config?.requireProductVerification 
+                ? 'All new and edited products require admin approval before becoming visible to buyers in the live catalog.' 
+                : 'Zero-friction mode: New products are instantly marked APPROVED & VERIFIED and appear immediately in store catalogs!'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+          <span className="text-xs font-bold text-gray-600">
+            {config?.requireProductVerification ? 'Require Review' : 'Auto-Approve'}
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={config?.requireProductVerification}
+            onClick={async () => {
+              const nextVal = !config?.requireProductVerification;
+              try {
+                await updateConfig({
+                  requireProductVerification: nextVal,
+                  autoApproveProducts: !nextVal
+                }).unwrap();
+                toast.success(
+                  nextVal 
+                    ? '🛡️ Strict Review Mode enabled: Admin review is now required.' 
+                    : '⚡ Fast-Track Mode enabled: Products bypass review and publish instantly!'
+                );
+                refetch();
+              } catch (err: any) {
+                toast.error(err?.data?.message || 'Failed to update policy');
+              }
+            }}
+            disabled={isConfigLoading || isUpdatingConfig}
+            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${
+              config?.requireProductVerification ? 'bg-blue-600' : 'bg-emerald-500'
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                config?.requireProductVerification ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs & Search */}

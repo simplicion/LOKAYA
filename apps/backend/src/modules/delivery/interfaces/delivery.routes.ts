@@ -242,6 +242,44 @@ router.delete('/store/:storeId/partners/:deliveryPartnerId', async (req: Request
   }
 });
 
+router.get('/store/:storeId/find-partners', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { search, location, vehicleType, maxRate, onlyOnline } = req.query;
+    const partners = await DeliveryService.findDeliveryPartnersForStore(
+      (req as any).user.id,
+      req.params.storeId,
+      {
+        search: typeof search === 'string' ? search : undefined,
+        location: typeof location === 'string' ? location : undefined,
+        vehicleType: typeof vehicleType === 'string' ? vehicleType : undefined,
+        maxRate: maxRate ? Number(maxRate) : undefined,
+        onlyOnline: onlyOnline === 'true'
+      }
+    );
+    res.status(200).json(partners);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/store/:storeId/invite-partner', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { deliveryPartnerId, notes } = req.body;
+    if (!deliveryPartnerId) {
+      return res.status(400).json({ error: 'deliveryPartnerId is required' });
+    }
+    const result = await DeliveryService.sellerInviteDeliveryPartner(
+      (req as any).user.id,
+      req.params.storeId,
+      deliveryPartnerId,
+      notes
+    );
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/store/orders/:orderId/dispatch-fulfillment', validateRequest(dispatchOrderFulfillmentSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { orderId } = req.params;
