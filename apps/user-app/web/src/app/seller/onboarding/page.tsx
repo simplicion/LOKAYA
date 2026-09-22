@@ -417,15 +417,15 @@ export default function SellerOnboardingPage() {
         <h1 className="text-2xl md:text-3xl font-bold text-[#171717] tracking-tight mb-1.5">
           {requireDocs ? (currentStep === 1 ? 'Set up your Store' : 'Verify your Business') : 'Set up your Store'}
         </h1>
-        <p className="text-[#6B6B6B] text-sm md:text-base">
-          {requireDocs 
-            ? (currentStep === 1 ? 'Step 1: Enter your store & location details.' : 'Step 2: Upload documents for KYC verification.') 
-            : 'Fill in your basic store details to instantly launch your storefront.'}
-        </p>
+        {requireDocs && (
+          <p className="text-[#6B6B6B] text-sm md:text-base">
+            {currentStep === 1 ? 'Step 1: Enter your store & location details.' : 'Step 2: Upload documents for KYC verification.'}
+          </p>
+        )}
       </div>
 
       {/* Dynamic Stepper Bar */}
-      {requireDocs ? (
+      {requireDocs && (
         <div className="flex items-center justify-center gap-3 md:gap-6 mb-6">
           <button
             type="button"
@@ -457,13 +457,6 @@ export default function SellerOnboardingPage() {
               2
             </div>
             <span className="text-xs font-bold">2. Verification Docs</span>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-center mb-6">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
-            <Sparkles className="w-4 h-4 text-emerald-600" />
-            <span>Fast-Track Mode Active &bull; Instant Store Activation (No Waiting)</span>
           </div>
         </div>
       )}
