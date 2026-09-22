@@ -216,6 +216,14 @@ jobs:
           echo "Executing deployment on AWS EC2 (${{ env.EC2_INSTANCE_ID }})..."
           COMMANDS=$(cat << 'EOF'
           set -e
+          echo "--- Freeing disk space before pull ---"
+          docker system prune -af 2>/dev/null || true
+          docker builder prune -af 2>/dev/null || true
+          find /var/lib/docker/containers/ -name "*-json.log" -exec truncate -s 0 {} + 2>/dev/null || true
+          journalctl --vacuum-size=50M 2>/dev/null || true
+          apt-get clean 2>/dev/null || true
+          df -h
+
           echo "--- Authenticating Docker to GHCR ---"
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           echo "--- Pulling latest Lokaya backend image ---"
@@ -243,8 +251,8 @@ jobs:
             --env-file /opt/lokaya/.env \
             ${{ env.IMAGE_LOWER }}:latest
 
-          echo "--- Pruning older image layers ---"
-          docker image prune -af --filter "until=24h" 2>/dev/null || true
+          echo "--- Pruning unused images ---"
+          docker image prune -af 2>/dev/null || true
 
           echo "--- Health Verification ---"
           sleep 6
@@ -481,16 +489,28 @@ jobs:
           echo "Deploying User App container on AWS EC2 (${{ env.EC2_INSTANCE_ID }})..."
           COMMANDS=$(cat << 'EOF'
           set -e
+          echo "--- Freeing disk space before pull ---"
+          docker system prune -af 2>/dev/null || true
+          docker builder prune -af 2>/dev/null || true
+          find /var/lib/docker/containers/ -name "*-json.log" -exec truncate -s 0 {} + 2>/dev/null || true
+          journalctl --vacuum-size=50M 2>/dev/null || true
+          apt-get clean 2>/dev/null || true
+          df -h
+
           echo "--- Ensuring Environment directory & file exists ---"
           mkdir -p /opt/lokaya
           touch /opt/lokaya/.env
+
           echo "--- Authenticating Docker to GHCR ---"
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
           echo "--- Pulling latest User App image ---"
           docker pull ${{ env.IMAGE_LOWER }}:latest
+
           echo "--- Stopping older container ---"
           docker stop lokaya-user-app 2>/dev/null || true
           docker rm lokaya-user-app 2>/dev/null || true
+
           echo "--- Starting new User App container ---"
           docker run -d \
             --name lokaya-user-app \
@@ -500,8 +520,10 @@ jobs:
             -e PORT=3000 \
             --env-file /opt/lokaya/.env \
             ${{ env.IMAGE_LOWER }}:latest
-          echo "--- Pruning older image layers ---"
-          docker image prune -af --filter "until=24h" 2>/dev/null || true
+
+          echo "--- Pruning unused images ---"
+          docker image prune -af 2>/dev/null || true
+
           echo "--- Health Verification ---"
           sleep 10
           docker ps --filter name=lokaya-user-app
@@ -717,16 +739,28 @@ jobs:
           echo "Deploying Admin App container on AWS EC2 (${{ env.EC2_INSTANCE_ID }})..."
           COMMANDS=$(cat << 'EOF'
           set -e
+          echo "--- Freeing disk space before pull ---"
+          docker system prune -af 2>/dev/null || true
+          docker builder prune -af 2>/dev/null || true
+          find /var/lib/docker/containers/ -name "*-json.log" -exec truncate -s 0 {} + 2>/dev/null || true
+          journalctl --vacuum-size=50M 2>/dev/null || true
+          apt-get clean 2>/dev/null || true
+          df -h
+
           echo "--- Ensuring Environment directory & file exists ---"
           mkdir -p /opt/lokaya
           touch /opt/lokaya/.env
+
           echo "--- Authenticating Docker to GHCR ---"
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
           echo "--- Pulling latest Admin App image ---"
           docker pull ${{ env.IMAGE_LOWER }}:latest
+
           echo "--- Stopping older container ---"
           docker stop lokaya-admin-web 2>/dev/null || true
           docker rm lokaya-admin-web 2>/dev/null || true
+
           echo "--- Starting new Admin App container ---"
           docker run -d \
             --name lokaya-admin-web \
@@ -736,8 +770,10 @@ jobs:
             -e PORT=3000 \
             --env-file /opt/lokaya/.env \
             ${{ env.IMAGE_LOWER }}:latest
-          echo "--- Pruning older image layers ---"
-          docker image prune -af --filter "until=24h" 2>/dev/null || true
+
+          echo "--- Pruning unused images ---"
+          docker image prune -af 2>/dev/null || true
+
           echo "--- Health Verification ---"
           sleep 10
           docker ps --filter name=lokaya-admin-web
