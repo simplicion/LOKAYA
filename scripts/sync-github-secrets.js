@@ -1,8 +1,8 @@
 const { execSync } = require('child_process');
 
 const secrets = {
-  DATABASE_URL: "postgresql://lokaya_user:e0137DxFhGt00xXfJZaTvgMm77IHVTvs@dpg-daigdi7qj5pc73a0ns5g-a.oregon-postgres.render.com/lokaya?sslmode=require",
-  DIRECT_URL: "postgresql://lokaya_user:e0137DxFhGt00xXfJZaTvgMm77IHVTvs@dpg-daigdi7qj5pc73a0ns5g-a.oregon-postgres.render.com/lokaya?sslmode=require",
+  DATABASE_URL: "postgresql://pitchin_admin:Pitchin180Admin!23@pitchin-db.csne8mek4dog.us-east-1.rds.amazonaws.com:5432/lokaya_db?sslmode=require",
+  DIRECT_URL: "postgresql://pitchin_admin:Pitchin180Admin!23@pitchin-db.csne8mek4dog.us-east-1.rds.amazonaws.com:5432/lokaya_db?sslmode=require",
   REDIS_URL: "rediss://red-dafi1ftbedkc739bbovg:YP3C2SCtDTlvZL2un0PgQ12OUAiSlcud@virginia-keyvalue.render.com:6379",
   JWT_SECRET: "cce165b61b8a327dba615226ec9d266e4401434b552aa7b36eb5125e378ac0a0",
   JWT_REFRESH_SECRET: "0288403b131b825471e4122027b90c31f29cedaf84b37d34d78de2db79ee0094",

@@ -53,8 +53,8 @@ cat << 'ENVEOF' | sudo tee /opt/lokaya/.env > /dev/null
 NODE_ENV=production
 PORT=4002
 
-DATABASE_URL=postgresql://lokaya_user:e0137DxFhGt00xXfJZaTvgMm77IHVTvs@dpg-daigdi7qj5pc73a0ns5g-a.oregon-postgres.render.com/lokaya?sslmode=require
-DIRECT_URL=postgresql://lokaya_user:e0137DxFhGt00xXfJZaTvgMm77IHVTvs@dpg-daigdi7qj5pc73a0ns5g-a.oregon-postgres.render.com/lokaya?sslmode=require
+DATABASE_URL=postgresql://pitchin_admin:Pitchin180Admin!23@pitchin-db.csne8mek4dog.us-east-1.rds.amazonaws.com:5432/lokaya_db?sslmode=require
+DIRECT_URL=postgresql://pitchin_admin:Pitchin180Admin!23@pitchin-db.csne8mek4dog.us-east-1.rds.amazonaws.com:5432/lokaya_db?sslmode=require
 
 REDIS_URL=rediss://red-dafi1ftbedkc739bbovg:YP3C2SCtDTlvZL2un0PgQ12OUAiSlcud@virginia-keyvalue.render.com:6379
 REDIS_HOST=virginia-keyvalue.render.com

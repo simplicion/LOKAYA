@@ -9,4 +9,4 @@ startApiServer();
 
 // Start the BullMQ Worker
 startWorker();
-// Connected to Render PostgreSQL
+// Connected to AWS RDS PostgreSQL
