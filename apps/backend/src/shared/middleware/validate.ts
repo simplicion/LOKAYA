@@ -17,9 +17,12 @@ export const validateRequest = (schema: ZodTypeAny) =>
       return next();
     } catch (error) {
       if (error instanceof ZodError) {
+        const firstError = error.errors[0];
+        const fieldName = firstError?.path?.length ? firstError.path.join('.') : 'Form';
+        const errorDetail = firstError ? `${fieldName}: ${firstError.message}` : 'Validation failed';
         return res.status(400).json({
           status: 'error',
-          message: 'Validation failed',
+          message: errorDetail,
           errors: error.errors,
         });
       }

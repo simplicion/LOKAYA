@@ -7,27 +7,27 @@ export const registerDeliveryPartnerSchema = z.object({
     (val) => (typeof val === 'string' ? val.toUpperCase() : val),
     z.enum(['MALE', 'FEMALE', 'OTHER', 'PREFER_NOT_TO_SAY'])
   ),
-  phone: z.string().min(7, 'Valid phone number required'),
+  phone: z.string().min(4, 'Valid phone number required'),
   email: z.string().email('Valid email required').optional().or(z.literal('')),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-  locationArea: z.string().optional(),
-  country: z.string().optional(),
-  countryCode: z.string().optional(),
-  state: z.string().optional(),
-  city: z.string().optional(),
-  currency: z.string().optional(),
-  currencySymbol: z.string().optional(),
+  latitude: z.union([z.number(), z.string()]).optional().nullable(),
+  longitude: z.union([z.number(), z.string()]).optional().nullable(),
+  locationArea: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+  countryCode: z.string().optional().nullable(),
+  state: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  currency: z.string().optional().nullable(),
+  currencySymbol: z.string().optional().nullable(),
   vehicleType: z.enum(['BICYCLE', 'MOTORCYCLE', 'SCOOTER', 'EV', 'CAR', 'VAN', 'WALKER']).default('MOTORCYCLE'),
   vehicleNumber: z.string().optional().or(z.literal('')),
   perKmRate: z.number().optional(),
   baseFare: z.number().optional(),
-  // KYC & Vehicle uploads
-  selfieUrl: z.string().url('Valid selfie photo URL required'),
+  // KYC & Vehicle uploads (Optional in Fast-Track Startup Mode)
+  selfieUrl: z.string().optional().nullable().or(z.literal('')),
   identityDocumentType: z.string().default('GOVERNMENT_ID'),
-  identityDocumentUrl: z.string().url('Valid government ID document URL required'),
-  vehiclePhotoUrl: z.string().url('Valid vehicle photo URL required').optional().or(z.literal('')),
-  vehicleDocumentUrl: z.string().url('Valid vehicle document URL required').optional().or(z.literal(''))
+  identityDocumentUrl: z.string().optional().nullable().or(z.literal('')),
+  vehiclePhotoUrl: z.string().optional().nullable().or(z.literal('')),
+  vehicleDocumentUrl: z.string().optional().nullable().or(z.literal(''))
 });
 
 export const updateDeliveryLocationSchema = z.object({

@@ -339,7 +339,8 @@ export default function SellerOnboardingPage() {
       }
       window.location.href = '/seller';
     } catch (error: any) {
-      toast.error(error?.data?.message || error?.message || 'Failed to submit store onboarding');
+      const msg = error?.data?.message || (error?.data?.errors?.[0]?.message ? `${error.data.errors[0].path.join('.')}: ${error.data.errors[0].message}` : null) || error?.message || 'Failed to submit store onboarding';
+      toast.error(msg);
     }
   };
 

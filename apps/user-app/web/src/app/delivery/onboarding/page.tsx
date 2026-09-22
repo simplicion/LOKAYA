@@ -242,7 +242,8 @@ export default function DeliveryOnboardingPage() {
         setStep(4);
       }
     } catch (err: any) {
-      toast.error(err?.data?.message || err?.message || 'Failed to submit onboarding application');
+      const msg = err?.data?.message || (err?.data?.errors?.[0]?.message ? `${err.data.errors[0].path.join('.')}: ${err.data.errors[0].message}` : null) || err?.message || 'Failed to submit onboarding application';
+      toast.error(msg);
     }
   };
 
