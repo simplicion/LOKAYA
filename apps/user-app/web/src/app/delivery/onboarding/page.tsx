@@ -26,7 +26,6 @@ import {
   ShieldCheck, 
   ArrowRight, 
   ArrowLeft,
-  Zap,
   Sparkles,
   Store,
   Footprints,
@@ -182,6 +181,39 @@ export default function DeliveryOnboardingPage() {
   const currencySym = locationContext?.currencySymbol || benchmarkData?.benchmark?.currencySymbol || '₹';
 
   const handleSubmit = async () => {
+    // Validate Step 1 mandatory fields
+    if (!formData.name?.trim()) {
+      toast.error('Full Legal Name is mandatory.');
+      setStep(1);
+      return;
+    }
+    const parsedAge = Number(formData.age);
+    if (!formData.age || isNaN(parsedAge) || parsedAge < 18 || parsedAge > 100) {
+      toast.error('Age is mandatory and must be at least 18 years old.');
+      setStep(1);
+      return;
+    }
+    if (!formData.gender) {
+      toast.error('Gender is mandatory.');
+      setStep(1);
+      return;
+    }
+    const callingCode = locationContext?.callingCode?.replace(/\D/g, '') || '';
+    const allPhoneDigits = (formData.phone || '').replace(/\D/g, '');
+    const phoneWithoutCode = callingCode && allPhoneDigits.startsWith(callingCode)
+      ? allPhoneDigits.slice(callingCode.length)
+      : allPhoneDigits;
+    if (!formData.phone?.trim() || phoneWithoutCode.length < 7) {
+      toast.error('Please enter a valid mobile phone number.');
+      setStep(1);
+      return;
+    }
+    if (!formData.locationArea?.trim()) {
+      toast.error('Operating Base Area (GPS) is mandatory.');
+      setStep(1);
+      return;
+    }
+
     if (requireRiderDocs) {
       if (!formData.selfieUrl) {
         toast.error('Please upload your Selfie photo.');
@@ -457,7 +489,9 @@ export default function DeliveryOnboardingPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-[#171717] block mb-1">Full Legal Name</label>
+                <label className="text-xs font-bold text-[#171717] block mb-1">
+                  Full Legal Name <span className="text-[#FF5A36]">*</span>
+                </label>
                 <input
                   type="text"
                   value={formData.name}
@@ -469,7 +503,9 @@ export default function DeliveryOnboardingPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-[#171717] block mb-1">Age</label>
+                  <label className="text-xs font-bold text-[#171717] block mb-1">
+                    Age <span className="text-[#FF5A36]">*</span>
+                  </label>
                   <input
                     type="number"
                     value={formData.age}
@@ -481,7 +517,9 @@ export default function DeliveryOnboardingPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-[#171717] block mb-1">Gender</label>
+                  <label className="text-xs font-bold text-[#171717] block mb-1">
+                    Gender <span className="text-[#FF5A36]">*</span>
+                  </label>
                   <select
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
@@ -495,7 +533,9 @@ export default function DeliveryOnboardingPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#171717] block mb-1">Mobile Phone Number</label>
+                <label className="text-xs font-bold text-[#171717] block mb-1">
+                  Mobile Phone Number <span className="text-[#FF5A36]">*</span>
+                </label>
                 <input
                   type="tel"
                   value={formData.phone}
@@ -508,7 +548,9 @@ export default function DeliveryOnboardingPage() {
               {/* Live Location Capture */}
               <div className="pt-2 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-[#171717]">Operating Base Area (GPS)</label>
+                  <label className="text-xs font-bold text-[#171717]">
+                    Operating Base Area (GPS) <span className="text-[#FF5A36]">*</span>
+                  </label>
                   <button
                     type="button"
                     onClick={handleDetectGPS}
@@ -534,8 +576,30 @@ export default function DeliveryOnboardingPage() {
 
             <Button
               onClick={() => {
-                if (!formData.name || !formData.phone) {
-                  toast.error('Please provide your name and phone number.');
+                if (!formData.name?.trim()) {
+                  toast.error('Please enter your Full Legal Name.');
+                  return;
+                }
+                const parsedAge = Number(formData.age);
+                if (!formData.age || isNaN(parsedAge) || parsedAge < 18 || parsedAge > 100) {
+                  toast.error('Age is mandatory and must be at least 18 years old.');
+                  return;
+                }
+                if (!formData.gender) {
+                  toast.error('Please select your gender.');
+                  return;
+                }
+                const callingCode = locationContext?.callingCode?.replace(/\D/g, '') || '';
+                const allPhoneDigits = (formData.phone || '').replace(/\D/g, '');
+                const phoneWithoutCode = callingCode && allPhoneDigits.startsWith(callingCode)
+                  ? allPhoneDigits.slice(callingCode.length)
+                  : allPhoneDigits;
+                if (!formData.phone?.trim() || phoneWithoutCode.length < 7) {
+                  toast.error('Please enter your mobile phone number.');
+                  return;
+                }
+                if (!formData.locationArea?.trim()) {
+                  toast.error('Please enter or auto-detect your operating base area.');
                   return;
                 }
                 setStep(2);
@@ -619,18 +683,8 @@ export default function DeliveryOnboardingPage() {
                 </div>
               )}
 
-              {/* Fast-Track Startup Mode Notice or Strict KYC Document Uploads */}
-              {!requireRiderDocs ? (
-                <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-emerald-800 space-y-1 mt-2">
-                  <p className="text-xs font-bold flex items-center gap-1.5">
-                    <Zap className="w-4 h-4 text-emerald-600" />
-                    Fast-Track Rider Verification Active
-                  </p>
-                  <p className="text-[11px] leading-relaxed">
-                    Document uploads (vehicle papers, RC, and identity scans) are bypassed. You will be automatically approved and activated upon submission!
-                  </p>
-                </div>
-              ) : formData.vehicleType !== 'WALKER' && formData.vehicleType !== 'BICYCLE' ? (
+              {/* Strict KYC Document Uploads (Only when required by platform policy) */}
+              {requireRiderDocs && (formData.vehicleType !== 'WALKER' && formData.vehicleType !== 'BICYCLE' ? (
                 <>
                   {/* Vehicle Papers / RC Document Upload */}
                   <div className="pt-2">
@@ -720,7 +774,7 @@ export default function DeliveryOnboardingPage() {
                     Walking and bicycle delivery partners do not require vehicle registration papers, RC, or vehicle photos.
                   </p>
                 </div>
-              )}
+              ))}
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -763,7 +817,7 @@ export default function DeliveryOnboardingPage() {
                     </>
                   ) : (
                     <>
-                      <Zap className="w-4 h-4" />
+                      <CheckCircle2 className="w-4 h-4" />
                       <span>Complete & Start Delivering</span>
                     </>
                   )}

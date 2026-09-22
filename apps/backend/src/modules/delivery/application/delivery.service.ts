@@ -29,6 +29,26 @@ export class DeliveryService {
       );
     }
 
+    // Mandatory Rider Personal & Location Details
+    if (!data.name || typeof data.name !== 'string' || !data.name.trim()) {
+      throw new AppError('Full legal name is mandatory', 400);
+    }
+    const parsedAge = Number(data.age);
+    if (!data.age || isNaN(parsedAge) || parsedAge < 18 || parsedAge > 100) {
+      throw new AppError('Age is mandatory and must be at least 18 years old', 400);
+    }
+    if (!data.gender || typeof data.gender !== 'string' || !data.gender.trim()) {
+      throw new AppError('Gender is mandatory', 400);
+    }
+    const cleanPhone = (data.phone || '').toString().trim();
+    const phoneDigits = cleanPhone.replace(/\D/g, '');
+    if (!cleanPhone || phoneDigits.length < 8) {
+      throw new AppError('A valid mobile phone number is mandatory', 400);
+    }
+    if (!data.locationArea || typeof data.locationArea !== 'string' || !data.locationArea.trim()) {
+      throw new AppError('Operating base location area is mandatory', 400);
+    }
+
     const existing = await prisma.deliveryPartner.findUnique({
       where: { userId }
     });

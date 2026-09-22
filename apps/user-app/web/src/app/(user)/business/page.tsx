@@ -10,17 +10,13 @@ import {
   ArrowLeft, 
   Store, 
   Bike, 
-  Sparkles, 
   ChevronRight, 
   CheckCircle2, 
   Zap, 
-  ShieldCheck, 
   TrendingUp, 
   Clock, 
   MapPin, 
-  BadgePercent,
-  Fuel,
-  Banknote
+  BadgePercent
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -47,11 +43,6 @@ export default function BusinessPage() {
               <p className="text-[11px] font-medium text-[#6B6B6B]">Merchant & Delivery Partner Hub</p>
             </div>
           </div>
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 text-[#FF5A36] text-xs font-bold border border-orange-100">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Lokaya Fleet & Retail</span>
-          </div>
         </div>
       </header>
 
@@ -59,16 +50,10 @@ export default function BusinessPage() {
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
 
         {/* Hero Section */}
-        <section className="text-center space-y-2.5 py-4">
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-black border border-amber-200 shadow-xs">
-            ⚡ Hyperlocal Commerce Infrastructure
-          </span>
+        <section className="text-center py-2">
           <h2 className="text-2xl sm:text-4xl font-black text-[#171717] tracking-tight">
             Grow Your Business or Earn with Us
           </h2>
-          <p className="text-xs sm:text-sm text-[#6B6B6B] max-w-xl mx-auto leading-relaxed">
-            Choose your track below. Whether you want to sell products to local neighborhood customers or earn delivering orders with flexible hours, Lokaya provides the complete ecosystem.
-          </p>
         </section>
 
         {/* Track 1: Become a Store Seller */}
@@ -203,46 +188,6 @@ export default function BusinessPage() {
             {/* Visual Block */}
             <div className="w-32 h-32 sm:w-44 sm:h-44 bg-emerald-50 rounded-3xl flex items-center justify-center shrink-0 border border-emerald-100 self-center md:self-auto">
               <Bike className="w-16 sm:w-24 h-16 sm:h-24 text-emerald-600" />
-            </div>
-          </div>
-        </section>
-
-        {/* Operational Excellence & Single Role Policy FAQ */}
-        <section className="bg-white rounded-3xl p-6 border border-[#E5E2DC] shadow-sm space-y-4">
-          <h4 className="text-base font-extrabold text-[#171717] flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-[#FF5A36]" />
-            Lokaya Partner Standards & Transparency
-          </h4>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-            <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-[#E5E2DC] space-y-1.5">
-              <div className="w-8 h-8 rounded-xl bg-orange-100 text-[#FF5A36] flex items-center justify-center">
-                <Banknote className="w-4 h-4" />
-              </div>
-              <p className="text-xs font-bold text-[#171717]">Zero Hardware Barriers</p>
-              <p className="text-[11px] text-[#6B6B6B] leading-relaxed">
-                Small kiranas and riders do not need expensive barcode printers. Our 4-digit dual OTP handles 100% verification digitally.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-[#E5E2DC] space-y-1.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                <Fuel className="w-4 h-4" />
-              </div>
-              <p className="text-xs font-bold text-[#171717]">Fuel Floor Guarantee</p>
-              <p className="text-[11px] text-[#6B6B6B] leading-relaxed">
-                Riders are never underpaid. Delivery pricing dynamically locks to verified country fuel benchmarks (India, Nepal, Bangladesh, US).
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-[#E5E2DC] space-y-1.5">
-              <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <p className="text-xs font-bold text-[#171717]">Single Role Integrity</p>
-              <p className="text-[11px] text-[#6B6B6B] leading-relaxed">
-                To prevent conflict of interest, store merchants operate dedicated seller accounts while delivery riders operate partner accounts.
-              </p>
             </div>
           </div>
         </section>
