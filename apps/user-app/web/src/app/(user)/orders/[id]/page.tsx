@@ -1,7 +1,6 @@
 'use client';
 
-import { use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { 
   ChevronLeft, 
   Box, 
@@ -22,10 +21,19 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/context/CurrencyContext';
 
-export default function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
+export default function OrderDetailsPage({ params }: { params?: Promise<{ id: string }> | { id: string } }) {
   const router = useRouter();
-  const orderId = resolvedParams.id;
+  const routeParams = useParams();
+  const routeId = routeParams?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/orders/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const orderId = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || '');
   const { formatPrice } = useCurrency();
 
   const { data: order, isLoading } = useGetOrderQuery(orderId, { skip: !orderId });

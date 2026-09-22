@@ -7,7 +7,7 @@ import { ChevronLeft, PlaySquare, PlusCircle, ChevronDown, Users, MapPin, Check,
 import { useGetReelsQuery, useGetMyStoreQuery } from '@/lib/api';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
-import { cn, formatTimeAgo } from '@/lib/utils';
+import { cn, formatTimeAgo, getMediaUrl } from '@/lib/utils';
 import Link from 'next/link';
 
 type FeedTab = 'for-you' | 'following' | 'nearby';
@@ -423,7 +423,7 @@ function ReelsContent() {
               <div className="w-full h-full bg-black flex items-center justify-center">
                 {reel.posterUrl && (
                   <img 
-                    src={reel.posterUrl} 
+                    src={getMediaUrl(reel.posterUrl)} 
                     alt="" 
                     className="w-full h-full object-cover opacity-60 pointer-events-none" 
                   />

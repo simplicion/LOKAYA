@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Edit2, History, Package, AlertTriangle, CheckCircle2, TrendingUp, Calendar, Clock, ChevronDown, ChevronUp, RefreshCcw, Tag, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGetProductByIdQuery, useUpdateProductMutation } from '@/lib/api';
@@ -9,12 +9,24 @@ import { getMediaUrl } from '@/lib/utils';
 import Image from 'next/image';
 import { useCurrency } from '@/context/CurrencyContext';
 
-export default function ProductDetailsClient({ params }: { params: { id: string } }) {
+export default function ProductDetailsClient({ params }: { params?: { id: string } }) {
   const router = useRouter();
+  const routeParams = useParams();
+  const routeId = routeParams?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/seller/products/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const productId = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || params?.id || '');
+
   const { formatPrice } = useCurrency();
   const [showSoldHistory, setShowSoldHistory] = useState(false);
 
-  const { data: productData, isLoading, refetch } = useGetProductByIdQuery(params.id);
+  const { data: productData, isLoading, refetch } = useGetProductByIdQuery(productId, { skip: !productId });
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
 
   const product = {
@@ -55,7 +67,7 @@ export default function ProductDetailsClient({ params }: { params: { id: string 
   const handleStatusChange = async (newStatus: string) => {
     try {
       await updateProduct({
-        productId: params.id,
+        productId: productId,
         body: { isActive: newStatus === 'Active' }
       }).unwrap();
       refetch();
@@ -88,7 +100,7 @@ export default function ProductDetailsClient({ params }: { params: { id: string 
           variant="outline" 
           size="sm" 
           className="gap-1.5 h-9 rounded-full border-gray-200 shadow-sm"
-          onClick={() => router.push(`/seller/products/${params.id}/edit`)}
+          onClick={() => router.push(`/seller/products/${productId}/edit`)}
         >
           <Edit2 className="w-3.5 h-3.5" />
           <span className="text-sm">Edit</span>

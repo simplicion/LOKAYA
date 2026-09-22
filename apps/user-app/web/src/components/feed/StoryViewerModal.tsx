@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Heart, Eye, ChevronRight, Volume2, VolumeX, ShoppingBag, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { useViewStoryMutation, useLikeStoryMutation } from '@/lib/api';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { cn, getMediaUrl, isVideoMedia } from '@/lib/utils';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
 import { VideoPlayer } from '@/components/media/VideoPlayer';
 
@@ -149,7 +149,7 @@ export function StoryViewerModal({
   useEffect(() => {
     if (!isOpen || !currentStory || isPaused || isShareOpen) return;
 
-    const isVideo = currentStory.mediaType?.toLowerCase() === 'video';
+    const isVideo = currentStory.mediaType?.toLowerCase() === 'video' || isVideoMedia(currentStory?.mediaUrl);
     if (isVideo) {
       // Video driven progression handled via onTimeUpdate callback in VideoPlayer
       return;
@@ -286,7 +286,7 @@ export function StoryViewerModal({
 
   if (!isOpen || !currentStory) return null;
 
-  const isVideo = currentStory.mediaType?.toLowerCase() === 'video';
+  const isVideo = currentStory.mediaType?.toLowerCase() === 'video' || isVideoMedia(currentStory?.mediaUrl);
   const storeAvatar = currentGroup?.storeAvatar || currentStory.storeAvatar || '';
   const storeName = title || currentGroup?.storeName || currentStory.storeName || 'Store';
   const isVerified = currentGroup?.isVerified ?? currentStory.isVerified ?? false;
@@ -411,7 +411,7 @@ export function StoryViewerModal({
       {/* Hidden Zero-Latency Preloader for Next Story */}
       {nextStory && (
         <div className="hidden" aria-hidden="true">
-          {nextStory.mediaType?.toLowerCase() === 'video' ? (
+          {nextStory.mediaType?.toLowerCase() === 'video' || isVideoMedia(nextStory?.mediaUrl) ? (
             <VideoPlayer
               src={nextStory.mediaUrl}
               autoPlay={false}

@@ -37,7 +37,7 @@ import { toast } from 'sonner';
 import { CreateHighlightModal } from './CreateHighlightModal';
 import { StoryViewerModal } from '../feed/StoryViewerModal';
 import { BlueTickVerificationSheet } from './BlueTickVerificationSheet';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { cn, getMediaUrl, isVideoMedia } from '@/lib/utils';
 import Link from 'next/link';
 
 export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
@@ -489,7 +489,7 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
           {displayItems.map((item: any, idx: number) => {
             const posterUrl = item.posterUrl || item.media?.[0]?.posterUrl;
             const mediaUrl = item.url || item.videoUrl || item.media?.[0]?.url;
-            const isVideo = activeTab === 'reels' || item.type === 'video' || item.type === 'VIDEO' || item.media?.some((m: any) => m.type === 'VIDEO' || m.type === 'video');
+            const isVideo = activeTab === 'reels' || item.type === 'video' || item.type === 'VIDEO' || isVideoMedia(mediaUrl) || item.media?.some((m: any) => m.type === 'VIDEO' || m.type === 'video' || isVideoMedia(m.url));
             const isOptimizing = item.isOptimizing || item.status === 'PROCESSING' || item.status === 'PENDING';
 
             const handleItemClick = () => {
@@ -509,6 +509,8 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
               }
             };
 
+            const resolvedVideoSrc = mediaUrl ? (getMediaUrl(mediaUrl).includes('#t=') ? getMediaUrl(mediaUrl) : `${getMediaUrl(mediaUrl)}#t=0.1`) : '';
+
             return (
               <div 
                 key={item.id || idx} 
@@ -517,8 +519,8 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
               >
                 {posterUrl ? (
                   <img src={getMediaUrl(posterUrl)} alt="Thumbnail" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                ) : isVideo && mediaUrl ? (
-                  <video src={getMediaUrl(mediaUrl)} preload="metadata" className="w-full h-full object-cover group-hover:scale-105 transition-transform" muted playsInline />
+                ) : isVideo && resolvedVideoSrc ? (
+                  <video src={resolvedVideoSrc} preload="metadata" className="w-full h-full object-cover group-hover:scale-105 transition-transform pointer-events-none" muted playsInline />
                 ) : mediaUrl ? (
                   <img src={getMediaUrl(mediaUrl)} alt="Post" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                 ) : (

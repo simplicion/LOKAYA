@@ -1,10 +1,41 @@
-'use client';
-
 import React, { useState } from 'react';
-import { X, Check, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
+import { X, Check, Sparkles, Loader2, Image as ImageIcon, Play } from 'lucide-react';
 import { useCreateHighlightMutation } from '@/lib/api';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { cn, getMediaUrl, isVideoMedia } from '@/lib/utils';
 import { toast } from 'sonner';
+
+function StoryHighlightThumb({ story }: { story: any }) {
+  const [imgError, setImgError] = useState(false);
+  const isVideo = story.mediaType === 'VIDEO' || story.mediaType === 'video' || isVideoMedia(story.mediaUrl) || imgError;
+  const mediaUrl = getMediaUrl(story.mediaUrl);
+
+  return (
+    <>
+      {isVideo ? (
+        <video
+          src={mediaUrl.includes('#t=') ? mediaUrl : `${mediaUrl}#t=0.1`}
+          className="w-full h-full object-cover pointer-events-none"
+          muted
+          playsInline
+          preload="metadata"
+        />
+      ) : (
+        <img
+          src={mediaUrl}
+          alt="Story thumbnail"
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      )}
+
+      {isVideo && (
+        <div className="absolute top-1.5 left-1.5 p-1 bg-black/50 backdrop-blur-xs rounded-md pointer-events-none">
+          <Play className="w-2.5 h-2.5 text-white fill-white" />
+        </div>
+      )}
+    </>
+  );
+}
 
 interface CreateHighlightModalProps {
   isOpen: boolean;
@@ -145,7 +176,7 @@ export function CreateHighlightModal({
                         isSelected ? "border-[#FF5A36] shadow-sm scale-[0.98]" : "border-transparent"
                       )}
                     >
-                      <img src={getMediaUrl(story.mediaUrl)} alt="Story thumbnail" className="w-full h-full object-cover" />
+                      <StoryHighlightThumb story={story} />
                       
                       <div className="absolute top-1.5 right-1.5">
                         <div className={cn(

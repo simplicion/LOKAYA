@@ -10,21 +10,38 @@ export default function ProductDetailPage({
   params?: Promise<{ id: string }> | { id: string } 
 }) {
   const routeParams = useParams();
-  const [resolvedId, setResolvedId] = React.useState<string>((routeParams?.id as string) || '');
+  
+  // Extract product ID from routeParams first (canonical Next.js router).
+  // Fall back to window.location.pathname if routeParams is empty or holding static dummy during hydration.
+  const routeId = routeParams?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/product/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const initialId = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || '');
+
+  const [resolvedId, setResolvedId] = React.useState<string>(initialId);
 
   React.useEffect(() => {
-    if (params) {
-      if (typeof (params as any).then === 'function') {
-        (params as Promise<{ id: string }>).then(p => {
-          if (p?.id) setResolvedId(p.id);
-        });
-      } else if ((params as { id: string })?.id) {
-        setResolvedId((params as { id: string }).id);
-      }
-    } else if (routeParams?.id) {
-      setResolvedId(routeParams.id as string);
-    }
-  }, [params, routeParams?.id]);
+    const activeRouteId = routeParams?.id as string | undefined;
+    const activePathId = typeof window !== 'undefined' 
+      ? window.location.pathname.split('/product/')[1]?.split('/')[0]?.split('?')[0] 
+      : undefined;
 
-  return <ProductViewClient productId={resolvedId || (routeParams?.id as string) || ''} />;
+    const bestId = (activeRouteId && activeRouteId !== '1') 
+      ? activeRouteId 
+      : (activePathId && activePathId !== '1') 
+        ? activePathId 
+        : (activeRouteId || activePathId || '');
+
+    if (bestId && bestId !== resolvedId) {
+      setResolvedId(bestId);
+    }
+  }, [routeParams?.id, resolvedId]);
+
+  return <ProductViewClient productId={resolvedId || initialId} />;
 }

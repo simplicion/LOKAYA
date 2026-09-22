@@ -1,7 +1,7 @@
 'use client';
 
-import React, { use } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Share2, Compass, AlertCircle, Sparkles, MessageCircle } from 'lucide-react';
 import { SocialPost } from '@/components/feed/SocialPost';
 import { useGetPostByIdQuery, useGetPostsQuery } from '@/lib/api';
@@ -10,9 +10,18 @@ import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
 import { cn, formatTimeAgo } from '@/lib/utils';
 import Link from 'next/link';
 
-export default function SinglePostPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const postId = resolvedParams.id;
+export default function SinglePostPage({ params }: { params?: Promise<{ id: string }> | { id: string } }) {
+  const routeParams = useParams();
+  const routeId = routeParams?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/post/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const postId = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || '');
   const router = useRouter();
   const [isShareOpen, setIsShareOpen] = React.useState(false);
 

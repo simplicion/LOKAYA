@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useUpload, ActiveUpload } from '@/context/UploadContext';
-import { Loader2, CheckCircle2, AlertCircle, RotateCcw, X } from 'lucide-react';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { Loader2, CheckCircle2, AlertCircle, RotateCcw, X, Film, Sparkles } from 'lucide-react';
+import { cn, getMediaUrl, isVideoMedia } from '@/lib/utils';
 
 export function FeedUploadProgressBar() {
   const { activeUploads, dismissUpload, retryUpload } = useUpload();
@@ -21,6 +21,51 @@ export function FeedUploadProgressBar() {
         />
       ))}
     </div>
+  );
+}
+
+function UploadThumbnail({ upload }: { upload: ActiveUpload }) {
+  const [imgError, setImgError] = useState(false);
+  const rawUrl = upload.thumbnailUrl;
+
+  if (!rawUrl) {
+    return (
+      <div className="w-full h-full bg-orange-50 flex items-center justify-center text-[#FF5A36]">
+        {upload.type === 'reel' ? (
+          <Film className="w-5 h-5 text-[#FF5A36]" />
+        ) : upload.type === 'story' ? (
+          <Sparkles className="w-5 h-5 text-[#FF5A36]" />
+        ) : (
+          <span className="text-[10px] font-bold text-gray-500">{upload.type.toUpperCase()}</span>
+        )}
+      </div>
+    );
+  }
+
+  const mediaUrl = getMediaUrl(rawUrl);
+  // Check if it's explicitly video or if image loading already failed
+  const isVideo = imgError || isVideoMedia(rawUrl) || (upload.type === 'reel' && !rawUrl.startsWith('data:image/'));
+
+  if (isVideo) {
+    const videoSrc = mediaUrl.includes('#t=') ? mediaUrl : `${mediaUrl}#t=0.1`;
+    return (
+      <video
+        src={videoSrc}
+        className="w-full h-full object-cover pointer-events-none"
+        muted
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+
+  return (
+    <img
+      src={mediaUrl}
+      alt="Upload thumbnail"
+      className="w-full h-full object-cover"
+      onError={() => setImgError(true)}
+    />
   );
 }
 
@@ -55,17 +100,7 @@ function UploadCard({
     )}>
       {/* Thumbnail Preview */}
       <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-200/60 relative">
-        {upload.thumbnailUrl ? (
-          <img
-            src={getMediaUrl(upload.thumbnailUrl)}
-            alt="Upload thumbnail"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-400">
-            {upload.type.toUpperCase()}
-          </div>
-        )}
+        <UploadThumbnail upload={upload} />
       </div>
 
       {/* Center Details & Progress Bar */}

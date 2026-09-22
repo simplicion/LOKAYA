@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, use } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -18,9 +18,9 @@ import {
   Tag, 
   RotateCcw, 
   Check, 
-  Percent,
-  Sliders,
-  Sparkles
+  Percent, 
+  Sliders, 
+  Sparkles 
 } from 'lucide-react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
@@ -38,12 +38,30 @@ type PricePreset = 'all' | 'under_500' | '500_1500' | '1500_5000' | 'above_5000'
 export default function StoreCategoryPage({ 
   params 
 }: { 
-  params: Promise<{ id: string; categoryId: string }> 
+  params?: Promise<{ id: string; categoryId: string }> | { id: string; categoryId: string } 
 }) {
   const routeParams = useParams();
-  const resolvedParams = use(params);
-  const storeId = (routeParams?.id as string) || resolvedParams?.id || '';
-  const categoryId = (routeParams?.categoryId as string) || resolvedParams?.categoryId || '';
+  const routeStoreId = routeParams?.id as string | undefined;
+  const routeCatId = routeParams?.categoryId as string | undefined;
+
+  const pathStoreId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/store/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+  const pathCatId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/category/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const storeId = (routeStoreId && routeStoreId !== '1') 
+    ? routeStoreId 
+    : (pathStoreId && pathStoreId !== '1') 
+      ? pathStoreId 
+      : (routeStoreId || pathStoreId || '');
+
+  const categoryId = (routeCatId && routeCatId !== '1') 
+    ? routeCatId 
+    : (pathCatId && pathCatId !== '1') 
+      ? pathCatId 
+      : (routeCatId || pathCatId || '');
   const router = useRouter();
 
   // Search & Filter States

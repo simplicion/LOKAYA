@@ -10,7 +10,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { toast } from 'sonner';
 import { useCurrency } from '@/context/CurrencyContext';
-import { getMediaUrl } from '@/lib/utils';
+import { getMediaUrl, generateVideoThumbnail } from '@/lib/utils';
 
 interface StoryUploadModalProps {
   isOpen: boolean;
@@ -33,6 +33,7 @@ export function StoryUploadModal({
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [thumbnailDataUrl, setThumbnailDataUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'IMAGE' | 'VIDEO'>('IMAGE');
   const [caption, setCaption] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -86,9 +87,17 @@ export function StoryUploadModal({
 
         setMediaType('VIDEO');
         setFile(selectedFile);
-        setPreviewUrl(URL.createObjectURL(selectedFile));
+        const pUrl = URL.createObjectURL(selectedFile);
+        setPreviewUrl(pUrl);
         setPendingTrimmerFile(selectedFile);
         setTrimData(null);
+
+        // Generate instant crisp image thumbnail
+        generateVideoThumbnail(selectedFile)
+          .then(({ thumbnailDataUrl: thumbUrl }) => {
+            if (thumbUrl) setThumbnailDataUrl(thumbUrl);
+          })
+          .catch(() => {});
       };
 
       video.onerror = () => {
@@ -101,15 +110,19 @@ export function StoryUploadModal({
     setMediaType('IMAGE');
     setFile(selectedFile);
     setPreviewUrl(URL.createObjectURL(selectedFile));
+    setThumbnailDataUrl(null);
     setTrimData(null);
   };
 
-  const handleTrimComplete = ({ startTime, endTime, duration }: { startTime: number; endTime: number; duration: number; thumbnailDataUrl?: string }) => {
+  const handleTrimComplete = ({ startTime, endTime, duration, thumbnailDataUrl: trimmedThumb }: { startTime: number; endTime: number; duration: number; thumbnailDataUrl?: string }) => {
     if (!pendingTrimmerFile) return;
 
     setMediaType('VIDEO');
     setFile(pendingTrimmerFile);
     setPreviewUrl(URL.createObjectURL(pendingTrimmerFile));
+    if (trimmedThumb) {
+      setThumbnailDataUrl(trimmedThumb);
+    }
     setTrimData({ startTime, endTime, duration });
     toast.success(`Story video trimmed to ${duration}s!`);
   };
@@ -117,6 +130,7 @@ export function StoryUploadModal({
   const resetForm = () => {
     setFile(null);
     setPreviewUrl(null);
+    setThumbnailDataUrl(null);
     setCaption('');
     setSelectedProductId(null);
     setShowTagSelector(false);
@@ -144,6 +158,7 @@ export function StoryUploadModal({
       caption: caption.trim() || undefined,
       productId: selectedProductId || undefined,
       previewUrl,
+      thumbnailUrl: thumbnailDataUrl || previewUrl,
     });
 
     handleClose();

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { use } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { 
   ChevronLeft, 
   MapPin, 
@@ -19,10 +19,19 @@ import { Button } from '@/components/ui/button';
 import { useGetOrderTrackingQuery, useGetOrderQuery } from '@/lib/api';
 import { cn, getMediaUrl } from '@/lib/utils';
 
-export default function OrderTrackingPage({ params }: { params: Promise<{ id: string }> }) {
+export default function OrderTrackingPage({ params }: { params?: Promise<{ id: string }> | { id: string } }) {
   const router = useRouter();
-  const resolvedParams = use(params);
-  const orderId = resolvedParams.id;
+  const routeParams = useParams();
+  const routeId = routeParams?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/orders/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const orderId = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || '');
 
   const { data: trackingData, isLoading: isTrackingLoading, refetch } = useGetOrderTrackingQuery(orderId, {
     pollingInterval: 3000

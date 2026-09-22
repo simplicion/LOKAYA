@@ -10,7 +10,16 @@ import { Button } from '@/components/ui/button';
 export default function BuyerInvoicePage() {
   const router = useRouter();
   const params = useParams();
-  const id = (params?.id as string) || '';
+  const routeId = params?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/orders/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const id = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || '');
 
   const { data: invoice, isLoading, isError, error } = useGetOrderInvoiceQuery(id, { skip: !id });
 

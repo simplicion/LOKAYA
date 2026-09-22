@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, use } from 'react';
+import React, { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Headphones, Loader2, Users, Truck, CreditCard, Banknote, Tag, Bike, User, ChevronRight } from 'lucide-react';
 import { cn, getMediaUrl } from '@/lib/utils';
@@ -21,10 +21,18 @@ import { RootState } from '@/lib/store';
 
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 
-export default function StoreProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default function StoreProfilePage({ params }: { params?: Promise<{ id: string }> | { id: string } }) {
   const routeParams = useParams();
-  const resolvedParams = use(params);
-  const storeId = (routeParams?.id as string) || resolvedParams?.id || '';
+  const routeId = routeParams?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/store/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const storeId = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || '');
   const router = useRouter();
   const currentUser = useSelector((state: RootState) => (state as any).auth?.user);
   

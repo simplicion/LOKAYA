@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { 
   ArrowLeft, 
   Upload, 
@@ -43,12 +43,24 @@ interface MediaItem {
   displayOrder?: number;
 }
 
-export default function EditProductClient({ params }: { params: { id: string } }) {
+export default function EditProductClient({ params }: { params?: { id: string } }) {
   const router = useRouter();
+  const routeParams = useParams();
+  const routeId = routeParams?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/seller/products/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const productId = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || params?.id || '');
+
   const { currencySymbol } = useCurrency();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: productData, isLoading, refetch } = useGetProductByIdQuery(params.id);
+  const { data: productData, isLoading, refetch } = useGetProductByIdQuery(productId, { skip: !productId });
   const [updateProduct, { isLoading: isSaving }] = useUpdateProductMutation();
   const [createCategory] = useCreateCategoryMutation();
   const [uploadMedia] = useUploadMediaMutation();
@@ -334,7 +346,7 @@ export default function EditProductClient({ params }: { params: { id: string } }
       };
 
       await updateProduct({
-        productId: params.id,
+        productId: productId,
         body: payload
       }).unwrap();
 

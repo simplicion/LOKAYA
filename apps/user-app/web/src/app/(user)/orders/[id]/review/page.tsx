@@ -1,7 +1,7 @@
 'use client';
 
-import { use, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { ChevronLeft, Star, Camera, X, Loader2, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -9,11 +9,20 @@ import { useGetOrderQuery, useCreateProductReviewMutation } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-export default function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
+export default function ReviewPage({ params }: { params?: Promise<{ id: string }> | { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const orderId = resolvedParams.id;
+  const routeParams = useParams();
+  const routeId = routeParams?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/orders/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const orderId = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || '');
 
   const { data: order, isLoading } = useGetOrderQuery(orderId, { skip: !orderId });
   const [createReview, { isLoading: isSubmitting }] = useCreateProductReviewMutation();

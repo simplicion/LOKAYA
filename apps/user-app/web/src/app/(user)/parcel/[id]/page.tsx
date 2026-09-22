@@ -1,7 +1,7 @@
 'use client';
 
-import React, { use } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { 
   ShieldCheck, 
@@ -14,20 +14,29 @@ import {
   Clock, 
   Bike, 
   HelpCircle, 
-  ChevronRight,
-  Loader2,
-  ExternalLink,
-  ArrowLeft,
-  Headphones
+  ChevronRight, 
+  Loader2, 
+  ExternalLink, 
+  ArrowLeft, 
+  Headphones 
 } from 'lucide-react';
 import { useGetPublicParcelVerificationQuery } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-export default function PublicParcelVerificationPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
+export default function PublicParcelVerificationPage({ params }: { params?: Promise<{ id: string }> | { id: string } }) {
   const router = useRouter();
-  const orderId = resolvedParams.id;
+  const routeParams = useParams();
+  const routeId = routeParams?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/parcel/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const orderId = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || '');
 
   const { data: parcel, isLoading, error } = useGetPublicParcelVerificationQuery(orderId, {
     skip: !orderId

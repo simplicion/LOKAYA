@@ -33,6 +33,7 @@ interface UploadContextType {
     caption?: string;
     productId?: string;
     previewUrl: string;
+    thumbnailUrl?: string;
   }) => void;
   dismissUpload: (id: string) => void;
   retryUpload: (id: string) => void;
@@ -298,12 +299,25 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
     setActiveUploads(prev => [newUpload, ...prev]);
 
+    // If it's a reel / video post and thumbnailUrl is not a data URL, generate thumbnail immediately
+    if (params.isReel && params.mediaFiles[0] && (!newUpload.thumbnailUrl || !newUpload.thumbnailUrl.startsWith('data:image/'))) {
+      import('@/lib/utils').then(({ generateVideoThumbnail }) => {
+        generateVideoThumbnail(params.mediaFiles[0])
+          .then(({ thumbnailDataUrl }) => {
+            if (thumbnailDataUrl) {
+              updateUpload(uploadId, { thumbnailUrl: thumbnailDataUrl });
+            }
+          })
+          .catch(() => {});
+      });
+    }
+
     // Instantly navigate home
     router.push('/home');
 
     // Run upload asynchronously in background
     performPostUpload(uploadId, params);
-  }, [router, performPostUpload]);
+  }, [router, performPostUpload, updateUpload]);
 
   const startStoryUpload = useCallback((params: {
     file: File;
@@ -312,13 +326,15 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     caption?: string;
     productId?: string;
     previewUrl: string;
+    thumbnailUrl?: string;
   }) => {
     const uploadId = `story-upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const initialThumb = params.thumbnailUrl || params.previewUrl;
     const newUpload: ActiveUpload = {
       id: uploadId,
       type: 'story',
       caption: params.caption,
-      thumbnailUrl: params.previewUrl,
+      thumbnailUrl: initialThumb,
       progress: 10,
       status: 'uploading',
       retryPayload: { kind: 'story', params }
@@ -326,9 +342,22 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
     setActiveUploads(prev => [newUpload, ...prev]);
 
+    // If it's a video and initial thumbnail is not a data URL, generate crisp canvas thumbnail immediately
+    if (params.mediaType === 'VIDEO' && (!initialThumb || !initialThumb.startsWith('data:image/'))) {
+      import('@/lib/utils').then(({ generateVideoThumbnail }) => {
+        generateVideoThumbnail(params.file)
+          .then(({ thumbnailDataUrl }) => {
+            if (thumbnailDataUrl) {
+              updateUpload(uploadId, { thumbnailUrl: thumbnailDataUrl });
+            }
+          })
+          .catch(() => {});
+      });
+    }
+
     // Run upload in background
     performStoryUpload(uploadId, params);
-  }, [performStoryUpload]);
+  }, [performStoryUpload, updateUpload]);
 
   const retryUpload = useCallback((id: string) => {
     const upload = activeUploads.find(u => u.id === id);

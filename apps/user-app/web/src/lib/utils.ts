@@ -116,7 +116,7 @@ export function isVideoMedia(url?: string | null): boolean {
 }
 
 export function generateVideoThumbnail(file: File): Promise<{ thumbnailBlob: Blob; thumbnailDataUrl: string }> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
       const video = document.createElement('video');
       video.preload = 'metadata';
@@ -130,17 +130,12 @@ export function generateVideoThumbnail(file: File): Promise<{ thumbnailBlob: Blo
       const timeoutId = setTimeout(() => {
         if (!captured) {
           captured = true;
-          URL.revokeObjectURL(url);
-          // Fallback empty blob
+          try { URL.revokeObjectURL(url); } catch {}
           resolve({ thumbnailBlob: new Blob(), thumbnailDataUrl: '' });
         }
       }, 5000);
 
-      video.onloadedmetadata = () => {
-        video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
-      };
-
-      video.onseeked = () => {
+      const doCapture = () => {
         if (captured) return;
         captured = true;
         clearTimeout(timeoutId);
@@ -156,27 +151,45 @@ export function generateVideoThumbnail(file: File): Promise<{ thumbnailBlob: Blo
             ctx.drawImage(video, 0, 0, width, height);
             const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
             canvas.toBlob((blob) => {
-              URL.revokeObjectURL(url);
+              try { URL.revokeObjectURL(url); } catch {}
               resolve({
                 thumbnailBlob: blob || new Blob(),
                 thumbnailDataUrl: dataUrl
               });
             }, 'image/jpeg', 0.85);
           } else {
-            URL.revokeObjectURL(url);
+            try { URL.revokeObjectURL(url); } catch {}
             resolve({ thumbnailBlob: new Blob(), thumbnailDataUrl: '' });
           }
-        } catch (err) {
-          URL.revokeObjectURL(url);
+        } catch {
+          try { URL.revokeObjectURL(url); } catch {}
           resolve({ thumbnailBlob: new Blob(), thumbnailDataUrl: '' });
         }
       };
+
+      const seekToFrame = () => {
+        try {
+          const target = Math.min(0.5, Math.max(0.1, (video.duration || 1) / 4));
+          video.currentTime = target;
+        } catch {
+          doCapture();
+        }
+      };
+
+      video.onloadedmetadata = seekToFrame;
+      video.onloadeddata = () => {
+        if (!captured && video.currentTime === 0) {
+          seekToFrame();
+        }
+      };
+
+      video.onseeked = doCapture;
 
       video.onerror = () => {
         if (!captured) {
           captured = true;
           clearTimeout(timeoutId);
-          URL.revokeObjectURL(url);
+          try { URL.revokeObjectURL(url); } catch {}
           resolve({ thumbnailBlob: new Blob(), thumbnailDataUrl: '' });
         }
       };

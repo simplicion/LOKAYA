@@ -8,7 +8,7 @@ import { RootState } from '@/lib/store';
 import { useGetStoryArchiveQuery, useGetMyStoreQuery } from '@/lib/api';
 import { StoryViewerModal } from '@/components/feed/StoryViewerModal';
 import { CreateHighlightModal } from '@/components/profile/CreateHighlightModal';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { cn, getMediaUrl, isVideoMedia } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useCurrency } from '@/context/CurrencyContext';
 
@@ -144,8 +144,14 @@ export default function StoryArchivePage() {
                   onClick={() => handleStoryCardClick(index, story.id)}
                   className="aspect-[9/16] relative bg-gray-900 rounded-xl overflow-hidden cursor-pointer group shadow-sm"
                 >
-                  {story.mediaType === 'video' || story.mediaType === 'VIDEO' ? (
-                    <video src={getMediaUrl(story.mediaUrl)} className="w-full h-full object-cover" />
+                  {story.mediaType === 'video' || story.mediaType === 'VIDEO' || isVideoMedia(story.mediaUrl) ? (
+                    <video
+                      src={getMediaUrl(story.mediaUrl) + (story.mediaUrl?.includes('#t=') ? '' : '#t=0.1')}
+                      className="w-full h-full object-cover pointer-events-none"
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
                   ) : (
                     <img src={getMediaUrl(story.mediaUrl)} alt="Archived Story" className="w-full h-full object-cover" />
                   )}

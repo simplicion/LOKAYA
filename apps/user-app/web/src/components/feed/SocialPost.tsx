@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Volume2, Sparkles, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn, getMediaUrl, formatTimeAgo } from '@/lib/utils';
+import { cn, getMediaUrl, formatTimeAgo, isVideoMedia } from '@/lib/utils';
 import { ProductOverlayCard } from './ProductOverlayCard';
 import { ShareBottomSheet } from '../ui/ShareBottomSheet';
 import { LikesBottomSheet } from '../ui/LikesBottomSheet';
@@ -31,7 +31,7 @@ export interface SocialPostProps {
   isReel?: boolean;
   contentType?: 'POST' | 'REEL';
   media: {
-    type: 'image' | 'video';
+    type: 'image' | 'video' | 'IMAGE' | 'VIDEO' | string;
     url: string;
     posterUrl?: string;
     duration?: string; // e.g. "0:25"
@@ -422,12 +422,14 @@ export function SocialPost({
                 Boolean(propIsPreloadCandidate && isSlideActive)
               );
 
+              const isVideoItem = m.type?.toLowerCase() === 'video' || isVideoMedia(m.url);
+
               return (
                 <div 
                   key={idx} 
                   className="relative w-full min-w-full h-full shrink-0 snap-center snap-always flex items-center justify-center overflow-hidden bg-black select-none"
                 >
-                  {m.type === 'video' && m.url ? (
+                  {isVideoItem && m.url ? (
                     <VideoPlayer
                       src={m.url}
                       poster={m.posterUrl}

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { use, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { useGetUserPublicProfileQuery, useFollowUserMutation } from '@/lib/api';
@@ -22,10 +22,19 @@ import {
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
 import { toast } from 'sonner';
 
-export default function UserPublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const userId = resolvedParams.id;
+export default function UserPublicProfilePage({ params }: { params?: Promise<{ id: string }> | { id: string } }) {
   const router = useRouter();
+  const routeParams = useParams();
+  const routeId = routeParams?.id as string | undefined;
+  const pathId = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/user/')[1]?.split('/')[0]?.split('?')[0] 
+    : undefined;
+
+  const userId = (routeId && routeId !== '1') 
+    ? routeId 
+    : (pathId && pathId !== '1') 
+      ? pathId 
+      : (routeId || pathId || '');
   const currentUser = useSelector((state: RootState) => state.auth.user);
 
   // If viewing own profile, seamlessly redirect to /profile
