@@ -2,7 +2,7 @@
 
 import React, { useState, use } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Headphones, Loader2, Users, Truck, CreditCard, Banknote, Tag, Bike } from 'lucide-react';
+import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Headphones, Loader2, Users, Truck, CreditCard, Banknote, Tag, Bike, User, ChevronRight } from 'lucide-react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
@@ -101,6 +101,9 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const avgRating = storeSummary?.avgRating ?? 0;
   const reviewCount = storeSummary?.reviewCount ?? 0;
 
+  const ownerUser = store?.users?.[0]?.user;
+  const ownerUserId = ownerUser?.id || store?.users?.[0]?.userId;
+
   const isStoreLive = store?.isActive ?? true;
   const contactPhone = store?.contactPhone;
   const acceptedPayments = store?.acceptedPayments || ['ONLINE PAYMENT', 'CASH'];
@@ -188,7 +191,18 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
 
           {/* Facebook-style Store Logo: Anchored overlapping the bottom mid-left of banner */}
           <div className="absolute -bottom-12 left-5 z-20">
-            <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-white shadow-xl bg-white overflow-hidden ring-1 ring-black/5 flex-shrink-0">
+            <div 
+              onClick={() => {
+                if (ownerUserId) {
+                  router.push(`/user/${ownerUserId}`);
+                }
+              }}
+              className={cn(
+                "relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-white shadow-xl bg-white overflow-hidden ring-1 ring-black/5 flex-shrink-0 transition-transform active:scale-95",
+                ownerUserId ? "cursor-pointer group" : ""
+              )}
+              title={ownerUserId ? "View Owner Profile" : storeName}
+            >
               {logoUrl ? (
                 <img 
                   src={getMediaUrl(logoUrl)} 
@@ -277,6 +291,29 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
                 </span>
               </div>
 
+              {/* Store Owner Navigation Pill */}
+              {ownerUserId && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => router.push(`/user/${ownerUserId}`)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-stone-100/90 hover:bg-stone-200 border border-stone-200/90 text-stone-800 transition-all active:scale-95 cursor-pointer group shadow-2xs"
+                    title="View Store Owner Public Profile"
+                  >
+                    <div className="w-5 h-5 rounded-full overflow-hidden bg-orange-100 flex items-center justify-center text-[10px] font-black text-[#FF5A36] shrink-0 border border-[#FF5A36]/30">
+                      {ownerUser?.avatarUrl ? (
+                        <img src={getMediaUrl(ownerUser.avatarUrl)} alt={ownerUser.name || 'Owner'} className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-3 h-3 text-[#FF5A36]" />
+                      )}
+                    </div>
+                    <span className="truncate max-w-[200px]">
+                      Store Owner: <span className="font-bold text-gray-900 group-hover:text-[#FF5A36] transition-colors">{ownerUser?.name || 'View Profile'}</span>
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#FF5A36] transition-transform group-hover:translate-x-0.5 shrink-0" />
+                  </button>
+                </div>
+              )}
+
               {/* Customer Support Phone & Address */}
               <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap mt-2.5">
                 {contactPhone && (
@@ -343,7 +380,7 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
               {/* "All" Category Pill */}
               <button 
                 onClick={() => setSelectedCategoryId(null)}
-                className="relative flex flex-col items-center gap-1.5 min-w-[68px] group transition-transform active:scale-95"
+                className="relative flex flex-col items-center gap-1.5 min-w-[68px] group transition-transform active:scale-95 cursor-pointer"
               >
                 <div className={cn(
                   "w-14 h-14 rounded-2xl border flex items-center justify-center text-xl shadow-sm transition-all", 
@@ -361,42 +398,31 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
                 </span>
               </button>
 
-              {/* Dynamic Categories */}
+              {/* Dynamic Categories: Tapping opens dedicated Category Page with Search & Filters */}
               {categories.map((cat: any) => {
                 const catImg = cat.imageUrl || cat.image;
-                const isSelected = selectedCategoryId === cat.id;
 
                 return (
                   <button 
                     key={cat.id} 
-                    onClick={() => setSelectedCategoryId(isSelected ? null : cat.id)}
+                    onClick={() => router.push(`/store/${storeId}/category/${cat.id}`)}
                     className="relative flex flex-col items-center gap-1.5 min-w-[68px] group transition-transform active:scale-95 cursor-pointer"
+                    title={`Open ${cat.name} Category Page`}
                   >
-                    <div className={cn(
-                      "w-14 h-14 rounded-2xl border flex items-center justify-center shadow-xs overflow-hidden transition-all",
-                      isSelected
-                        ? "border-[#FF5A36] ring-2 ring-[#FF5A36]/25 bg-orange-50/80"
-                        : "border-gray-100 bg-gray-50 hover:bg-gray-100 group-hover:border-gray-300"
-                    )}>
+                    <div className="w-14 h-14 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-gray-100 group-hover:border-[#FF5A36] group-hover:ring-2 group-hover:ring-[#FF5A36]/20 flex items-center justify-center shadow-xs overflow-hidden transition-all">
                       {catImg ? (
                         <img 
                           src={getMediaUrl(catImg)} 
                           alt={cat.name} 
-                          className="w-full h-full object-cover" 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
                         />
                       ) : (
-                        <span className={cn(
-                          "text-xs font-bold uppercase",
-                          isSelected ? "text-[#FF5A36]" : "text-gray-500"
-                        )}>
+                        <span className="text-xs font-bold uppercase text-gray-600 group-hover:text-[#FF5A36]">
                           {cat.name.slice(0, 2)}
                         </span>
                       )}
                     </div>
-                    <span className={cn(
-                      "text-[11px] font-medium text-center truncate w-full max-w-[76px] transition-colors",
-                      isSelected ? "text-[#FF5A36] font-bold" : "text-gray-600 group-hover:text-[#FF5A36]"
-                    )}>
+                    <span className="text-[11px] font-medium text-center truncate w-full max-w-[76px] text-gray-600 group-hover:text-[#FF5A36] group-hover:font-bold transition-colors">
                       {cat.name}
                     </span>
                   </button>

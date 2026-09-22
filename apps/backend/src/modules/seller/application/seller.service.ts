@@ -410,12 +410,28 @@ export class SellerService {
   async getStoreSummary(storeId: string) {
     const store = await prisma.store.findUnique({
       where: { id: storeId },
-      include: { users: true }
+      include: {
+        users: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true,
+                email: true,
+                phone: true,
+                city: true,
+                state: true
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!store) throw new AppError('Store not found', 404);
 
-    const userIds = store.users.map(u => u.userId);
+    const userIds = ((store as any).users || []).map((u: any) => u.userId);
 
     // Aggregate reviews across direct store feedback and all store products
     const reviewStats = await prisma.review.aggregate({
