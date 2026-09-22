@@ -50,9 +50,27 @@ export default function ProductViewClient({ productId, initialData }: { productI
   const router = useRouter();
   const dispatch = useDispatch();
   const { formatPrice } = useCurrency();
-  const user = useSelector((state: any) => state.auth.user);
-  const { data: serverProduct, isLoading: isQueryLoading, isError, refetch: refetchProduct } = useGetProductByIdQuery(productId);
-  const product = serverProduct || initialData;
+  const user = useSelector((state: any) => state.auth?.user);
+
+  // Instant optimistic seed retrieval (from Explore / Feed navigation)
+  const [seedData, setSeedData] = useState<any>(() => {
+    if (initialData) return initialData;
+    if (typeof window !== 'undefined' && window.sessionStorage && productId) {
+      try {
+        const cached = window.sessionStorage.getItem(`lokaya_seed_${productId}`);
+        if (cached) return JSON.parse(cached);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const { data: serverProduct, isLoading: isQueryLoading, isError, refetch: refetchProduct } = useGetProductByIdQuery(productId, {
+    skip: !productId
+  });
+
+  const product = serverProduct || seedData || initialData;
   const isLoading = isQueryLoading && !product;
   const [toggleWishlist, { isLoading: isTogglingWishlist }] = useToggleWishlistMutation();
   const [addToCartAPI] = useAddToCartMutation();

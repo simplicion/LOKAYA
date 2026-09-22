@@ -7,7 +7,7 @@ import { Star, Package } from 'lucide-react';
 import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart, updateQuantity, removeFromCart } from '@/lib/features/cartSlice';
-import { useGetWishlistQuery, useToggleWishlistMutation, useAddToCartMutation } from '@/lib/api';
+import { api, useGetWishlistQuery, useToggleWishlistMutation, useAddToCartMutation } from '@/lib/api';
 import { useCurrency } from '@/context/CurrencyContext';
 import { RootState } from '@/lib/store';
 import { getMediaUrl } from '@/lib/utils';
@@ -206,13 +206,50 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
     }
   };
 
+  const handlePrefetch = () => {
+    if (isPreview || !product?.id) return;
+    try {
+      // 1. Prefetch query into RTK Query memory cache
+      dispatch(api.util.prefetch('getProductById', product.id, { ifOlderThan: 120 }) as any);
+
+      // 2. Seed minimal display fields into session storage for instant 0ms painting
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        const seed = {
+          id: product.id,
+          name: rawTitle,
+          title: rawTitle,
+          imageUrl: rawImage,
+          sellingPrice: typeof product.sellingPrice === 'number' ? product.sellingPrice : Number(product.price) || 0,
+          mrp: product.mrp,
+          price: product.price,
+          discount: product.discount || product.discountLabel,
+          store: product.store,
+          rating: product.rating,
+          reviewsCount: product.reviews,
+          stockCount: stockCount,
+          variants: product.variants || [],
+          media: rawImage ? [{ url: rawImage, type: 'IMAGE', isPrimary: true }] : []
+        };
+        window.sessionStorage.setItem(`lokaya_seed_${product.id}`, JSON.stringify(seed));
+      }
+    } catch {
+      // Ignore background prefetch errors
+    }
+  };
+
   return (
     <Link 
       href={isPreview ? '#' : `/product/${product.id}`} 
+      prefetch={true}
+      onMouseEnter={handlePrefetch}
+      onTouchStart={handlePrefetch}
+      onFocus={handlePrefetch}
       onClick={(e) => {
         if (isPreview) {
           e.preventDefault();
           e.stopPropagation();
+        } else {
+          handlePrefetch();
         }
       }}
       className="flex flex-col bg-white rounded-2xl p-2 border border-[#E5E2DC] shadow-xs hover:shadow-md hover:border-gray-300 transition-all duration-300 relative group cursor-pointer"

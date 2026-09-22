@@ -53,6 +53,7 @@ export interface SocialReelProps {
   isFollowing?: boolean;
   onToggleFollow?: (authorId: string, isNowFollowing: boolean) => void;
   feedType?: 'for-you' | 'following' | 'nearby';
+  isPreloadCandidate?: boolean;
 }
 
 export function SocialReel({
@@ -68,6 +69,7 @@ export function SocialReel({
   status = 'READY',
   isOptimizing = false,
   isActive = true,
+  isPreloadCandidate = false,
   likes,
   likesCount = 0,
   isLikedByMe = false,
@@ -300,15 +302,16 @@ export function SocialReel({
             poster={posterUrl}
             autoPlay={isPlaying}
             isActive={isActive}
+            isPreloadCandidate={isPreloadCandidate}
             muted={isMuted}
             loop
             playsInline
             onTimeUpdate={handleTimeUpdate}
             className="w-full h-full object-cover"
           />
-        ) : (videoUrl || posterUrl) ? (
+        ) : posterUrl ? (
           <img
-            src={getMediaUrl(videoUrl || posterUrl)}
+            src={getMediaUrl(posterUrl)}
             alt={caption || "Reel Content"}
             className="w-full h-full object-cover"
           />

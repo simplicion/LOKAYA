@@ -99,6 +99,21 @@ async function processVideoToFastStartMP4(inputPath: string, outputPath: string)
   });
 }
 
+async function extractVideoPoster(inputPath: string, outputPath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .seekInput('00:00:00.1')
+      .output(outputPath)
+      .outputOptions(['-vframes 1', '-q:v 2'])
+      .on('end', () => resolve(outputPath))
+      .on('error', (err) => {
+        console.warn('[MediaWorker] Poster extraction warning:', err);
+        reject(err);
+      })
+      .run();
+  });
+}
+
 /**
  * Generates low-latency 2-second HLS stream from raw video
  * Target resolutions: 720p and 360p
@@ -187,6 +202,7 @@ export async function processMediaJob(data: MediaJobPayload) {
     await downloadFromS3(BUCKET, fileKey, rawFilePath);
 
     let finalUrl = '';
+    let finalPosterUrl = '';
 
     if (type === 'VIDEO') {
       const duration = await getVideoDuration(rawFilePath);
@@ -201,8 +217,16 @@ export async function processMediaJob(data: MediaJobPayload) {
         const fastStartMp4Path = path.join(tempDir, 'optimized.mp4');
         await processVideoToFastStartMP4(rawFilePath, fastStartMp4Path).catch(() => {});
 
-        // Upload all generated files (.ts, .m3u8, .mp4) to R2
-        const files = fs.readdirSync(tempDir).filter(f => f.endsWith('.ts') || f.endsWith('.m3u8') || f.endsWith('.mp4'));
+        // Generate and upload crisp first-frame poster image
+        const posterLocalPath = path.join(tempDir, 'poster.jpg');
+        try {
+          await extractVideoPoster(rawFilePath, posterLocalPath);
+        } catch (posterGenErr) {
+          console.warn('[MediaWorker] Poster extraction notice:', posterGenErr);
+        }
+
+        // Upload all generated files (.ts, .m3u8, .mp4, .jpg) to R2
+        const files = fs.readdirSync(tempDir).filter(f => f.endsWith('.ts') || f.endsWith('.m3u8') || f.endsWith('.mp4') || f.endsWith('.jpg'));
         console.log(`[MediaWorker] Uploading ${files.length} processed video files to R2...`);
 
         for (const file of files) {
@@ -211,11 +235,15 @@ export async function processMediaJob(data: MediaJobPayload) {
           let contentType = 'video/mp4';
           if (file.endsWith('.m3u8')) contentType = 'application/vnd.apple.mpegurl';
           else if (file.endsWith('.ts')) contentType = 'video/MP2T';
+          else if (file.endsWith('.jpg') || file.endsWith('.jpeg')) contentType = 'image/jpeg';
 
           await uploadToS3(BUCKET, s3Key, filePath, contentType);
         }
 
         finalUrl = `${BASE_URL}/media/stream/processed/videos/${mediaId}/master.m3u8`;
+        if (fs.existsSync(posterLocalPath)) {
+          finalPosterUrl = `${BASE_URL}/media/stream/processed/videos/${mediaId}/poster.jpg`;
+        }
       } catch (ffmpegErr) {
         console.warn(`[MediaWorker] FFmpeg transcoding fallback:`, ffmpegErr);
         // Fallback to streaming raw file via stream proxy
@@ -243,7 +271,8 @@ export async function processMediaJob(data: MediaJobPayload) {
       where: { id: mediaId },
       data: {
         status: 'READY',
-        url: finalUrl || rawUrl || `${BASE_URL}/media/stream/${fileKey}`
+        url: finalUrl || rawUrl || `${BASE_URL}/media/stream/${fileKey}`,
+        ...(finalPosterUrl ? { posterUrl: finalPosterUrl } : {})
       }
     });
 

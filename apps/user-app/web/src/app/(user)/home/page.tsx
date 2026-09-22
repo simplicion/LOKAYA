@@ -62,7 +62,7 @@ export default function SocialHomePage() {
           setVisibleCount((prev) => Math.min(prev + BATCH_LOAD_SIZE, postsToRender.length));
         }
       },
-      { rootMargin: '400px 0px' }
+      { rootMargin: '800px 0px' }
     );
 
     observer.observe(sentinel);

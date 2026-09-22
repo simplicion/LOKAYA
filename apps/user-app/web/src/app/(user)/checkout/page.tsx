@@ -329,8 +329,8 @@ function CheckoutContent() {
   const itemsSubtotal = orderItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
   const platformFee = Math.round(itemsSubtotal * 0.015 * 100) / 100; // 1.5% Total Platform Fee (0.5% convenience + 0.5% handling + 0.5% logistics)
   const prepaidDiscount = paymentMethod === 'ONLINE' ? Math.min(Math.round(itemsSubtotal * 0.05), 100) : 0;
-  const codFee = paymentMethod === 'COD' ? (currency === 'NPR' ? 78 : 49) : 0;
-  const grandTotal = Math.max(0, Math.round((itemsSubtotal + deliveryFee + platformFee - prepaidDiscount + codFee) * 100) / 100);
+  const codFee = 0; // Standardized: No extra COD handling fee
+  const grandTotal = Math.max(0, Math.round((itemsSubtotal + deliveryFee + platformFee - prepaidDiscount) * 100) / 100);
 
   // Address creation handler
   const handleSaveAddress = async (e: React.FormEvent) => {
@@ -381,11 +381,19 @@ function CheckoutContent() {
       // 1. Resolve primary storeId if available (backend automatically resolves from items if omitted)
       const primaryStoreId = orderItems.find((i: any) => i.storeId && i.storeId.length > 10)?.storeId || undefined;
 
-      // Format delivery address string
-      const chosenAddress = addresses.find((a: any) => a.id === selectedAddressId) || addresses[0];
-      const deliveryAddressString = chosenAddress 
-        ? `${chosenAddress.name}, ${chosenAddress.addressLine1}${chosenAddress.addressLine2 ? `, ${chosenAddress.addressLine2}` : ''}, ${chosenAddress.city}, ${chosenAddress.state} - ${chosenAddress.pincode} (Ph: ${chosenAddress.phone})`
-        : 'Default Customer Address';
+      // Format delivery address string with resilient fallback to user address
+      const chosenAddress = addresses.find((a: any) => a.id === selectedAddressId) 
+        || addresses.find((a: any) => a.isDefault) 
+        || addresses[0];
+
+      if (!chosenAddress) {
+        setIsAddressModalOpen(true);
+        toast.error('Please add and select your delivery address to continue');
+        setIsProcessing(false);
+        return;
+      }
+
+      const deliveryAddressString = `${chosenAddress.name}, ${chosenAddress.addressLine1}${chosenAddress.addressLine2 ? `, ${chosenAddress.addressLine2}` : ''}, ${chosenAddress.city}, ${chosenAddress.state} - ${chosenAddress.pincode} (Ph: ${chosenAddress.phone})`;
 
       // 2. Resolve effective payment method (strictly COD if outside India)
       const effectivePaymentMethod = isOnlinePaymentAvailable ? paymentMethod : 'COD';
@@ -711,7 +719,7 @@ function CheckoutContent() {
                   <span className="font-bold text-sm text-gray-900">Cash on Delivery</span>
                   <Banknote className="w-4 h-4 text-gray-400" />
                 </div>
-                <p className="text-xs text-gray-500">Pay cash upon delivery. +{formatPrice(49)} verification & handling fee.</p>
+                <p className="text-xs text-gray-500">Pay cash upon delivery at your doorstep.</p>
               </div>
             </div>
           </div>

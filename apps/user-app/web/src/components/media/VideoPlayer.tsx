@@ -14,6 +14,7 @@ export interface VideoPlayerProps {
   playsInline?: boolean;
   className?: string;
   isActive?: boolean;
+  isPreloadCandidate?: boolean;
   preload?: 'auto' | 'metadata' | 'none';
   onTimeUpdate?: (e: React.SyntheticEvent<HTMLVideoElement>) => void;
   onEnded?: () => void;
@@ -31,6 +32,7 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
   playsInline = true,
   className = 'w-full h-full object-cover',
   isActive = true,
+  isPreloadCandidate = false,
   preload = 'auto',
   onTimeUpdate,
   onEnded,
@@ -41,15 +43,53 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
   const internalVideoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const [hasFirstFrameRendered, setHasFirstFrameRendered] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [posterFailed, setPosterFailed] = useState(false);
 
   // Expose the video element to parent ref
   useImperativeHandle(ref, () => internalVideoRef.current as HTMLVideoElement);
 
+  // Ensure poster is a genuine image URL, NEVER an HLS .m3u8 manifest or video stream
+  const isValidPoster = (url?: string): boolean => {
+    if (!url) return false;
+    const clean = url.toLowerCase().split('?')[0];
+    if (
+      clean.endsWith('.m3u8') ||
+      clean.endsWith('.mp4') ||
+      clean.endsWith('.ts') ||
+      clean.endsWith('.mov') ||
+      clean.endsWith('.webm') ||
+      clean.includes('/processed/videos/') ||
+      clean.includes('/master')
+    ) {
+      return false;
+    }
+    return true;
+  };
+
   const cleanSrc = getMediaUrl(src);
-  const cleanPoster = poster ? getMediaUrl(poster) : undefined;
+  const cleanPoster = isValidPoster(poster) ? getMediaUrl(poster) : undefined;
   const isHlsSource = Boolean(cleanSrc && (cleanSrc.includes('.m3u8') || cleanSrc.includes('/master') || cleanSrc.includes('/720p')));
 
+  // Use refs for isActive and autoPlay so media listeners don't re-trigger setup effect
+  const isActiveRef = useRef(isActive);
+  const autoPlayRef = useRef(autoPlay);
+  useEffect(() => {
+    isActiveRef.current = isActive;
+    autoPlayRef.current = autoPlay;
+  }, [isActive, autoPlay]);
+
+  // Reset states when the media source changes
+  useEffect(() => {
+    setPosterFailed(false);
+    setHasFirstFrameRendered(false);
+    setIsVideoReady(false);
+  }, [cleanSrc, cleanPoster]);
+
+  // Core setup: Initialized ONCE per cleanSrc.
+  // CRITICAL: isActive and isPreloadCandidate MUST NOT be dependencies here,
+  // otherwise scrolling destroys HLS instances, wiping the video buffer and causing black screens!
   useEffect(() => {
     const video = internalVideoRef.current;
     if (!video || !cleanSrc) return;
@@ -60,16 +100,32 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
     const handleReady = () => {
       if (!destroyed) {
         setIsVideoReady(true);
-        if (isActive && autoPlay && video.paused) {
+        if (isActiveRef.current && autoPlayRef.current) {
           video.play().catch(() => {});
+        } else {
+          video.pause();
         }
+      }
+    };
+
+    const handleFirstFrame = () => {
+      if (!destroyed && video.currentTime > 0.01) {
+        setHasFirstFrameRendered(true);
       }
     };
 
     video.addEventListener('loadeddata', handleReady);
     video.addEventListener('canplay', handleReady);
+    video.addEventListener('timeupdate', handleFirstFrame);
     video.addEventListener('playing', () => {
-      if (!destroyed) setIsVideoReady(true);
+      if (!destroyed) {
+        setIsVideoReady(true);
+        if (!isActiveRef.current) {
+          video.pause();
+        } else if (video.currentTime > 0.01) {
+          setHasFirstFrameRendered(true);
+        }
+      }
     });
 
     // Clean up previous HLS instance if any
@@ -83,12 +139,12 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
-          backBufferLength: 4,
-          maxBufferLength: 8,
-          maxMaxBufferLength: 14,
-          startFragPrefetch: false,
+          backBufferLength: 6,
+          maxBufferLength: 10,
+          maxMaxBufferLength: 16,
+          startFragPrefetch: true,
           progressive: true,
-          autoStartLoad: isActive,
+          autoStartLoad: Boolean(isActiveRef.current || isPreloadCandidate),
         });
 
         hlsRef.current = hls;
@@ -96,8 +152,12 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (!destroyed && isActive && autoPlay) {
-            video.play().catch(() => {});
+          if (!destroyed) {
+            if (isActiveRef.current && autoPlayRef.current) {
+              video.play().catch(() => {});
+            } else {
+              video.pause();
+            }
           }
         });
 
@@ -133,14 +193,15 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
       destroyed = true;
       video.removeEventListener('loadeddata', handleReady);
       video.removeEventListener('canplay', handleReady);
+      video.removeEventListener('timeupdate', handleFirstFrame);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
     };
-  }, [cleanSrc, isHlsSource, isActive, autoPlay]);
+  }, [cleanSrc, isHlsSource]);
 
-  // Handle active playback state when user scrolls into/out of viewport
+  // Handle active playback state when user scrolls into/out of viewport or item becomes preload candidate
   useEffect(() => {
     const video = internalVideoRef.current;
     if (!video) return;
@@ -153,14 +214,24 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
         video.play().catch(() => {});
       }
     } else {
-      if (hlsRef.current) {
-        hlsRef.current.stopLoad();
-      }
+      // STRICT: Any non-active video MUST be paused immediately
+      // The video element remains frozen on its decoded frame — ZERO black flash
       if (!video.paused) {
         video.pause();
       }
+      if (isPreloadCandidate) {
+        // Speculatively load first segment into memory while strictly keeping playback paused
+        if (hlsRef.current) {
+          hlsRef.current.startLoad(0);
+        }
+      } else {
+        // Distant item: stop loading fragments to save bandwidth & memory
+        if (hlsRef.current) {
+          hlsRef.current.stopLoad();
+        }
+      }
     }
-  }, [isActive, autoPlay]);
+  }, [isActive, isPreloadCandidate, autoPlay]);
 
   // Reactive sound toggle synchronization across global feed
   useEffect(() => {
@@ -172,36 +243,45 @@ export const VideoPlayer = memo(forwardRef<HTMLVideoElement, VideoPlayerProps>(f
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black flex items-center justify-center" onClick={onClick}>
-      {/* Poster Image Background for instant 0ms visual presence */}
-      {cleanPoster && (
-        <img
-          src={cleanPoster}
-          alt="Video Preview"
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 pointer-events-none ${
-            isVideoReady ? 'opacity-0' : 'opacity-100'
-          }`}
-        />
-      )}
-
       {/* Video Element */}
       <video
         ref={internalVideoRef}
         poster={cleanPoster}
-        autoPlay={autoPlay}
+        autoPlay={Boolean(autoPlay && isActive)}
         muted={muted}
         loop={loop}
         playsInline={playsInline}
         preload={preload}
-        onTimeUpdate={onTimeUpdate}
+        onTimeUpdate={(e) => {
+          if (!hasFirstFrameRendered && (e.currentTarget.currentTime > 0.01)) {
+            setHasFirstFrameRendered(true);
+          }
+          if (onTimeUpdate) onTimeUpdate(e);
+        }}
         onEnded={onEnded}
         onPlay={onPlay}
         onPause={onPause}
         className={className}
       />
 
+      {/* Poster Image Overlay on top (z-10): 
+           - Stays visible until the video's first frame is actively decoding to prevent any black screen flash
+           - Once first frame renders, fades to opacity-0 permanently for this source
+           - Paused videos stay on their last decoded frame without re-covering with black */}
+      {cleanPoster && !posterFailed && (
+        <img
+          src={cleanPoster}
+          alt=""
+          onError={() => setPosterFailed(true)}
+          className={`absolute inset-0 w-full h-full object-cover pointer-events-none z-10 transition-opacity duration-200 ${
+            hasFirstFrameRendered ? 'opacity-0' : 'opacity-100'
+          }`}
+        />
+      )}
+
       {/* Loading Pulse only if no poster is available and video isn't ready */}
-      {!isVideoReady && !hasError && !cleanPoster && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
+      {!isVideoReady && !hasError && !cleanPoster && !hasFirstFrameRendered && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none z-20">
           <Loader2 className="w-8 h-8 animate-spin text-[#FF5A36]/80" />
         </div>
       )}

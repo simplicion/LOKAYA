@@ -418,7 +418,7 @@ function ReelsContent() {
         return (
           <div key={reel.id} className="w-full h-[100dvh] snap-start relative">
             {isWithinWindow ? (
-              <SocialReel {...reel} isActive={isActive} />
+              <SocialReel {...reel} isActive={isActive} isPreloadCandidate={!isActive} />
             ) : (
               <div className="w-full h-full bg-black flex items-center justify-center">
                 {reel.posterUrl && (

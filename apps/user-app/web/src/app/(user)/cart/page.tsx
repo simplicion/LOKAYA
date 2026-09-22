@@ -419,34 +419,7 @@ export default function CartPage() {
             </div>
           )}
 
-          {/* Free Delivery Gamified Progress Banner */}
-          <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-[#E5E2DC] shadow-[0_2px_12px_-4px_rgba(0,0,0,0.03)] relative overflow-hidden">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs sm:text-sm text-[#171717] font-semibold flex items-center gap-1.5">
-                {isFreeDelivery ? (
-                  <span className="text-[#16845B] font-extrabold flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-[#16845B]" /> 
-                    You've unlocked FREE Express Delivery!
-                  </span>
-                ) : (
-                  <>
-                    Add <span className="font-extrabold text-[#FF5A36]">{formatPrice(amountForFreeDelivery)}</span> more for <span className="text-[#16845B] font-extrabold">FREE Delivery</span>
-                  </>
-                )}
-              </p>
-              <div className="flex items-center gap-1 text-[11px] font-extrabold text-[#6B6B6B] bg-[#FAF9F6] px-2 py-0.5 rounded-lg border border-[#E5E2DC]">
-                <Truck className="w-3.5 h-3.5 text-[#FF5A36]" />
-                <span>{formatPrice(999)} threshold</span>
-              </div>
-            </div>
-            
-            <div className="w-full h-2 bg-[#F2EFE9] rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-[#FF5A36] to-[#16845B] rounded-full transition-all duration-500 ease-out" 
-                style={{ width: `${Math.min(100, (subtotal / freeDeliveryThreshold) * 100)}%` }}
-              />
-            </div>
-          </div>
+
 
           {/* Store Groups */}
           {Object.entries(itemsByStore).map(([storeId, storeGroup]) => (

@@ -54,6 +54,7 @@ export interface SocialPostProps {
     originalPrice?: string;
     discount?: string;
   };
+  isPreloadCandidate?: boolean;
 }
 
 export function SocialPost({
@@ -64,21 +65,22 @@ export function SocialPost({
   storeAvatar,
   isVerified,
   timeAgo,
-  media,
+  createdAt,
+  media = [],
   likes,
-  likesCount = 0,
+  likesCount,
   isLikedByMe = false,
   isSavedByMe = false,
   comments,
   shares,
   caption,
-  hashtags,
+  hashtags = [],
   likedByText,
   likedByAvatars,
   product,
-  createdAt,
   isReel = false,
   contentType = 'POST',
+  isPreloadCandidate: propIsPreloadCandidate,
 }: SocialPostProps) {
   const router = useRouter();
   const currentUser = useSelector((state: RootState) => state.auth.user);
@@ -90,24 +92,61 @@ export function SocialPost({
   // Scroll visibility observer for automatic video play/pause
   const mediaContainerRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
+  const [isPrewarmed, setIsPrewarmed] = useState(false);
 
+  // Exclusive single-video lock: listen for other posts claiming active status
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.postId !== id) {
+        setIsInView(false);
+      }
+    };
+    window.addEventListener('lokaya:active-video', handler);
+    return () => {
+      window.removeEventListener('lokaya:active-video', handler);
+    };
+  }, [id]);
+
+  // Dual-zone intersection observers
   useEffect(() => {
     const el = mediaContainerRef.current;
     if (!el) return;
 
-    const observer = new IntersectionObserver(
+    // Advance pre-warm observer (450px ahead of viewport) for zero-latency video/carousel buffering
+    const prewarmObserver = new IntersectionObserver(
       ([entry]) => {
-        // Autoplay when at least 45% of the post media is in the active viewport
-        setIsInView(entry.isIntersecting && entry.intersectionRatio >= 0.45);
+        setIsPrewarmed(entry.isIntersecting);
       },
       {
-        threshold: [0, 0.25, 0.45, 0.7, 1.0],
+        rootMargin: '450px 0px 450px 0px',
       }
     );
 
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+    // Active playback observer with exclusive single-video lock
+    const activeObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.45) {
+          setIsInView(true);
+          // Broadcast exclusive claim: all other posts must pause
+          window.dispatchEvent(new CustomEvent('lokaya:active-video', { detail: { postId: id } }));
+        } else if (!entry.isIntersecting || entry.intersectionRatio < 0.2) {
+          setIsInView(false);
+        }
+      },
+      {
+        threshold: [0, 0.2, 0.45, 0.7, 1.0],
+      }
+    );
+
+    prewarmObserver.observe(el);
+    activeObserver.observe(el);
+
+    return () => {
+      prewarmObserver.disconnect();
+      activeObserver.disconnect();
+    };
+  }, [id]);
 
   const displayTime = timeAgo && timeAgo !== 'Recently' ? timeAgo : formatTimeAgo(createdAt || timeAgo);
 
@@ -376,6 +415,7 @@ export function SocialPost({
                     poster={m.posterUrl}
                     autoPlay={true}
                     isActive={isInView && currentMediaIndex === idx}
+                    isPreloadCandidate={propIsPreloadCandidate || isPrewarmed || Math.abs(currentMediaIndex - idx) <= 1}
                     muted={isMuted}
                     loop={true}
                     playsInline={true}
@@ -385,7 +425,7 @@ export function SocialPost({
                   <img
                     src={getMediaUrl(m.url)}
                     alt={`Post Media ${idx + 1}`}
-                    loading="lazy"
+                    loading={idx === 0 ? "eager" : "lazy"}
                     decoding="async"
                     className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                   />

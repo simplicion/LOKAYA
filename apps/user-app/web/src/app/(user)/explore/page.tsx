@@ -17,7 +17,8 @@ import {
 import { ProductCard } from '@/components/ProductCard';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 import { BannerMediaItem } from '@/components/banner/BannerMediaItem';
-import { useGetBannersQuery, useGetPublicProductsQuery } from '@/lib/api';
+import { api, useGetBannersQuery, useGetPublicProductsQuery } from '@/lib/api';
+import { useDispatch } from 'react-redux';
 import { cn, getMediaUrl } from '@/lib/utils';
 
 
@@ -30,6 +31,7 @@ const SORT_OPTIONS = [
 
 export default function ExplorePage() {
   const router = useRouter();
+  const dispatch = useDispatch();
   const [activeBannerIndex, setActiveBannerIndex] = useState(0);
   const [selectedSort, setSelectedSort] = useState('newest');
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -42,6 +44,22 @@ export default function ExplorePage() {
   const { data: products = [], isLoading: isProductsLoading } = useGetPublicProductsQuery({
     sort: selectedSort,
   });
+
+  // Background idle prefetching of top 4 visible products (Amazon / Flipkart pattern)
+  useEffect(() => {
+    if (products && products.length > 0) {
+      const topProducts = products.slice(0, 4);
+      topProducts.forEach((p: any) => {
+        if (p?.id) {
+          try {
+            dispatch(api.util.prefetch('getProductById', p.id, { ifOlderThan: 180 }) as any);
+          } catch {
+            // Ignore idle prefetch errors
+          }
+        }
+      });
+    }
+  }, [products, dispatch]);
 
   // Dynamically derive trending tags from live catalog products without hardcoded mock tags
   const trendingTags = React.useMemo(() => {

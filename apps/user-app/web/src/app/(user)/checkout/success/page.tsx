@@ -9,13 +9,13 @@ import {
   ShoppingBag, 
   ArrowRight, 
   Copy, 
-  Check, 
-  Store, 
-  ShieldCheck, 
+  Check,
+  Store,
+  ShieldCheck,
   Package 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useGetOrderQuery } from '@/lib/api';
+import { useGetOrderQuery, useGetAddressesQuery } from '@/lib/api';
 import { useCurrency } from '@/context/CurrencyContext';
 import { 
   motion, 
@@ -35,6 +35,17 @@ function OrderSuccessContent() {
   const { data: order, isLoading } = useGetOrderQuery(orderId || '', {
     skip: !orderId,
   });
+
+  const { data: addresses = [] } = useGetAddressesQuery(undefined);
+  const defaultAddress = addresses.find((a: any) => a.isDefault) || addresses[0];
+
+  const resolvedRealAddressString = defaultAddress
+    ? `${defaultAddress.name}, ${defaultAddress.addressLine1}${defaultAddress.addressLine2 ? `, ${defaultAddress.addressLine2}` : ''}, ${defaultAddress.city}, ${defaultAddress.state} - ${defaultAddress.pincode} (Ph: ${defaultAddress.phone})`
+    : null;
+
+  const displayShippingAddress = (order?.deliveryAddress && !order.deliveryAddress.toLowerCase().includes('default customer address'))
+    ? order.deliveryAddress
+    : (resolvedRealAddressString || order?.deliveryAddress || 'Doorstep Delivery Address');
 
   useEffect(() => {
     triggerCelebrationConfetti();
@@ -215,7 +226,7 @@ function OrderSuccessContent() {
                     Shipping Address
                   </span>
                   <p className="font-medium whitespace-pre-line leading-relaxed text-gray-800">
-                    {order.deliveryAddress}
+                    {displayShippingAddress}
                   </p>
                 </div>
               </div>

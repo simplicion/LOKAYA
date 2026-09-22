@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { Trash2, Plus, Minus, Heart, Sparkles, Check, AlertCircle, Package } from 'lucide-react';
-import { useToggleWishlistMutation } from '@/lib/api';
+import { useToggleWishlistMutation, useGetWishlistQuery } from '@/lib/api';
 import { useCurrency } from '@/context/CurrencyContext';
 import { toast } from 'sonner';
 
@@ -44,8 +44,19 @@ export function CartProductCard({
   const router = useRouter();
   const user = useSelector((state: RootState) => (state as any).auth?.user);
   const { formatPrice } = useCurrency();
+  const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: !user });
   const [toggleWishlist, { isLoading: isWishlisting }] = useToggleWishlistMutation();
-  const [isSaved, setIsSaved] = useState(false);
+
+  const isServerSaved = React.useMemo(() => {
+    if (!wishlistData?.data || !productId) return false;
+    return wishlistData.data.some((item: any) => item.productId === productId || item.product?.id === productId);
+  }, [wishlistData, productId]);
+
+  const [isSaved, setIsSaved] = useState(isServerSaved);
+
+  useEffect(() => {
+    setIsSaved(isServerSaved);
+  }, [isServerSaved]);
 
   const safeImageUrl = imageUrl && imageUrl.trim() !== '' ? imageUrl : '';
 
@@ -61,15 +72,21 @@ export function CartProductCard({
 
     if (!productId) {
       toast.info('Item saved to wishlist');
-      setIsSaved(true);
+      setIsSaved(prev => !prev);
       return;
     }
+
+    // Instant Optimistic Update
+    const nextSaved = !isSaved;
+    setIsSaved(nextSaved);
+    toast.success(nextSaved ? 'Saved to wishlist for later' : 'Removed from wishlist');
+
     try {
       await toggleWishlist({ productId }).unwrap();
-      setIsSaved(prev => !prev);
-      toast.success(isSaved ? 'Removed from wishlist' : 'Saved to wishlist for later');
     } catch {
-      toast.error('Sign in to sync wishlist');
+      // Revert if API failed
+      setIsSaved(!nextSaved);
+      toast.error('Failed to sync wishlist. Please try again.');
     }
   };
 
