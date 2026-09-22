@@ -76,12 +76,15 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const convertPrice = useCallback(
-    (amount: number | null | undefined, fromCurrency = 'INR'): number => {
+    (amount: number | null | undefined, fromCurrency?: string): number => {
       if (amount === null || amount === undefined || isNaN(amount)) return 0;
-      if (fromCurrency === currency) return amount;
+      if (!fromCurrency) return amount;
+      const from = fromCurrency.toUpperCase();
+      const to = currency.toUpperCase();
+      if (from === to) return amount;
 
-      const fromRate = rates[fromCurrency] || DEFAULT_RATES[fromCurrency] || 1.0;
-      const toRate = rates[currency] || DEFAULT_RATES[currency] || 1.0;
+      const fromRate = rates[from] || DEFAULT_RATES[from] || 1.0;
+      const toRate = rates[to] || DEFAULT_RATES[to] || 1.0;
 
       const inBase = amount / fromRate;
       return inBase * toRate;
@@ -90,11 +93,11 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   );
 
   const formatPrice = useCallback(
-    (amount: number | null | undefined, fromCurrency = 'INR'): string => {
+    (amount: number | null | undefined, fromCurrency?: string): string => {
       if (amount === null || amount === undefined || isNaN(amount)) {
         return `${currencySymbol}0`;
       }
-      const converted = convertPrice(amount, fromCurrency);
+      const converted = fromCurrency ? convertPrice(amount, fromCurrency) : amount;
       if (currency === 'INR' || currency === 'NPR') {
         return `${currencySymbol}${Math.round(converted).toLocaleString()}`;
       }

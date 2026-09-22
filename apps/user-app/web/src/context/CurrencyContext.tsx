@@ -146,8 +146,9 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 4. Convert price numeric calculation from live exchange rates
   const convertPrice = useCallback(
-    (amount: number | null | undefined, fromCurrency = 'INR'): number => {
+    (amount: number | null | undefined, fromCurrency?: string): number => {
       if (amount === null || amount === undefined || isNaN(amount)) return 0;
+      if (!fromCurrency) return amount;
       const from = fromCurrency.toUpperCase();
       const to = currency.toUpperCase();
 
@@ -164,12 +165,12 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 5. Presentment Formatter for UI
   const formatPrice = useCallback(
-    (amount: number | null | undefined, fromCurrency = 'INR'): string => {
+    (amount: number | null | undefined, fromCurrency?: string): string => {
       if (amount === null || amount === undefined || isNaN(amount)) {
         return `${currencySymbol}0`;
       }
 
-      const converted = convertPrice(amount, fromCurrency);
+      const converted = fromCurrency ? convertPrice(amount, fromCurrency) : amount;
 
       // Clean integer formatting for INR and NPR retail norms
       if (currency === 'INR' || currency === 'NPR') {
