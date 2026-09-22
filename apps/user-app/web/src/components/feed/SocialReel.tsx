@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { MoreHorizontal, Heart, MessageCircle, Send, Play, Volume2, VolumeX, Check, CheckCircle2 } from 'lucide-react';
 import { ProductOverlayCard } from './ProductOverlayCard';
 import { CommentsBottomSheet } from '../ui/CommentsBottomSheet';
@@ -81,6 +82,7 @@ export function SocialReel({
   onToggleFollow,
   feedType,
 }: SocialReelProps) {
+  const router = useRouter();
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isAuthor = Boolean(currentUser?.id && authorId && currentUser.id === authorId);
   const showOptimizingBadge = isAuthor && (status === 'PROCESSING' || status === 'PENDING' || isOptimizing);
@@ -164,6 +166,13 @@ export function SocialReel({
         clearTimeout(clickTimeoutRef.current);
         clickTimeoutRef.current = null;
       }
+
+      if (!currentUser) {
+        toast.error('Please sign in to like this reel');
+        router.push('/login');
+        return;
+      }
+
       setShowHeartPop(true);
       setTimeout(() => setShowHeartPop(false), 750);
 
@@ -199,6 +208,13 @@ export function SocialReel({
 
   const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    if (!currentUser) {
+      toast.error('Please sign in to like this reel');
+      router.push('/login');
+      return;
+    }
+
     if (isLikingRef.current) return;
     isLikingRef.current = true;
 
@@ -226,6 +242,13 @@ export function SocialReel({
 
   const handleToggleFollow = async (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    if (!currentUser) {
+      toast.error('Please sign in to follow');
+      router.push('/login');
+      return;
+    }
+
     const next = !isFollowing;
     setIsFollowing(next);
     if (authorId && onToggleFollow) {

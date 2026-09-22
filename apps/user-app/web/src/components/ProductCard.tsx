@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Star, Package } from 'lucide-react';
 import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { useDispatch, useSelector } from 'react-redux';
@@ -40,6 +41,7 @@ export interface ProductCardProps {
 }
 
 export function ProductCard({ product, isPreview = false }: ProductCardProps) {
+  const router = useRouter();
   const dispatch = useDispatch();
   const { formatPrice } = useCurrency();
   const cartItems = useSelector((state: RootState) => state.cart.items);
@@ -135,6 +137,13 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!user) {
+      toast.error('Please sign in to save items to your wishlist');
+      router.push('/login');
+      return;
+    }
+
     if (isPreview) {
       toast.info('Preview mode: Wishlist is disabled');
       return;
@@ -149,6 +158,12 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!user) {
+      toast.error('Please sign in to add items to your cart');
+      router.push('/login');
+      return;
+    }
 
     if (isPreview) {
       toast.info('Preview mode: Add to bag is disabled');

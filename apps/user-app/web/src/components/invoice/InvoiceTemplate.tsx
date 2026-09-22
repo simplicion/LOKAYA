@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
+import { getMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface InvoiceItem {
@@ -158,7 +159,7 @@ export function InvoiceTemplate({ invoice, onBack, showActions = true }: Invoice
             {invoice.store.logoUrl ? (
               <div className="w-12 h-12 rounded-xl overflow-hidden bg-white relative border border-gray-700 shrink-0">
                 <Image 
-                  src={invoice.store.logoUrl} 
+                  src={getMediaUrl(invoice.store.logoUrl)} 
                   alt={invoice.store.name} 
                   fill 
                   className="object-cover" 

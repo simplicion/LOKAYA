@@ -39,12 +39,17 @@ export function FloatingCartBar() {
     prevTotalItems.current = totalItems;
   }, [totalItems]);
 
-  // Hide on cart, checkout, order success and full-screen reels
+  // Hide on cart, checkout, order success, reels, search, and profile pages
   const isExcludedPage = 
     pathname?.startsWith('/cart') || 
     pathname?.startsWith('/checkout') || 
     pathname?.startsWith('/order-success') || 
-    pathname?.startsWith('/home/reels');
+    pathname?.startsWith('/home/reels') ||
+    pathname?.startsWith('/reel') ||
+    pathname?.startsWith('/search') ||
+    pathname?.startsWith('/profile') ||
+    pathname?.startsWith('/user') ||
+    pathname?.startsWith('/seller');
 
   if (totalItems === 0 || isExcludedPage || isDismissed) {
     return null;

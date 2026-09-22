@@ -16,6 +16,8 @@ import {
   useSendStorePartnerRequestMutation
 } from '@/lib/api';
 import { toast } from 'sonner';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/lib/store';
 
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 
@@ -24,6 +26,7 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const resolvedParams = use(params);
   const storeId = (routeParams?.id as string) || resolvedParams?.id || '';
   const router = useRouter();
+  const currentUser = useSelector((state: RootState) => (state as any).auth?.user);
   
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -48,6 +51,12 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const [sendPartnerRequest, { isLoading: isPartnering }] = useSendStorePartnerRequestMutation();
 
   const handlePartnerRequest = async () => {
+    if (!currentUser) {
+      toast.error('Please sign in to send partner requests');
+      router.push('/login');
+      return;
+    }
+
     try {
       await sendPartnerRequest({ storeId }).unwrap();
       toast.success('Partner request sent to store owner!');
@@ -60,6 +69,12 @@ export default function StoreProfilePage({ params }: { params: Promise<{ id: str
   const currentFollowersCount = Math.max(0, (followData?.followersCount ?? storeSummary?.followersCount ?? 0) + followersDelta);
 
   const handleToggleFollow = async () => {
+    if (!currentUser) {
+      toast.error('Please sign in to follow stores');
+      router.push('/login');
+      return;
+    }
+
     const nextState = !activeFollowing;
     setIsFollowing(nextState);
     setFollowersDelta(prev => prev + (nextState ? 1 : -1));

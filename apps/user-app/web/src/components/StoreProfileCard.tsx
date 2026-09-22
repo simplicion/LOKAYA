@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { BadgeCheck, MapPin, Star, Users } from 'lucide-react';
 import { Button } from './ui/button';
+import { getMediaUrl } from '@/lib/utils';
 
 interface StoreProfileCardProps {
   type: 'user' | 'store';
@@ -16,7 +17,7 @@ export function StoreProfileCard({ type, data }: StoreProfileCardProps) {
           {/* Avatar */}
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden border-2 border-primary/20">
             {data.avatarUrl ? (
-              <img src={data.avatarUrl} alt={data.name} className="w-full h-full object-cover" />
+              <img src={getMediaUrl(data.avatarUrl)} alt={data.name} className="w-full h-full object-cover" />
             ) : (
               <span className="text-xl font-bold text-primary">
                 {data.name?.charAt(0)?.toUpperCase()}
@@ -77,7 +78,7 @@ export function StoreProfileCard({ type, data }: StoreProfileCardProps) {
         {/* Avatar */}
         <div className="w-16 h-16 rounded-xl bg-orange-50 flex items-center justify-center shrink-0 overflow-hidden border border-orange-100">
           {data.logoUrl ? (
-            <img src={data.logoUrl} alt={data.name} className="w-full h-full object-cover" />
+            <img src={getMediaUrl(data.logoUrl)} alt={data.name} className="w-full h-full object-cover" />
           ) : (
             <span className="text-xl font-bold text-[#FF5A36]">
               {data.name?.charAt(0)?.toUpperCase()}

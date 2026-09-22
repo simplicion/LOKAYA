@@ -189,6 +189,12 @@ export function SocialPost({
   }, [isSavedByMe]);
 
   const triggerLike = async () => {
+    if (!currentUser) {
+      toast.error('Please sign in to like this post');
+      router.push('/login');
+      return;
+    }
+
     setShowHeartPop(true);
     setTimeout(() => setShowHeartPop(false), 750);
 
@@ -249,6 +255,12 @@ export function SocialPost({
   };
 
   const handleToggleLike = async () => {
+    if (!currentUser) {
+      toast.error('Please sign in to like this post');
+      router.push('/login');
+      return;
+    }
+
     if (isLikingRef.current) return;
     isLikingRef.current = true;
 
@@ -276,6 +288,12 @@ export function SocialPost({
   };
 
   const handleToggleSave = async () => {
+    if (!currentUser) {
+      toast.error('Please sign in to save this post');
+      router.push('/login');
+      return;
+    }
+
     if (isSavingRef.current) return;
     isSavingRef.current = true;
 

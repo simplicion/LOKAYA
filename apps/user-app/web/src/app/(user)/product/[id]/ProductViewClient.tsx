@@ -192,6 +192,11 @@ export default function ProductViewClient({ productId, initialData }: { productI
 
   const handleWishlist = async () => {
     if (!product?.id) return;
+    if (!user) {
+      toast.error('Please sign in to save items to your wishlist');
+      router.push('/login');
+      return;
+    }
     setIsWishlisted(prev => !prev);
     try {
       await toggleWishlist({ productId: product.id }).unwrap();
@@ -203,6 +208,12 @@ export default function ProductViewClient({ productId, initialData }: { productI
 
   const handleAddToCart = async () => {
     if (!product?.id) return;
+
+    if (!user) {
+      toast.error('Please sign in to add items to your cart');
+      router.push('/login');
+      return;
+    }
 
     if (!inStock) {
       toast.error('This product is currently out of stock');
@@ -245,6 +256,12 @@ export default function ProductViewClient({ productId, initialData }: { productI
   };
 
   const handleBuyNow = () => {
+    if (!user) {
+      toast.error('Please sign in to complete your purchase');
+      router.push('/login');
+      return;
+    }
+
     if (!inStock) {
       toast.error('This product is currently out of stock');
       return;
@@ -406,7 +423,7 @@ export default function ProductViewClient({ productId, initialData }: { productI
                 {media.type === 'VIDEO' ? (
                   <div className="relative w-full h-full bg-black flex items-center justify-center">
                     <video 
-                      src={media.url} 
+                      src={getMediaUrl(media.url)} 
                       playsInline 
                       muted={isMuted}
                       autoPlay={idx === activeMediaIndex}
@@ -428,7 +445,7 @@ export default function ProductViewClient({ productId, initialData }: { productI
                   </div>
                 ) : (
                   <img 
-                    src={media.url} 
+                    src={getMediaUrl(media.url)} 
                     alt={`${product.name} slide ${idx + 1}`} 
                     className="w-full h-full object-cover select-none"
                     loading={idx === 0 ? "eager" : "lazy"}
@@ -518,7 +535,7 @@ export default function ProductViewClient({ productId, initialData }: { productI
               {item.type === 'VIDEO' ? (
                 <div className="relative w-full h-full bg-gray-900 flex items-center justify-center">
                   <video 
-                    src={item.url} 
+                    src={getMediaUrl(item.url)} 
                     muted 
                     playsInline 
                     preload="metadata" 
@@ -532,7 +549,7 @@ export default function ProductViewClient({ productId, initialData }: { productI
                 </div>
               ) : (
                 <img 
-                  src={item.url} 
+                  src={getMediaUrl(item.url)} 
                   alt={`Thumbnail ${idx + 1}`} 
                   className="w-full h-full object-cover" 
                 />
@@ -769,7 +786,14 @@ export default function ProductViewClient({ productId, initialData }: { productI
           
           <Button
             size="sm"
-            onClick={() => setIsReviewBottomSheetOpen(true)}
+            onClick={() => {
+              if (!user) {
+                toast.error('Please sign in to write a review');
+                router.push('/login');
+                return;
+              }
+              setIsReviewBottomSheetOpen(true);
+            }}
             className="rounded-xl bg-[#FF5A36] hover:bg-[#E04B28] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 h-9 px-3.5 transition-transform active:scale-95 cursor-pointer"
           >
             <PenLine className="w-3.5 h-3.5" />

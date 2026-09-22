@@ -20,7 +20,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { cn } from '@/lib/utils';
+import { cn, getMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useGetShareRecipientsQuery, useSendDirectShareMutation } from '@/lib/api';
 import { useSelector } from 'react-redux';
@@ -300,7 +300,7 @@ export function ShareBottomSheet({
                       <div className="w-full h-full rounded-full bg-white overflow-hidden flex items-center justify-center border border-white">
                         {recipient.avatarUrl ? (
                           <img
-                            src={recipient.avatarUrl}
+                            src={getMediaUrl(recipient.avatarUrl)}
                             alt={recipient.name}
                             className="w-full h-full object-cover"
                           />

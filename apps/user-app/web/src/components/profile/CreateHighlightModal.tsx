@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { X, Check, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
 import { useCreateHighlightMutation } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, getMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface CreateHighlightModalProps {
@@ -145,7 +145,7 @@ export function CreateHighlightModal({
                         isSelected ? "border-[#FF5A36] shadow-sm scale-[0.98]" : "border-transparent"
                       )}
                     >
-                      <img src={story.mediaUrl} alt="Story thumbnail" className="w-full h-full object-cover" />
+                      <img src={getMediaUrl(story.mediaUrl)} alt="Story thumbnail" className="w-full h-full object-cover" />
                       
                       <div className="absolute top-1.5 right-1.5">
                         <div className={cn(

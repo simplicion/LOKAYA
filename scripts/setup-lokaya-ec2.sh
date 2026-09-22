@@ -71,6 +71,7 @@ CLIENT_URL=https://lokaya.shop
 FRONTEND_URL=https://lokaya.shop,https://www.lokaya.shop,https://admin.lokaya.shop,http://localhost:3101
 ADMIN_URL=https://admin.lokaya.shop
 APP_BASE_URL=https://api.lokaya.shop
+BACKEND_API_URL=https://api.lokaya.shop/api/v1
 
 ADMIN_EMAIL=admin@lokaya.shop
 ADMIN_PASSWORD=AdminPassword123!

@@ -9,12 +9,19 @@ import { toast } from 'sonner';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAddProductMutation, useGetMyStoreQuery, useGetPresignedUrlMutation, useUploadMediaMutation, useGetStoreCategoriesQuery, useCreateCategoryMutation } from '@/lib/api';
 import { Dropdown } from '@/components/ui/dropdown';
-import { getMediaUrl, generateStandardSku } from '@/lib/utils';
+import { getMediaUrl, generateStandardSku, isVideoMedia } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 import { useCurrency } from '@/context/CurrencyContext';
 import { AiStudioBottomSheet } from '@/components/seller/AiStudioBottomSheet';
+import { 
+  useGetMyStoreQuery, 
+  useGetStoreCategoriesQuery, 
+  useAddProductMutation, 
+  useCreateCategoryMutation, 
+  useUploadMediaMutation, 
+  useGetPresignedUrlMutation 
+} from '@/lib/api';
 const variantSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'Variant name is required'),
@@ -265,8 +272,8 @@ export default function ManualAddProductPage() {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`File ${file.name} is too large. Max size is 5MB.`);
+      if (file.size > 25 * 1024 * 1024) {
+        toast.error(`File ${file.name} is too large. Max size is 25MB.`);
         continue;
       }
 
@@ -501,7 +508,7 @@ export default function ManualAddProductPage() {
               />
               <Upload className="w-8 h-8 mb-3 text-brand-orange" />
               <span className="text-sm font-semibold text-brand-navy">Tap to upload</span>
-              <span className="text-xs text-gray-400 mt-1">Up to 5 files (Max 5MB each)</span>
+              <span className="text-xs text-gray-400 mt-1">Up to 5 files (Max 25MB each)</span>
             </div>
             
             {/* Uploading State */}
@@ -513,24 +520,36 @@ export default function ManualAddProductPage() {
             
             {/* Image Placeholder Grid */}
             <div className="grid grid-cols-3 gap-3">
-              {(watch('media') || []).map((m, idx) => (
-                <div key={idx} className="aspect-square bg-gray-100 rounded-xl relative overflow-hidden group border border-gray-200">
-                  {m.type === 'IMAGE' ? (
-                    <img src={getMediaUrl(m.url)} alt="Product media" className="w-full h-full object-cover" />
-                  ) : (
-                    <video src={getMediaUrl(m.url)} className="w-full h-full object-cover" />
-                  )}
-                  {m.isPrimary && (
-                    <span className="absolute bottom-2 left-2 bg-brand-navy text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Primary</span>
-                  )}
-                  <button 
-                    onClick={() => removeMedia(idx)}
-                    className="absolute top-2 right-2 bg-black/50 hover:bg-black text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+              {(watch('media') || []).map((m, idx) => {
+                const isVideo = m.type?.toUpperCase() === 'VIDEO' || isVideoMedia(m.url);
+                const mediaSrc = getMediaUrl(m.url);
+                return (
+                  <div key={idx} className="aspect-square bg-gray-100 rounded-xl relative overflow-hidden group border border-gray-200">
+                    {isVideo ? (
+                      <video src={mediaSrc} className="w-full h-full object-cover" />
+                    ) : (
+                      <img 
+                        src={mediaSrc} 
+                        alt="Product media" 
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => {
+                          console.warn('Image preview load error for:', mediaSrc);
+                        }}
+                      />
+                    )}
+                    {m.isPrimary && (
+                      <span className="absolute bottom-2 left-2 bg-brand-navy text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Primary</span>
+                    )}
+                    <button 
+                      onClick={() => removeMedia(idx)}
+                      className="absolute top-2 right-2 bg-black/50 hover:bg-black text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
               
               {/* Fill remaining slots with empty dashed boxes */}
               {Array.from({ length: Math.max(0, 3 - (watch('media')?.length || 0)) }).map((_, i) => (

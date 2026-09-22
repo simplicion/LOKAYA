@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
+import { getMediaUrl } from '@/lib/utils';
 
 export interface PartnerRider {
   id: string;
@@ -194,7 +195,7 @@ export function PartnerSelectionBottomSheet({
                       <div className="relative shrink-0">
                         {rider.vehiclePhotoUrl || rider.avatarUrl ? (
                           <img
-                            src={rider.vehiclePhotoUrl || rider.avatarUrl}
+                            src={getMediaUrl(rider.vehiclePhotoUrl || rider.avatarUrl)}
                             alt={rider.name}
                             className="w-12 h-12 rounded-xl object-cover border border-gray-200"
                           />

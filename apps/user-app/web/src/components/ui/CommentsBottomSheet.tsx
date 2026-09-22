@@ -112,6 +112,7 @@ export function CommentsBottomSheet({ isOpen, onClose, targetId, type, onComment
 
     if (!currentUser) {
       toast.error('Please sign in to comment');
+      router.push('/login');
       return;
     }
 

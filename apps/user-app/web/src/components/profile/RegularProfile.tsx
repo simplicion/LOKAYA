@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getMediaUrl } from '@/lib/utils';
 import { DownloadAppBanner } from './DownloadAppBanner';
 
 export function RegularProfile() {
@@ -149,7 +150,7 @@ export function RegularProfile() {
                   </div>
                 ) : hasAvatar ? (
                   <img 
-                    src={user!.avatarUrl} 
+                    src={getMediaUrl(user!.avatarUrl)} 
                     alt={user?.name || "Profile Avatar"} 
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
@@ -195,7 +196,7 @@ export function RegularProfile() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-[#171717] rounded-full flex items-center justify-center text-white font-bold overflow-hidden">
-                    {myStore.logoUrl ? <img src={myStore.logoUrl} alt="Store logo" className="w-full h-full object-cover" /> : myStore.name?.substring(0, 2).toUpperCase()}
+                    {myStore.logoUrl ? <img src={getMediaUrl(myStore.logoUrl)} alt="Store logo" className="w-full h-full object-cover" /> : myStore.name?.substring(0, 2).toUpperCase()}
                   </div>
                   <div>
                     <h4 className="font-bold text-[#171717] text-sm">{myStore.name}</h4>

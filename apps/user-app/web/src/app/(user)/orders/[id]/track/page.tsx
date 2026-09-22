@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGetOrderTrackingQuery, useGetOrderQuery } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, getMediaUrl } from '@/lib/utils';
 
 export default function OrderTrackingPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -221,7 +221,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-xl bg-orange-50 text-[#FF5A36] font-bold flex items-center justify-center overflow-hidden shrink-0 border border-orange-100">
                   {deliveryPartner.avatarUrl ? (
-                    <img src={deliveryPartner.avatarUrl} alt={deliveryPartner.name} className="w-full h-full object-cover" />
+                    <img src={getMediaUrl(deliveryPartner.avatarUrl)} alt={deliveryPartner.name} className="w-full h-full object-cover" />
                   ) : (
                     deliveryPartner.name?.charAt(0).toUpperCase()
                   )}

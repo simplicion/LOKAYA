@@ -13,6 +13,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 import { useCreateProductReviewMutation, useCheckAuthQuery } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -49,6 +50,7 @@ export function ReviewBottomSheet({
   storeName,
   onReviewSubmitted
 }: ReviewBottomSheetProps) {
+  const router = useRouter();
   const { data: user } = useCheckAuthQuery();
   const [createReview, { isLoading: isSubmitting }] = useCreateProductReviewMutation();
 
@@ -105,6 +107,7 @@ export function ReviewBottomSheet({
     e.preventDefault();
     if (!user) {
       toast.error('Please sign in to post your customer review');
+      router.push('/login');
       return;
     }
 

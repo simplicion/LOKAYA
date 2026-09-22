@@ -20,11 +20,13 @@ if (ffprobeInstaller && ffprobeInstaller.path) {
   ffmpeg.setFfprobePath(ffprobeInstaller.path);
 }
 
+import { getBackendBaseUrl } from './media.service';
+
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '7158d01d5e0dd9e7f5be050ed3717b14';
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '0fc5788e73739c590c9458c2953ebcb1';
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '6acdb20aa6540405077e90c99b96de2fd2148edc3058f0c09a1edf770dfa275a';
 const BUCKET = process.env.R2_BUCKET_NAME || 'lokaya-cdn';
-const BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:4002/api/v1';
+const BASE_URL = getBackendBaseUrl();
 
 const s3Client = new S3Client({
   region: 'auto',

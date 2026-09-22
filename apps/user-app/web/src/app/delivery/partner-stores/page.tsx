@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { getMediaUrl } from '@/lib/utils';
 
 export default function PartnerStoresPage() {
   const [search, setSearch] = useState('');
@@ -101,7 +102,7 @@ export default function PartnerStoresPage() {
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-12 h-12 rounded-2xl bg-[#171717] text-white font-black text-base flex items-center justify-center overflow-hidden shrink-0 border border-gray-100">
                       {store.logoUrl ? (
-                        <img src={store.logoUrl} alt={store.name} className="w-full h-full object-cover" />
+                        <img src={getMediaUrl(store.logoUrl)} alt={store.name} className="w-full h-full object-cover" />
                       ) : (
                         store.name?.charAt(0).toUpperCase()
                       )}

@@ -23,6 +23,7 @@ import {
   useMarkUserNotificationReadMutation, 
   useMarkAllUserNotificationsReadMutation 
 } from '@/lib/api';
+import { getMediaUrl } from '@/lib/utils';
 
 type TabType = 'ALL' | 'ORDERS' | 'SOCIAL' | 'OFFERS';
 
@@ -326,7 +327,7 @@ export default function NotificationsPage() {
                     {hasImage && (
                       <div className="relative mt-2.5 w-full h-32 rounded-xl overflow-hidden bg-gray-100 border border-gray-200/80">
                         <Image
-                          src={item.imageUrl}
+                          src={getMediaUrl(item.imageUrl)}
                           alt={item.title}
                           fill
                           className="object-cover group-hover:scale-105 transition-transform duration-300"

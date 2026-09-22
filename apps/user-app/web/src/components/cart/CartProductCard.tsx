@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/lib/store';
 import { Trash2, Plus, Minus, Heart, Sparkles, Check, AlertCircle, Package } from 'lucide-react';
 import { useToggleWishlistMutation } from '@/lib/api';
 import { useCurrency } from '@/context/CurrencyContext';
@@ -38,6 +41,8 @@ export function CartProductCard({
   onDecrement,
   onRemove
 }: CartProductCardProps) {
+  const router = useRouter();
+  const user = useSelector((state: RootState) => (state as any).auth?.user);
   const { formatPrice } = useCurrency();
   const [toggleWishlist, { isLoading: isWishlisting }] = useToggleWishlistMutation();
   const [isSaved, setIsSaved] = useState(false);
@@ -48,6 +53,12 @@ export function CartProductCard({
   const isLowStock = stockCount !== undefined && stockCount > 0 && stockCount <= 5;
 
   const handleSaveForLater = async () => {
+    if (!user) {
+      toast.error('Please sign in to save items to your wishlist');
+      router.push('/login');
+      return;
+    }
+
     if (!productId) {
       toast.info('Item saved to wishlist');
       setIsSaved(true);

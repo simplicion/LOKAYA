@@ -60,6 +60,14 @@ export const ensureR2Cors = async () => {
 
 import fs from 'fs';
 
+export const getBackendBaseUrl = (): string => {
+  if (process.env.BACKEND_API_URL) return process.env.BACKEND_API_URL.replace(/\/+$/, '');
+  if (process.env.APP_BASE_URL) return `${process.env.APP_BASE_URL.replace(/\/+$/, '')}/api/v1`;
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+  if (process.env.NODE_ENV === 'production') return 'https://api.lokaya.shop/api/v1';
+  return 'http://localhost:4002/api/v1';
+};
+
 export class MediaService {
   async getObjectStream(fileKey: string, range?: string) {
     const bucket = getBucket();
@@ -95,15 +103,16 @@ export class MediaService {
 
       await getS3Client().send(command);
 
-      const baseUrl = process.env.BACKEND_API_URL || 'http://localhost:4002/api/v1';
-      const viewUrl = `${baseUrl}/media/view?key=${encodeURIComponent(fileKey)}`;
+      const baseUrl = getBackendBaseUrl();
       const streamUrl = `${baseUrl}/media/stream/${fileKey}`;
+      const viewUrl = `${baseUrl}/media/view?key=${encodeURIComponent(fileKey)}`;
 
       return {
         success: true,
         fileKey,
         url: streamUrl,
-        publicUrl: viewUrl,
+        publicUrl: streamUrl,
+        viewUrl,
       };
     } finally {
       // Clean up temp disk file if uploaded via multer diskStorage
@@ -128,15 +137,15 @@ export class MediaService {
     
     // URL expires in 15 minutes
     const signedUrl = await getSignedUrl(getS3Client(), command, { expiresIn: 900 });
-    const baseUrl = process.env.BACKEND_API_URL || 'http://localhost:4002/api/v1';
-    const viewUrl = `${baseUrl}/media/view?key=${encodeURIComponent(fileKey)}`;
+    const baseUrl = getBackendBaseUrl();
     const streamUrl = `${baseUrl}/media/stream/${fileKey}`;
+    const viewUrl = `${baseUrl}/media/view?key=${encodeURIComponent(fileKey)}`;
     
-    return { signedUrl, fileKey, uploadUrl: signedUrl, publicUrl: streamUrl, viewUrl };
+    return { signedUrl, fileKey, uploadUrl: signedUrl, publicUrl: streamUrl, viewUrl, url: streamUrl };
   }
   
   async startProcessing(userId: string, fileKey: string, type: 'VIDEO' | 'IMAGE') {
-    const baseUrl = process.env.BACKEND_API_URL || 'http://localhost:4002/api/v1';
+    const baseUrl = getBackendBaseUrl();
     const streamUrl = `${baseUrl}/media/stream/${fileKey}`;
 
     // Create DB Record with immediate stream URL for zero-delay progressive playback

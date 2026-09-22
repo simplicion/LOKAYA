@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { getMediaUrl } from '@/lib/utils';
 
 export default function SellerDeliveryPartnersPage() {
   const router = useRouter();
@@ -237,7 +238,7 @@ export default function SellerDeliveryPartnersPage() {
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center overflow-hidden shrink-0">
                       {rider.avatarUrl ? (
-                        <img src={rider.avatarUrl} alt={rider.name} className="w-full h-full object-cover" />
+                        <img src={getMediaUrl(rider.avatarUrl)} alt={rider.name} className="w-full h-full object-cover" />
                       ) : (
                         rider.name?.charAt(0).toUpperCase()
                       )}

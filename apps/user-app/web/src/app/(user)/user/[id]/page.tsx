@@ -55,6 +55,7 @@ export default function UserPublicProfilePage({ params }: { params: Promise<{ id
   const handleToggleFollow = async () => {
     if (!currentUser) {
       toast.error('Please sign in to follow');
+      router.push('/login');
       return;
     }
 
