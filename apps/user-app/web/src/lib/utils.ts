@@ -106,6 +106,10 @@ export function isVideoMedia(url?: string | null): boolean {
     clean.endsWith('.m4v') ||
     clean.endsWith('.mkv') ||
     clean.endsWith('.ogv') ||
+    clean.endsWith('.m3u8') ||
+    clean.includes('/videos/') ||
+    clean.includes('/video/') ||
+    clean.includes('master.m3u8') ||
     url.includes('/video/') ||
     url.includes('type=video')
   );

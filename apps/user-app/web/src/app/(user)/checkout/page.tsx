@@ -921,21 +921,31 @@ function CheckoutContent() {
         </div>
       </div>
 
-      {/* Add Address Modal */}
+      {/* Add Address Bottom Sheet */}
       {isAddressModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 z-[110] flex items-end justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-300"
+          onClick={() => setIsAddressModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-t-[28px] w-full max-w-md p-5 pb-8 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-300 ease-out max-h-[88vh] overflow-y-auto border-t border-[#E5E2DC]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag Handle Indicator */}
+            <div className="w-12 h-1 bg-[#E5E2DC] rounded-full mx-auto -mt-1 mb-1" />
+
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <h3 className="font-bold text-gray-900 text-base">Add New Delivery Address</h3>
               <button 
                 onClick={() => setIsAddressModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveAddress} className="space-y-3 text-xs">
+            <form onSubmit={handleSaveAddress} className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-bold text-gray-700 mb-1">Full Name *</label>
                 <input
@@ -944,7 +954,7 @@ function CheckoutContent() {
                   value={newAddressForm.name}
                   onChange={(e) => setNewAddressForm({ ...newAddressForm, name: e.target.value })}
                   placeholder="e.g. John Doe"
-                  className="w-full h-10 px-3 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none"
+                  className="w-full h-11 px-3.5 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none text-sm transition-colors"
                 />
               </div>
 
@@ -956,7 +966,7 @@ function CheckoutContent() {
                   value={newAddressForm.phone}
                   onChange={(e) => setNewAddressForm({ ...newAddressForm, phone: e.target.value })}
                   placeholder="e.g. +91 98765 43210"
-                  className="w-full h-10 px-3 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none"
+                  className="w-full h-11 px-3.5 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none text-sm transition-colors"
                 />
               </div>
 
@@ -968,7 +978,7 @@ function CheckoutContent() {
                   value={newAddressForm.addressLine1}
                   onChange={(e) => setNewAddressForm({ ...newAddressForm, addressLine1: e.target.value })}
                   placeholder="e.g. Flat 302, Green Avenue"
-                  className="w-full h-10 px-3 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none"
+                  className="w-full h-11 px-3.5 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none text-sm transition-colors"
                 />
               </div>
 
@@ -979,7 +989,7 @@ function CheckoutContent() {
                   value={newAddressForm.addressLine2}
                   onChange={(e) => setNewAddressForm({ ...newAddressForm, addressLine2: e.target.value })}
                   placeholder="e.g. Near City Center Mall"
-                  className="w-full h-10 px-3 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none"
+                  className="w-full h-11 px-3.5 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none text-sm transition-colors"
                 />
               </div>
 
@@ -992,7 +1002,7 @@ function CheckoutContent() {
                     value={newAddressForm.city}
                     onChange={(e) => setNewAddressForm({ ...newAddressForm, city: e.target.value })}
                     placeholder="e.g. Mumbai"
-                    className="w-full h-10 px-3 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none"
+                    className="w-full h-11 px-3.5 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none text-sm transition-colors"
                   />
                 </div>
                 <div>
@@ -1003,7 +1013,7 @@ function CheckoutContent() {
                     value={newAddressForm.state}
                     onChange={(e) => setNewAddressForm({ ...newAddressForm, state: e.target.value })}
                     placeholder="e.g. Maharashtra"
-                    className="w-full h-10 px-3 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none"
+                    className="w-full h-11 px-3.5 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none text-sm transition-colors"
                   />
                 </div>
               </div>
@@ -1017,7 +1027,7 @@ function CheckoutContent() {
                     value={newAddressForm.pincode}
                     onChange={(e) => setNewAddressForm({ ...newAddressForm, pincode: e.target.value })}
                     placeholder="e.g. 400001"
-                    className="w-full h-10 px-3 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none"
+                    className="w-full h-11 px-3.5 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none text-sm transition-colors"
                   />
                 </div>
                 <div>
@@ -1025,7 +1035,7 @@ function CheckoutContent() {
                   <select
                     value={newAddressForm.type}
                     onChange={(e) => setNewAddressForm({ ...newAddressForm, type: e.target.value })}
-                    className="w-full h-10 px-3 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none bg-white"
+                    className="w-full h-11 px-3.5 border border-gray-200 rounded-xl focus:border-[#FF6B00] outline-none bg-white text-sm"
                   >
                     <option value="HOME">Home</option>
                     <option value="WORK">Work / Office</option>
@@ -1039,16 +1049,16 @@ function CheckoutContent() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsAddressModalOpen(false)}
-                  className="flex-1 h-11 rounded-xl"
+                  className="flex-1 h-12 rounded-xl text-sm font-semibold"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={isAddingAddress}
-                  className="flex-1 h-11 rounded-xl bg-[#FF6B00] hover:bg-[#ff7a1f] text-white font-bold"
+                  className="flex-1 h-12 rounded-xl bg-[#FF6B00] hover:bg-[#ff7a1f] text-white font-bold text-sm shadow-md"
                 >
-                  {isAddingAddress ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Address'}
+                  {isAddingAddress ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save Address'}
                 </Button>
               </div>
             </form>

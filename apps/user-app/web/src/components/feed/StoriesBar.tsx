@@ -5,11 +5,55 @@ import { Plus } from 'lucide-react';
 import { useGetStoriesFeedQuery, useGetMyStoreQuery } from '@/lib/api';
 import { StoryViewerModal, StoryViewerStoreGroup } from './StoryViewerModal';
 import { StoryUploadModal } from './StoryUploadModal';
-import { cn, getMediaUrl } from '@/lib/utils';
+import { cn, getMediaUrl, isVideoMedia } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
+
+// Dedicated Story Avatar component with store logo priority & robust onError fallback
+function StoryAvatarItem({
+  avatarUrl,
+  storyMediaUrl,
+  name,
+  fallbackText,
+}: {
+  avatarUrl?: string | null;
+  storyMediaUrl?: string | null;
+  name: string;
+  fallbackText: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  // In Instagram/WhatsApp style story bars, prioritize store logo / profile avatar.
+  // Only fall back to story media if avatar is missing AND the story media is NOT a video.
+  const resolvedUrl = React.useMemo(() => {
+    if (avatarUrl && !imageFailed) {
+      return getMediaUrl(avatarUrl);
+    }
+    if (storyMediaUrl && !isVideoMedia(storyMediaUrl) && !imageFailed) {
+      return getMediaUrl(storyMediaUrl);
+    }
+    return null;
+  }, [avatarUrl, storyMediaUrl, imageFailed]);
+
+  if (!resolvedUrl || imageFailed) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-orange-100 text-[#FF5A36] font-bold text-xs">
+        {fallbackText}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={resolvedUrl}
+      alt={name}
+      onError={() => setImageFailed(true)}
+      className="w-full h-full object-cover"
+    />
+  );
+}
 
 export function StoriesBar() {
   const router = useRouter();
@@ -35,7 +79,6 @@ export function StoriesBar() {
   const myStoreHasActiveStories = myStoreGroupIndex !== -1;
   const myStoreGroup = myStoreHasActiveStories ? feedGroups[myStoreGroupIndex] : null;
   const myLatestStoryMedia = myStoreGroup?.stories?.[0]?.mediaUrl;
-  const myStoryPreviewUrl = myLatestStoryMedia || myStore?.logoUrl;
 
   const handleOpenMyStory = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -99,17 +142,12 @@ export function StoriesBar() {
               )}>
                 <div className="w-full h-full bg-[#FAF9F6] rounded-full p-[2px]">
                   <div className="w-full h-full rounded-full bg-gray-200 overflow-hidden relative">
-                    {myStoryPreviewUrl ? (
-                      <img 
-                        src={getMediaUrl(myStoryPreviewUrl)} 
-                        alt={myStore?.name || 'Your Story'} 
-                        className="w-full h-full object-cover" 
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-orange-100 text-[#FF5A36] font-bold text-xs">
-                        {myStore?.name ? myStore.name.slice(0, 2).toUpperCase() : 'YOU'}
-                      </div>
-                    )}
+                    <StoryAvatarItem
+                      avatarUrl={myStore?.logoUrl}
+                      storyMediaUrl={myLatestStoryMedia}
+                      name={myStore?.name || 'Your Story'}
+                      fallbackText={myStore?.name ? myStore.name.slice(0, 2).toUpperCase() : 'YOU'}
+                    />
                   </div>
                 </div>
               </div>
@@ -134,8 +172,6 @@ export function StoriesBar() {
           // If this is my store and already displayed as "Your Story", skip duplicate
           if (myStore && group.storeId === myStore.id) return null;
 
-          const storeThumbnail = group.storeAvatar || group.stories?.[0]?.mediaUrl;
-
           return (
             <div 
               key={group.storeId} 
@@ -152,17 +188,12 @@ export function StoriesBar() {
                 )}>
                   <div className="w-full h-full bg-[#FAF9F6] rounded-full p-[2px]">
                     <div className="w-full h-full rounded-full bg-gray-200 overflow-hidden relative">
-                      {storeThumbnail ? (
-                        <img 
-                          src={getMediaUrl(storeThumbnail)} 
-                          alt={group.storeName} 
-                          className="w-full h-full object-cover" 
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-700 font-bold text-xs">
-                          {group.storeName ? group.storeName.slice(0, 2).toUpperCase() : 'ST'}
-                        </div>
-                      )}
+                      <StoryAvatarItem
+                        avatarUrl={group.storeAvatar}
+                        storyMediaUrl={group.stories?.[0]?.mediaUrl}
+                        name={group.storeName}
+                        fallbackText={group.storeName ? group.storeName.slice(0, 2).toUpperCase() : 'ST'}
+                      />
                     </div>
                   </div>
                 </div>

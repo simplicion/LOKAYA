@@ -162,15 +162,25 @@ export default function SelectAddressPage() {
         </Button>
       </div>
 
-      {/* Add Address Modal */}
+      {/* Add Address Bottom Sheet */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-t-3xl w-full max-w-md p-5 space-y-4 max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200">
+        <div 
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-300"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-t-[28px] w-full max-w-md p-5 pb-8 space-y-4 max-h-[88vh] overflow-y-auto animate-in slide-in-from-bottom duration-300 ease-out border-t border-[#E5E2DC]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag Handle Indicator */}
+            <div className="w-12 h-1 bg-[#E5E2DC] rounded-full mx-auto -mt-1 mb-1" />
+
             <div className="flex justify-between items-center pb-2 border-b border-gray-100">
               <h3 className="font-black text-gray-900 text-sm">Add New Delivery Address</h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
+                className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
