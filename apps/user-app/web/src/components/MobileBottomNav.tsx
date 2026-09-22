@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 export function MobileBottomNav() {
   const pathname = usePathname();
   const dispatch = useDispatch();
+  const user = useSelector((state: RootState) => state.auth.user);
   const cart = useSelector((state: RootState) => state.cart);
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
 
@@ -67,6 +68,7 @@ export function MobileBottomNav() {
       )}>
         {links.map((link) => {
         const Icon = link.icon;
+        const targetHref = link.href === '/profile' && !user ? '/login?redirect=/profile' : link.href;
         let isActive = false;
         if (link.href === '/home') {
           isActive = pathname === '/home' || pathname === '/';
@@ -74,6 +76,8 @@ export function MobileBottomNav() {
           isActive = pathname === '/search' || pathname?.startsWith('/search');
         } else if (link.href === '/explore') {
           isActive = pathname === '/explore' || pathname?.startsWith('/explore/category');
+        } else if (link.href === '/profile') {
+          isActive = (pathname === '/profile' || pathname?.startsWith('/profile/')) && Boolean(user);
         } else {
           isActive = pathname === link.href || pathname?.startsWith(`${link.href}/`);
         }
@@ -81,10 +85,10 @@ export function MobileBottomNav() {
         return (
           <Link
             key={link.href}
-            href={link.href}
+            href={targetHref}
             prefetch={true}
-            onMouseEnter={() => handleTabPrefetch(link.href)}
-            onTouchStart={() => handleTabPrefetch(link.href)}
+            onMouseEnter={() => handleTabPrefetch(targetHref)}
+            onTouchStart={() => handleTabPrefetch(targetHref)}
             className={cn(
               "flex flex-col items-center justify-center w-full h-full relative transition-all duration-300",
               isActive ? "text-[#FF5A36]" : "text-[#8E8E93] hover:text-[#171717]"

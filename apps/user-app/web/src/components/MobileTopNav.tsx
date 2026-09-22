@@ -89,8 +89,15 @@ export function MobileTopNav() {
 
   if (shouldHide) return null;
 
-  // Universal Plus Button (Top Left)
-  const leftContent = (
+  const isSeller = Boolean(
+    user?.role === 'SELLER' || 
+    myStore?.id || 
+    (user as any)?.stores?.length > 0 || 
+    (user as any)?.isSeller
+  );
+
+  // Plus Button (Top Left) - Only displayed for merchants with Seller access
+  const leftContent = isSeller ? (
     <button
       onClick={() => setIsCreateSheetOpen(true)}
       className="w-9 h-9 rounded-full bg-white hover:bg-orange-50 border border-gray-200 hover:border-orange-300 flex items-center justify-center text-gray-800 hover:text-[#FF5A36] transition-all shadow-2xs active:scale-95 cursor-pointer group shrink-0"
@@ -99,7 +106,7 @@ export function MobileTopNav() {
     >
       <Plus className="w-5 h-5 group-hover:scale-110 transition-transform stroke-[2.5]" />
     </button>
-  );
+  ) : null;
 
   // Universal Centered Logo with Maps Nearby Dropdown
   const centerContent = (
@@ -226,9 +233,11 @@ export function MobileTopNav() {
         "flex items-center justify-between px-4 pt-3.5 pb-2.5 sticky top-0 bg-white/95 backdrop-blur-md z-50 transition-transform duration-300 border-b border-gray-100/80",
         isVisible ? "translate-y-0" : "-translate-y-full"
       )}>
-        {leftContent}
+        <div className="w-9 h-9 flex items-center justify-start shrink-0">
+          {leftContent}
+        </div>
         {centerContent}
-        <div className="flex items-center">
+        <div className="flex items-center shrink-0">
           {rightContent}
         </div>
       </div>
