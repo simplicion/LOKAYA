@@ -404,36 +404,54 @@ export function SocialPost({
               }
             }}
           >
-            {media.map((m, idx) => (
-              <div 
-                key={idx} 
-                className="relative w-full min-w-full h-full shrink-0 snap-center snap-always flex items-center justify-center overflow-hidden bg-black select-none"
-              >
-                {m.type === 'video' && m.url ? (
-                  <VideoPlayer
-                    src={m.url}
-                    poster={m.posterUrl}
-                    autoPlay={true}
-                    isActive={isInView && currentMediaIndex === idx}
-                    isPreloadCandidate={propIsPreloadCandidate || isPrewarmed || Math.abs(currentMediaIndex - idx) <= 1}
-                    muted={isMuted}
-                    loop={true}
-                    playsInline={true}
-                    className="w-full h-full object-cover"
-                  />
-                ) : m.url ? (
-                  <img
-                    src={getMediaUrl(m.url)}
-                    alt={`Post Media ${idx + 1}`}
-                    loading={idx === 0 ? "eager" : "lazy"}
-                    decoding="async"
-                    className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                  />
-                ) : (
-                  <div className="absolute inset-0 w-full h-full bg-gray-800 flex items-center justify-center text-gray-400 text-xs">
-                    No Media
-                  </div>
-                )}
+            {media.map((m, idx) => {
+              const isPostNearViewport = isInView || isPrewarmed || Boolean(propIsPreloadCandidate);
+              const isSlideActive = currentMediaIndex === idx;
+              const isSlideAdjacent = Math.abs(currentMediaIndex - idx) === 1;
+
+              // Active video in viewport right now
+              const isVideoActive = isInView && isSlideActive;
+
+              // Speculative preload:
+              // - In viewport: preload adjacent carousel slide only (idx +/- 1)
+              // - Prewarmed (within 450px): preload ONLY the active slide (slide 0)
+              // - Off-screen: NEVER preload
+              const isVideoPreloadCandidate = !isVideoActive && isPostNearViewport && (
+                (isInView && isSlideAdjacent) ||
+                (isPrewarmed && isSlideActive) ||
+                Boolean(propIsPreloadCandidate && isSlideActive)
+              );
+
+              return (
+                <div 
+                  key={idx} 
+                  className="relative w-full min-w-full h-full shrink-0 snap-center snap-always flex items-center justify-center overflow-hidden bg-black select-none"
+                >
+                  {m.type === 'video' && m.url ? (
+                    <VideoPlayer
+                      src={m.url}
+                      poster={m.posterUrl}
+                      autoPlay={true}
+                      isActive={isVideoActive}
+                      isPreloadCandidate={isVideoPreloadCandidate}
+                      muted={isMuted}
+                      loop={true}
+                      playsInline={true}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : m.url ? (
+                    <img
+                      src={getMediaUrl(m.url)}
+                      alt={`Post Media ${idx + 1}`}
+                      loading={idx === 0 && (isInView || isPrewarmed) ? "eager" : "lazy"}
+                      decoding="async"
+                      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 w-full h-full bg-gray-800 flex items-center justify-center text-gray-400 text-xs">
+                      No Media
+                    </div>
+                  )}
 
                 {/* Video Overlays */}
                 {m.type === 'video' && (
@@ -461,7 +479,8 @@ export function SocialPost({
                   </>
                 )}
               </div>
-            ))}
+            );
+          })}
           </div>
 
           {/* Instagram-style Carousel Navigation Arrows */}

@@ -7,10 +7,27 @@ import { cn } from '@/lib/utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { api } from '@/lib/api';
+
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const dispatch = useDispatch();
   const cart = useSelector((state: RootState) => state.cart);
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
+
+  const handleTabPrefetch = (href: string) => {
+    try {
+      if (href === '/explore') {
+        dispatch(api.util.prefetch('getPublicProducts', { sort: 'newest' }, { ifOlderThan: 120 }) as any);
+        dispatch(api.util.prefetch('getBanners', undefined, { ifOlderThan: 120 }) as any);
+      } else if (href === '/home/reels') {
+        dispatch(api.util.prefetch('getReels', undefined, { ifOlderThan: 120 }) as any);
+      } else if (href === '/home') {
+        dispatch(api.util.prefetch('getPosts', undefined, { ifOlderThan: 120 }) as any);
+      }
+    } catch {}
+  };
   const hideOnRoutes = [
     '/checkout',
     '/orders',
@@ -65,7 +82,9 @@ export function MobileBottomNav() {
           <Link
             key={link.href}
             href={link.href}
-            prefetch={false}
+            prefetch={true}
+            onMouseEnter={() => handleTabPrefetch(link.href)}
+            onTouchStart={() => handleTabPrefetch(link.href)}
             className={cn(
               "flex flex-col items-center justify-center w-full h-full relative transition-all duration-300",
               isActive ? "text-[#FF5A36]" : "text-[#8E8E93] hover:text-[#171717]"

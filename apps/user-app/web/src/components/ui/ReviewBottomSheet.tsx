@@ -17,6 +17,8 @@ import { useRouter } from 'next/navigation';
 import { useCreateProductReviewMutation, useCheckAuthQuery } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { bottomSheetVariants, backdropVariants } from '@/lib/animations';
 
 interface ReviewBottomSheetProps {
   isOpen: boolean;
@@ -135,27 +137,44 @@ export function ReviewBottomSheet({
     }
   };
 
-  if (!isOpen) return null;
-
   const currentDesc = getRatingDescriptor(hoverRating ?? rating);
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col justify-end sm:items-center sm:justify-center p-0 sm:p-4">
-      {/* Backdrop Blur */}
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
-        onClick={onClose}
-      />
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[80] flex flex-col justify-end sm:items-center sm:justify-center p-0 sm:p-4 pointer-events-auto">
+          {/* Backdrop Blur */}
+          <motion.div 
+            variants={backdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity cursor-pointer"
+            onClick={onClose}
+          />
 
-      {/* Bottom Sheet Modal Container */}
-      <div className="relative bg-white w-full max-w-lg rounded-t-[32px] sm:rounded-3xl shadow-2xl z-10 flex flex-col max-h-[92vh] sm:max-h-[85vh] animate-in slide-in-from-bottom duration-300 ease-out border border-gray-100 overflow-hidden">
-        
-        {/* Grab Handle */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
-        </div>
+          {/* Bottom Sheet Modal Container */}
+          <motion.div 
+            variants={bottomSheetVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            drag="y"
+            dragConstraints={{ top: 0 }}
+            dragElastic={{ top: 0.05, bottom: 0.5 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 90 || info.velocity.y > 350) {
+                onClose();
+              }
+            }}
+            className="relative bg-white w-full max-w-lg rounded-t-[32px] sm:rounded-3xl shadow-2xl z-10 flex flex-col max-h-[92vh] sm:max-h-[85vh] border border-gray-100 overflow-hidden touch-manipulation"
+          >
+            {/* Grab Handle */}
+            <div className="flex justify-center pt-3 pb-1 sm:hidden select-none cursor-grab active:cursor-grabbing">
+              <div className="w-12 h-1.5 bg-gray-300 rounded-full hover:bg-gray-400 transition-colors" />
+            </div>
 
-        {/* Header */}
+            {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <span className="p-2 rounded-xl bg-orange-100 text-[#FF5A36]">
@@ -334,8 +353,9 @@ export function ReviewBottomSheet({
             </form>
           )}
         </div>
-
-      </div>
-    </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }

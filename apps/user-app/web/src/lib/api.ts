@@ -371,6 +371,29 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
+      async onQueryStarted({ productId }, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          api.util.updateQueryData('getWishlist', undefined, (draft: any) => {
+            if (draft && Array.isArray(draft.data)) {
+              const idx = draft.data.findIndex((item: any) => item.productId === productId || item.product?.id === productId);
+              if (idx >= 0) {
+                draft.data.splice(idx, 1);
+              } else {
+                draft.data.push({
+                  id: `temp-wishlist-${productId}`,
+                  productId,
+                  product: { id: productId }
+                });
+              }
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
       invalidatesTags: ['Wishlist'],
     }),
     
@@ -433,12 +456,44 @@ export const api = createApi({
         url: `/social/like/reel/${reelId}`,
         method: 'POST',
       }),
+      async onQueryStarted(reelId, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          api.util.updateQueryData('getReelById', reelId, (draft: any) => {
+            if (draft) {
+              const currentLiked = Boolean(draft.isLikedByMe);
+              draft.isLikedByMe = !currentLiked;
+              draft.likesCount = Math.max(0, (draft.likesCount || 0) + (currentLiked ? -1 : 1));
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
     }),
     likePost: builder.mutation<{ liked: boolean; likesCount: number }, string>({
       query: (postId) => ({
         url: `/social/like/post/${postId}`,
         method: 'POST',
       }),
+      async onQueryStarted(postId, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          api.util.updateQueryData('getPostById', postId, (draft: any) => {
+            if (draft) {
+              const currentLiked = Boolean(draft.isLikedByMe);
+              draft.isLikedByMe = !currentLiked;
+              draft.likesCount = Math.max(0, (draft.likesCount || 0) + (currentLiked ? -1 : 1));
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
     }),
     followUser: builder.mutation<any, string>({
       query: (userId) => ({
@@ -647,6 +702,20 @@ export const api = createApi({
         url: `/social/save/post/${postId}`,
         method: 'POST',
       }),
+      async onQueryStarted(postId, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          api.util.updateQueryData('getPostById', postId, (draft: any) => {
+            if (draft) {
+              draft.isSavedByMe = !draft.isSavedByMe;
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
       invalidatesTags: ['SavedPost', 'Post'],
     }),
     saveReel: builder.mutation<{ saved: boolean }, string>({
@@ -654,6 +723,20 @@ export const api = createApi({
         url: `/social/save/reel/${reelId}`,
         method: 'POST',
       }),
+      async onQueryStarted(reelId, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          api.util.updateQueryData('getReelById', reelId, (draft: any) => {
+            if (draft) {
+              draft.isSavedByMe = !draft.isSavedByMe;
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
       invalidatesTags: ['SavedPost', 'Reel'],
     }),
 
@@ -668,6 +751,36 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
+      async onQueryStarted(body, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          api.util.updateQueryData('getCart', undefined, (draft: any) => {
+            if (draft && Array.isArray(draft.items)) {
+              const existing = draft.items.find(
+                (i: any) => (i.productId === body.productId || i.product?.id === body.productId) && (body.variantId ? i.variantId === body.variantId : true)
+              );
+              if (existing) {
+                existing.quantity += (body.quantity || 1);
+              } else {
+                draft.items.push({
+                  id: `temp-${body.productId}-${Date.now()}`,
+                  productId: body.productId,
+                  variantId: body.variantId,
+                  quantity: body.quantity || 1,
+                  product: {
+                    id: body.productId,
+                    isActive: true,
+                  }
+                });
+              }
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
       invalidatesTags: ['Order'],
     }),
     updateCartItem: builder.mutation<any, { itemId: string; quantity: number }>({
@@ -676,6 +789,27 @@ export const api = createApi({
         method: 'PUT',
         body: { quantity },
       }),
+      async onQueryStarted({ itemId, quantity }, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          api.util.updateQueryData('getCart', undefined, (draft: any) => {
+            if (draft && Array.isArray(draft.items)) {
+              const item = draft.items.find((i: any) => i.id === itemId || i.productId === itemId);
+              if (item) {
+                if (quantity <= 0) {
+                  draft.items = draft.items.filter((i: any) => i.id !== itemId && i.productId !== itemId);
+                } else {
+                  item.quantity = quantity;
+                }
+              }
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
       invalidatesTags: ['Order'],
     }),
     removeFromCart: builder.mutation<any, string>({
@@ -683,6 +817,20 @@ export const api = createApi({
         url: `/cart/items/${itemId}`,
         method: 'DELETE',
       }),
+      async onQueryStarted(itemId, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          api.util.updateQueryData('getCart', undefined, (draft: any) => {
+            if (draft && Array.isArray(draft.items)) {
+              draft.items = draft.items.filter((i: any) => i.id !== itemId && i.productId !== itemId);
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
       invalidatesTags: ['Order'],
     }),
     clearCart: builder.mutation<any, void>({
@@ -690,6 +838,20 @@ export const api = createApi({
         url: '/cart',
         method: 'DELETE',
       }),
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          api.util.updateQueryData('getCart', undefined, (draft: any) => {
+            if (draft && Array.isArray(draft.items)) {
+              draft.items = [];
+            }
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
       invalidatesTags: ['Order'],
     }),
     applyCoupon: builder.mutation<any, string>({

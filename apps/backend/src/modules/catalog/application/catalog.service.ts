@@ -696,7 +696,7 @@ export class CatalogService {
           category: prod.category
         };
       });
-    }, 120);
+    }, 600);
   }
 
   static async getProductsByIds(ids: string[]) {

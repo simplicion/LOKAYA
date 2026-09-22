@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  X, 
   Bike, 
   Truck, 
   Users, 
@@ -11,12 +10,13 @@ import {
   Banknote, 
   PlusCircle, 
   ChevronRight, 
-  Sparkles,
   Zap,
-  Tag,
   Store
 } from 'lucide-react';
 import { useGetMyStoreQuery, useGetStorePartnerRequestsQuery } from '@/lib/api';
+import { AnimatedBottomSheet } from '@/components/ui/AnimatedBottomSheet';
+import { motion } from 'framer-motion';
+import { springs } from '@/lib/animations';
 
 interface SellerQuickActionsSheetProps {
   isOpen: boolean;
@@ -31,30 +31,6 @@ export function SellerQuickActionsSheet({ isOpen, onClose }: SellerQuickActionsS
   });
 
   const pendingRequestsCount = requests.filter((r: any) => r.status === 'PENDING').length;
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  // Lock scroll when open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const handleNavigate = (path: string) => {
     onClose();
@@ -131,87 +107,64 @@ export function SellerQuickActionsSheet({ isOpen, onClose }: SellerQuickActionsS
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
-        onClick={onClose}
-      />
-
-      {/* Sheet Content */}
-      <div 
-        className="relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[#E5E2DC] z-10 max-h-[88vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200"
-      >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
+    <AnimatedBottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Store Operations & Hubs"
+      subtitle="Quick access to all merchant operational tools"
+      icon={
+        <div className="w-9 h-9 rounded-2xl bg-orange-100 text-[#FF5A36] flex items-center justify-center font-bold">
+          <Zap className="w-4 h-4" />
         </div>
-
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-[#E5E2DC] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-orange-100 text-[#FF5A36] flex items-center justify-center font-bold">
-              <Zap className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-base font-black text-[#171717]">Store Operations & Hubs</h3>
-              <p className="text-[11px] text-[#6B6B6B] font-medium">Quick access to all merchant operational tools</p>
-            </div>
-          </div>
-          <button 
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-[#171717] flex items-center justify-center transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Actions Grid */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5">
-          {actionItems.map((item, idx) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={idx}
-                onClick={() => handleNavigate(item.href)}
-                className={`w-full p-3.5 rounded-2xl border border-[#E5E2DC] bg-white hover:bg-gray-50/80 flex items-center justify-between text-left transition-all group ${item.accentColor} shadow-xs active:scale-[0.99]`}
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 ${item.iconBg} transition-transform group-hover:scale-105`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0 pr-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-sm text-[#171717] group-hover:text-[#FF5A36] transition-colors truncate">
-                        {item.title}
-                      </span>
-                      {item.badge && (
-                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${item.badgeColor} tracking-wider`}>
-                          {item.badge}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-[#6B6B6B] mt-0.5 truncate">
-                      {item.description}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="w-7 h-7 rounded-xl bg-gray-50 group-hover:bg-orange-50 flex items-center justify-center shrink-0 text-gray-400 group-hover:text-[#FF5A36] transition-colors">
-                  <ChevronRight className="w-4 h-4" />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Bottom Banner */}
-        <div className="p-4 bg-[#FAF9F6] border-t border-[#E5E2DC] text-center">
+      }
+      footer={
+        <div className="p-4 text-center">
           <p className="text-[11px] text-[#6B6B6B]">
             Hyperlocal Delivery, POS & Fleet Management for verified merchants
           </p>
         </div>
+      }
+    >
+      <div className="p-4 sm:p-5 space-y-2.5">
+        {actionItems.map((item, idx) => {
+          const Icon = item.icon;
+          return (
+            <motion.button
+              key={idx}
+              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01 }}
+              transition={springs.snappy}
+              onClick={() => handleNavigate(item.href)}
+              className={`w-full p-3.5 rounded-2xl border border-[#E5E2DC] bg-white hover:bg-gray-50/80 flex items-center justify-between text-left transition-all group ${item.accentColor} shadow-xs cursor-pointer`}
+            >
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 ${item.iconBg} transition-transform group-hover:scale-105`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 pr-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-[#171717] group-hover:text-[#FF5A36] transition-colors truncate">
+                      {item.title}
+                    </span>
+                    {item.badge && (
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${item.badgeColor} tracking-wider`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#6B6B6B] mt-0.5 truncate">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+
+              <div className="w-7 h-7 rounded-xl bg-gray-50 group-hover:bg-orange-50 flex items-center justify-center shrink-0 text-gray-400 group-hover:text-[#FF5A36] transition-colors">
+                <ChevronRight className="w-4 h-4" />
+              </div>
+            </motion.button>
+          );
+        })}
       </div>
-    </div>
+    </AnimatedBottomSheet>
   );
 }

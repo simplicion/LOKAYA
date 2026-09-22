@@ -4,8 +4,19 @@ import { prisma } from '@workspace/db';
 import { SupportService } from '../../support/application/support.service';
 import { FuelRateService } from '../../delivery/application/fuel-rate.service';
 import { FcmService } from '../../notification/application/fcm.service';
+import { MemoryCacheService } from '../../../shared/services/memory-cache.service';
+import { redisClient } from '../../../shared/services/redis.service';
 
 export const adminRouter: Router = Router();
+
+const invalidateBannerCache = async () => {
+  MemoryCacheService.invalidatePrefix('public:banners');
+  try {
+    if (redisClient && redisClient.status === 'ready') {
+      await redisClient.del('cache:public:banners');
+    }
+  } catch {}
+};
 
 // GET /api/v1/admin/stats
 adminRouter.get('/stats', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
@@ -106,6 +117,7 @@ adminRouter.post('/banners', requireAuth, requireAdmin, async (req: AuthRequest,
       }
     });
 
+    await invalidateBannerCache();
     res.status(201).json(banner);
   } catch (error) {
     next(error);
@@ -132,6 +144,7 @@ adminRouter.put('/banners/:id', requireAuth, requireAdmin, async (req: AuthReque
       }
     });
 
+    await invalidateBannerCache();
     res.status(200).json(banner);
   } catch (error) {
     next(error);
@@ -143,6 +156,7 @@ adminRouter.delete('/banners/:id', requireAuth, requireAdmin, async (req: AuthRe
   try {
     const { id } = req.params;
     await (prisma as any).banner.delete({ where: { id } });
+    await invalidateBannerCache();
     res.status(200).json({ success: true, message: 'Banner deleted successfully' });
   } catch (error) {
     next(error);
@@ -163,6 +177,7 @@ adminRouter.patch('/banners/:id/toggle', requireAuth, requireAdmin, async (req: 
       data: { isActive: !existing.isActive }
     });
 
+    await invalidateBannerCache();
     res.status(200).json(updated);
   } catch (error) {
     next(error);

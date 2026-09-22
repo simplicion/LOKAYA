@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
-import { updateQuantity, removeFromCart, mergeCart, setCart, clearCart } from '@/lib/features/cartSlice';
+import { addToCart, updateQuantity, removeFromCart, mergeCart, setCart, clearCart } from '@/lib/features/cartSlice';
 import { 
   Heart, 
   Trash2, 
@@ -34,6 +34,7 @@ import {
   useAddToCartMutation,
   useUpdateCartItemMutation, 
   useRemoveFromCartMutation,
+  useClearCartMutation,
   useApplyCouponMutation,
   useRemoveCouponMutation,
   useGetAddressesQuery
@@ -62,6 +63,7 @@ export default function CartPage() {
   const [addToCartAPI] = useAddToCartMutation();
   const [updateCartItem] = useUpdateCartItemMutation();
   const [removeFromCartAPI] = useRemoveFromCartMutation();
+  const [clearCartAPI] = useClearCartMutation();
   const [applyCoupon, { isLoading: isApplyingCoupon }] = useApplyCouponMutation();
   const [removeCoupon, { isLoading: isRemovingCoupon }] = useRemoveCouponMutation();
 
@@ -129,56 +131,60 @@ export default function CartPage() {
     }
   }, [user, isCartLoading, cartData, reduxItems, addToCartAPI, dispatch]);
 
-  // Unified items resolution:
-  // For logged in users: authoritative backend cart data is used.
-  // For guest users: client-side Redux cart is used.
+  // Unified zero-latency optimistic items resolution:
+  // Redux is the immediate presentation layer (0ms updates) for both logged in and guest users.
+  // Authoritative server data hydrates Redux on mount/reconnect and syncs in background.
   const items = useMemo(() => {
-    if (user) {
-      if (!isCartLoading && cartData) {
-        return (cartData.items || [])
-          .filter((item: any) => item.product != null && item.product.id && item.product.isActive !== false)
-          .map((item: any) => {
-            const originalPrice = item.product?.mrp || item.product?.originalPrice || item.variant?.price || item.product?.sellingPrice || 0;
-            const sellingPrice = item.variant?.price ?? item.product?.sellingPrice ?? item.priceAt ?? 0;
-            return {
-              id: item.id,
-              cartItemId: item.id,
-              productId: item.productId,
-              variantId: item.variantId,
-              name: item.product?.name || item.productName || 'Product',
-              price: sellingPrice,
-              originalPrice: originalPrice > sellingPrice ? originalPrice : sellingPrice,
-              quantity: item.quantity,
-              stockCount: item.product?.stockCount ?? item.variant?.stockCount,
-              storeId: item.product?.storeId || item.storeId || '',
-              storeName: item.product?.store?.name || 'Partner Store',
-              imageUrl: item.product?.media?.[0]?.url || item.product?.imageUrl || item.image || '',
-              variantInfo: item.variant?.name,
-            };
-          });
-      }
+    if (reduxItems && reduxItems.length > 0) {
+      return reduxItems.map((item: any) => {
+        const originalPrice = item.originalPrice || item.price;
+        const backendItem = cartData?.items?.find((b: any) => b.id === item.id || b.productId === item.productId || b.productId === item.id);
+        const cartItemId = backendItem?.id || (item as any).cartItemId || item.id;
+        return {
+          id: item.id,
+          cartItemId: cartItemId,
+          productId: item.productId || item.id,
+          variantId: item.variantId,
+          name: item.name || 'Product',
+          price: item.price || 0,
+          originalPrice: originalPrice > item.price ? originalPrice : item.price,
+          quantity: item.quantity || 1,
+          stockCount: item.stockCount,
+          storeId: item.storeId || '',
+          storeName: item.storeName || 'Partner Store',
+          imageUrl: item.image || (item as any).imageUrl || '',
+          variantInfo: item.variantName || (item as any).variantInfo,
+        };
+      });
     }
 
-    // Guest users (or initial render before cartData arrives)
-    return reduxItems.map((item: any) => {
-      const originalPrice = item.originalPrice || item.price;
-      return {
-        id: item.id,
-        cartItemId: (item as any).cartItemId || undefined,
-        productId: item.productId || item.id,
-        variantId: item.variantId,
-        name: item.name || 'Product',
-        price: item.price || 0,
-        originalPrice: originalPrice > item.price ? originalPrice : item.price,
-        quantity: item.quantity || 1,
-        stockCount: item.stockCount,
-        storeId: item.storeId || '',
-        storeName: item.storeName || 'Partner Store',
-        imageUrl: item.image || (item as any).imageUrl || '',
-        variantInfo: item.variantName,
-      };
-    });
-  }, [user, isCartLoading, cartData, reduxItems]);
+    // Fallback if Redux is empty on initial load but backend cartData has items
+    if (cartData?.items && cartData.items.length > 0) {
+      return cartData.items
+        .filter((item: any) => item.product != null && item.product.id && item.product.isActive !== false)
+        .map((item: any) => {
+          const originalPrice = item.product?.mrp || item.product?.originalPrice || item.variant?.price || item.product?.sellingPrice || 0;
+          const sellingPrice = item.variant?.price ?? item.product?.sellingPrice ?? item.priceAt ?? 0;
+          return {
+            id: item.id,
+            cartItemId: item.id,
+            productId: item.productId,
+            variantId: item.variantId,
+            name: item.product?.name || item.productName || 'Product',
+            price: sellingPrice,
+            originalPrice: originalPrice > sellingPrice ? originalPrice : sellingPrice,
+            quantity: item.quantity,
+            stockCount: item.product?.stockCount ?? item.variant?.stockCount,
+            storeId: item.product?.storeId || item.storeId || '',
+            storeName: item.product?.store?.name || 'Partner Store',
+            imageUrl: item.product?.media?.[0]?.url || item.product?.imageUrl || item.image || '',
+            variantInfo: item.variant?.name,
+          };
+        });
+    }
+
+    return [];
+  }, [reduxItems, cartData]);
 
   const handleCheckout = () => {
     if (!user) {
@@ -190,13 +196,16 @@ export default function CartPage() {
 
   const handleIncrement = async (itemId: string, currentQuantity: number) => {
     const newQty = currentQuantity + 1;
+    // 1. Instant 0ms UI update
     dispatch(updateQuantity({ id: itemId, quantity: newQty }));
     const backendItem = cartData?.items?.find((i: any) => i.id === itemId || i.productId === itemId);
     if (user && backendItem) {
       try {
         await updateCartItem({ itemId: backendItem.id, quantity: newQty }).unwrap();
       } catch (err) {
-        // Redux updated optimistically
+        // Rollback on network failure
+        dispatch(updateQuantity({ id: itemId, quantity: currentQuantity }));
+        toast.error('Could not update quantity. Please check connection.');
       }
     }
   };
@@ -207,13 +216,16 @@ export default function CartPage() {
       handleRemove(itemId);
       return;
     }
+    // 1. Instant 0ms UI update
     dispatch(updateQuantity({ id: itemId, quantity: newQty }));
     const backendItem = cartData?.items?.find((i: any) => i.id === itemId || i.productId === itemId);
     if (user && backendItem) {
       try {
         await updateCartItem({ itemId: backendItem.id, quantity: newQty }).unwrap();
       } catch (err) {
-        // Redux updated optimistically
+        // Rollback on network failure
+        dispatch(updateQuantity({ id: itemId, quantity: currentQuantity }));
+        toast.error('Could not update quantity. Please check connection.');
       }
     }
   };
@@ -223,18 +235,25 @@ export default function CartPage() {
       handleRemove(itemId);
       return;
     }
+    const currentItem = reduxItems.find((i: any) => i.id === itemId || i.productId === itemId);
+    const oldQty = currentItem?.quantity || 1;
+    // 1. Instant 0ms UI update
     dispatch(updateQuantity({ id: itemId, quantity: newQty }));
     const backendItem = cartData?.items?.find((i: any) => i.id === itemId || i.productId === itemId);
     if (user && backendItem) {
       try {
         await updateCartItem({ itemId: backendItem.id, quantity: newQty }).unwrap();
       } catch (err) {
-        // Redux updated optimistically
+        // Rollback on network failure
+        dispatch(updateQuantity({ id: itemId, quantity: oldQty }));
+        toast.error('Could not update quantity. Please check connection.');
       }
     }
   };
 
   const handleRemove = async (itemId: string) => {
+    const removedItem = reduxItems.find((i: any) => i.id === itemId || i.productId === itemId);
+    // 1. Instant 0ms UI removal
     dispatch(removeFromCart(itemId));
     toast.success('Item removed from bag');
     const backendItem = cartData?.items?.find((i: any) => i.id === itemId || i.productId === itemId);
@@ -242,14 +261,27 @@ export default function CartPage() {
       try {
         await removeFromCartAPI(backendItem.id).unwrap();
       } catch (err) {
-        // Redux updated optimistically
+        // Rollback on network failure
+        if (removedItem) dispatch(addToCart(removedItem));
+        toast.error('Failed to remove item. Please try again.');
       }
     }
   };
 
-  const handleClearCart = () => {
+  const handleClearCart = async () => {
+    const prevItems = [...reduxItems];
+    // 1. Instant 0ms UI clear
     dispatch(clearCart());
-    toast.success('Cart cleared');
+    toast.success('Bag cleared');
+    if (user) {
+      try {
+        await clearCartAPI().unwrap();
+      } catch (err) {
+        // Rollback on network failure
+        dispatch(setCart(prevItems));
+        toast.error('Failed to clear bag. Please try again.');
+      }
+    }
   };
 
   const handleApplyCoupon = async (codeToApply?: string) => {

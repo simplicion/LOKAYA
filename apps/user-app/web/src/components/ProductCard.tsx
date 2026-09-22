@@ -7,7 +7,15 @@ import { Star, Package } from 'lucide-react';
 import { HeartPlusIcon } from '@/components/ui/HeartPlusIcon';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart, updateQuantity, removeFromCart } from '@/lib/features/cartSlice';
-import { api, useGetWishlistQuery, useToggleWishlistMutation, useAddToCartMutation } from '@/lib/api';
+import { 
+  api, 
+  useGetWishlistQuery, 
+  useToggleWishlistMutation, 
+  useAddToCartMutation,
+  useUpdateCartItemMutation,
+  useRemoveFromCartMutation,
+  useGetCartQuery
+} from '@/lib/api';
 import { useCurrency } from '@/context/CurrencyContext';
 import { RootState } from '@/lib/store';
 import { getMediaUrl } from '@/lib/utils';
@@ -46,7 +54,10 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
   const { formatPrice } = useCurrency();
   const cartItems = useSelector((state: RootState) => state.cart.items);
   const user = useSelector((state: RootState) => (state as any).auth?.user);
+  const { data: cartData } = useGetCartQuery(undefined, { skip: !user });
   const [addToCartAPI] = useAddToCartMutation();
+  const [updateCartItemAPI] = useUpdateCartItemMutation();
+  const [removeFromCartAPI] = useRemoveFromCartMutation();
   const [imageError, setImageError] = useState(false);
 
   const rawImage = product.image || product.primaryImage || product.imageUrl || '';
@@ -132,7 +143,12 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
   const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: false });
   const [toggleWishlist] = useToggleWishlistMutation();
 
-  const isSaved = wishlistData?.data?.some((item: any) => item.productId === product.id);
+  const isServerSaved = Boolean(wishlistData?.data?.some((item: any) => item.productId === product.id || item.product?.id === product.id));
+  const [isSaved, setIsSaved] = useState(isServerSaved);
+
+  useEffect(() => {
+    setIsSaved(isServerSaved);
+  }, [isServerSaved]);
 
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -148,10 +164,64 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
       toast.info('Preview mode: Wishlist is disabled');
       return;
     }
+
+    // 1. Instant 0ms UI update
+    const nextSaved = !isSaved;
+    setIsSaved(nextSaved);
+    toast.success(nextSaved ? 'Saved to wishlist' : 'Removed from wishlist');
+
     try {
       await toggleWishlist({ productId: product.id }).unwrap();
     } catch (error) {
-      console.error('Failed to toggle wishlist', error);
+      // Rollback on network failure
+      setIsSaved(!nextSaved);
+      toast.error('Failed to update wishlist. Please try again.');
+    }
+  };
+
+  const handleDecrement = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (quantity > 1) {
+      const newQty = quantity - 1;
+      // 1. Instant 0ms UI update
+      dispatch(updateQuantity({ id: product.id, quantity: newQty }));
+      if (user) {
+        const backendItem = cartData?.items?.find((i: any) => i.productId === product.id || i.id === product.id);
+        if (backendItem) {
+          updateCartItemAPI({ itemId: backendItem.id, quantity: newQty }).unwrap().catch(() => {});
+        }
+      }
+    } else {
+      // 1. Instant 0ms UI update
+      dispatch(removeFromCart(product.id));
+      if (user) {
+        const backendItem = cartData?.items?.find((i: any) => i.productId === product.id || i.id === product.id);
+        if (backendItem) {
+          removeFromCartAPI(backendItem.id).unwrap().catch(() => {});
+        }
+      }
+    }
+  };
+
+  const handleIncrement = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!canIncrease) {
+      toast.info(`Maximum available stock reached (${stockCount} in bag)`);
+      return;
+    }
+    const newQty = quantity + 1;
+    // 1. Instant 0ms UI update
+    dispatch(updateQuantity({ id: product.id, quantity: newQty }));
+    if (user && product.id) {
+      const backendItem = cartData?.items?.find((i: any) => i.productId === product.id || i.id === product.id);
+      if (backendItem) {
+        updateCartItemAPI({ itemId: backendItem.id, quantity: newQty }).unwrap().catch(() => {});
+      } else {
+        addToCartAPI({ productId: product.id, quantity: 1 }).unwrap().catch(() => {});
+      }
     }
   };
 
@@ -260,6 +330,8 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
           <img 
             src={getMediaUrl(rawImage)} 
             alt={rawTitle || 'Product'} 
+            loading="lazy"
+            decoding="async"
             onError={() => setImageError(true)}
             className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${isOutOfStock ? 'grayscale-[25%] opacity-85' : ''}`}
           />
@@ -360,35 +432,23 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
               onClick={(e) => e.preventDefault()}
             >
               <button 
-                className="w-8 h-full flex items-center justify-center hover:bg-black/15 active:bg-black/25 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (quantity > 1) {
-                    dispatch(updateQuantity({ id: product.id, quantity: quantity - 1 }));
-                  } else {
-                    dispatch(removeFromCart(product.id));
-                  }
-                }}
+                className="w-8 h-full flex items-center justify-center hover:bg-black/15 active:bg-black/25 transition-colors cursor-pointer"
+                onClick={handleDecrement}
+                aria-label="Decrease quantity"
               >
                 <span className="text-base font-bold leading-none mb-0.5">-</span>
               </button>
-              <span className="font-bold text-xs">{quantity}</span>
+              <span className="font-bold text-xs tabular-nums">{quantity}</span>
               <button 
                 disabled={!canIncrease}
                 className={`w-8 h-full flex items-center justify-center transition-colors ${
                   !canIncrease 
                     ? 'opacity-30 cursor-not-allowed bg-black/20' 
-                    : 'hover:bg-black/15 active:bg-black/25'
+                    : 'hover:bg-black/15 active:bg-black/25 cursor-pointer'
                 }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!canIncrease) {
-                    toast.info(`Maximum available stock reached (${stockCount} in bag)`);
-                    return;
-                  }
-                  handleAddToCart(e);
-                }}
+                onClick={handleIncrement}
                 title={!canIncrease ? `Max stock reached (${stockCount})` : 'Add one more'}
+                aria-label="Increase quantity"
               >
                 <span className="text-base font-bold leading-none mb-0.5">+</span>
               </button>

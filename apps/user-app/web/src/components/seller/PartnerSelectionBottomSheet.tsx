@@ -22,6 +22,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
 import { getMediaUrl } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { bottomSheetVariants, backdropVariants } from '@/lib/animations';
 
 export interface PartnerRider {
   id: string;
@@ -71,8 +73,6 @@ export function PartnerSelectionBottomSheet({
   const router = useRouter();
   const { formatPrice, currency } = useCurrency();
 
-  if (!isOpen) return null;
-
   const effectivePetrolRate = fuelPricePerLiter || (currency === 'NPR' ? 175.0 : 102.0);
   const effectiveBikeMileage = standardBikeMileage || (currency === 'NPR' ? 45.0 : 50.0);
   const fuelCostPerKm = Math.round((effectivePetrolRate / effectiveBikeMileage) * 100) / 100;
@@ -85,10 +85,39 @@ export function PartnerSelectionBottomSheet({
   const estimatedFuelExpense = Math.round(twoWayDistanceKm * fuelCostPerKm * 10) / 10;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-      <div 
-        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden"
-      >
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-auto">
+          {/* Backdrop */}
+          <motion.div 
+            variants={backdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity cursor-pointer"
+            onClick={onClose}
+          />
+
+          {/* Sheet Container */}
+          <motion.div 
+            variants={bottomSheetVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            drag="y"
+            dragConstraints={{ top: 0 }}
+            dragElastic={{ top: 0.05, bottom: 0.5 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 90 || info.velocity.y > 350) {
+                onClose();
+              }
+            }}
+            className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl z-10 overflow-hidden touch-manipulation"
+          >
+            {/* Grab Handle */}
+            <div className="flex justify-center pt-3 pb-1 sm:hidden select-none cursor-grab active:cursor-grabbing">
+              <div className="w-12 h-1.5 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors" />
+            </div>
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-b from-slate-50/80 to-white">
           <div className="flex items-center gap-2.5">
@@ -300,7 +329,9 @@ export function PartnerSelectionBottomSheet({
             </Button>
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
-  );
+  )}
+</AnimatePresence>
+);
 }

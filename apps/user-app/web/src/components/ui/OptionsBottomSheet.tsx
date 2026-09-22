@@ -4,6 +4,8 @@ import React, { useEffect } from 'react';
 import { X, Flag, Link as LinkIcon, Share2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { AnimatedBottomSheet } from './AnimatedBottomSheet';
+
 interface OptionsBottomSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,14 +25,6 @@ export function OptionsBottomSheet({
   url,
   itemType = 'post'
 }: OptionsBottomSheetProps) {
-  useEffect(() => {
-    if (isOpen) document.body.style.overflow = 'hidden';
-    else document.body.style.overflow = '';
-    return () => { document.body.style.overflow = ''; };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
   const handleCopyLink = async () => {
     try {
       if (url) {
@@ -58,21 +52,12 @@ export function OptionsBottomSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={onClose} />
-      <div className="relative bg-white w-full rounded-t-[24px] flex flex-col animate-in slide-in-from-bottom duration-300 ease-out shadow-[0_-8px_30px_rgba(0,0,0,0.15)] pb-safe">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <div className="w-8" />
-          <h3 className="text-base font-bold text-[#171717]">More Options</h3>
-          <button 
-            onClick={onClose} 
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <AnimatedBottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="More Options"
+      zIndex={70}
+    >
         
         <div className="flex flex-col p-4 pb-8 gap-1.5">
           {/* Share Action */}
@@ -139,7 +124,6 @@ export function OptionsBottomSheet({
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </AnimatedBottomSheet>
   );
 }

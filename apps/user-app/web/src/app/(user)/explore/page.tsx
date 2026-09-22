@@ -12,7 +12,8 @@ import {
   ShoppingBag,
   ArrowRight,
   Filter,
-  Check
+  Check,
+  Loader2
 } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
@@ -21,7 +22,8 @@ import { api, useGetBannersQuery, useGetPublicProductsQuery } from '@/lib/api';
 import { useDispatch } from 'react-redux';
 import { cn, getMediaUrl } from '@/lib/utils';
 
-
+const INITIAL_PRODUCT_CHUNK = 8;
+const CHUNK_STEP = 8;
 
 const SORT_OPTIONS = [
   { id: 'newest', label: 'Newest First' },
@@ -37,13 +39,46 @@ export default function ExplorePage() {
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [visibleCount, setVisibleCount] = useState<number>(INITIAL_PRODUCT_CHUNK);
   const bannerScrollRef = useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   // Live queries
   const { data: banners = [], isLoading: isBannersLoading } = useGetBannersQuery();
   const { data: products = [], isLoading: isProductsLoading } = useGetPublicProductsQuery({
     sort: selectedSort,
   });
+
+  // Reset visible count when sort order changes
+  useEffect(() => {
+    setVisibleCount(INITIAL_PRODUCT_CHUNK);
+  }, [selectedSort]);
+
+  // Sliced products for progressive above-the-fold fast rendering (Amazon & Flipkart approach)
+  const visibleProducts = React.useMemo(() => {
+    if (!products || !Array.isArray(products)) return [];
+    return products.slice(0, visibleCount);
+  }, [products, visibleCount]);
+
+  const hasMore = products && visibleCount < products.length;
+
+  // Infinite Scroll Intersection Observer for progressive product loading
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + CHUNK_STEP, (products || []).length));
+        }
+      },
+      { rootMargin: '600px 0px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, products]);
 
   // Background idle prefetching of top 4 visible products (Amazon / Flipkart pattern)
   useEffect(() => {
@@ -259,13 +294,28 @@ export default function ExplorePage() {
           <AdaptiveSkeleton variant="product-grid" count={6} />
         )}
 
-        {/* Real Products */}
-        {!isProductsLoading && products.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
-            {products.map((product: any) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+        {/* Real Products (Progressive Chunk Rendering) */}
+        {!isProductsLoading && visibleProducts.length > 0 && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              {visibleProducts.map((product: any) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {/* Amazon/Flipkart Infinite Scroll Sentinel & Loader */}
+            {hasMore && (
+              <div 
+                ref={loadMoreSentinelRef} 
+                className="py-8 flex flex-col items-center justify-center gap-2"
+              >
+                <div className="flex items-center gap-2 bg-white/80 backdrop-blur-xs border border-gray-200 px-4 py-2 rounded-full shadow-xs text-xs font-semibold text-gray-600">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#FF5A36]" />
+                  <span>Loading more items...</span>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Empty State */}

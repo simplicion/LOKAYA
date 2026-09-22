@@ -8,6 +8,8 @@ import { X, Send, Loader2 } from 'lucide-react';
 import { useGetPostCommentsQuery, useGetReelCommentsQuery, useAddPostCommentMutation, useAddReelCommentMutation } from '@/lib/api';
 import { getMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
+import { bottomSheetVariants, backdropVariants } from '@/lib/animations';
 
 interface CommentsBottomSheetProps {
   isOpen: boolean;
@@ -175,21 +177,43 @@ export function CommentsBottomSheet({ isOpen, onClose, targetId, type, onComment
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col justify-end">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" 
-        onClick={onClose} 
-      />
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[70] flex flex-col justify-end pointer-events-auto">
+          {/* Backdrop */}
+          <motion.div 
+            variants={backdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity cursor-pointer" 
+            onClick={onClose} 
+          />
 
-      {/* Sheet Container */}
-      <div className="relative bg-white w-full rounded-t-[28px] flex flex-col h-[75vh] max-h-[640px] animate-in slide-in-from-bottom duration-300 ease-out shadow-[0_-8px_30px_rgba(0,0,0,0.12)]">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          {/* Sheet Container */}
+          <motion.div 
+            variants={bottomSheetVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            drag="y"
+            dragConstraints={{ top: 0 }}
+            dragElastic={{ top: 0.05, bottom: 0.5 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 90 || info.velocity.y > 350) {
+                onClose();
+              }
+            }}
+            className="relative bg-white w-full rounded-t-[28px] flex flex-col h-[75vh] max-h-[640px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] z-10 touch-manipulation"
+          >
+            {/* Drag Handle */}
+            <div className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing sm:hidden select-none">
+              <div className="w-12 h-1.5 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors" />
+            </div>
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <h3 className="text-[16px] font-bold text-[#171717]">Comments</h3>
             <span className="text-[13px] font-semibold text-gray-500 tabular-nums">
@@ -330,7 +354,9 @@ export function CommentsBottomSheet({ isOpen, onClose, targetId, type, onComment
             <Send className="w-4 h-4 ml-0.5" />
           </button>
         </form>
-      </div>
+      </motion.div>
     </div>
-  );
+  )}
+</AnimatePresence>
+);
 }

@@ -416,8 +416,9 @@ export function StoryViewerModal({
               src={nextStory.mediaUrl}
               autoPlay={false}
               isActive={false}
+              isPreloadCandidate={true}
               muted={true}
-              preload="auto"
+              preload="metadata"
               className="w-0 h-0"
             />
           ) : (

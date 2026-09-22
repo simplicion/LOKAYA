@@ -15,6 +15,7 @@ import {
 import { useRequestStoreVerificationMutation } from '@/lib/api';
 import { toast } from 'sonner';
 import { getMediaUrl } from '@/lib/utils';
+import { AnimatedBottomSheet } from '@/components/ui/AnimatedBottomSheet';
 
 interface BlueTickVerificationSheetProps {
   isOpen: boolean;
@@ -33,8 +34,6 @@ export function BlueTickVerificationSheet({
   store
 }: BlueTickVerificationSheetProps) {
   const [requestVerification, { isLoading }] = useRequestStoreVerificationMutation();
-
-  if (!isOpen) return null;
 
   const handleApply = async () => {
     try {
@@ -77,39 +76,43 @@ export function BlueTickVerificationSheet({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div 
-        className="fixed inset-0" 
-        onClick={onClose} 
-        aria-hidden="true" 
-      />
-
-      <div className="relative w-full max-w-lg bg-white rounded-t-3xl shadow-2xl p-6 z-10 animate-in slide-in-from-bottom duration-300 max-h-[90vh] flex flex-col">
-        {/* Grab Handle */}
-        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-4 shrink-0" />
-
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-black text-gray-900 text-base">Get Blue Tick Verified</h3>
-              <p className="text-xs text-gray-500">Official Merchant Verification</p>
-            </div>
-          </div>
-          <button 
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-500 flex items-center justify-center transition-all"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+    <AnimatedBottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Get Blue Tick Verified"
+      subtitle="Official Merchant Verification"
+      icon={
+        <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <Sparkles className="w-5 h-5" />
         </div>
-
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto py-4 space-y-4 no-scrollbar">
+      }
+      footer={
+        <div className="p-4 space-y-2">
+          <button
+            onClick={handleApply}
+            disabled={isLoading}
+            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.99] text-white font-bold rounded-2xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 text-sm transition-all disabled:opacity-60 cursor-pointer"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Submitting to Verification Center...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4.5 h-4.5 text-white" />
+                <span>Confirm & Apply for Blue Tick</span>
+              </>
+            )}
+          </button>
+          
+          <p className="text-center text-[11px] text-gray-500">
+            Free merchant verification • Reviewed by Lokaya Verification Center within 1–4 hours
+          </p>
+        </div>
+      }
+    >
+      <div className="p-5 space-y-4">
           {/* Live Preview Card */}
           <div className="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/60 border border-blue-200/70 rounded-2xl p-4 flex items-center gap-3 shadow-2xs">
             <div className="w-14 h-14 rounded-full bg-white border-2 border-blue-400 overflow-hidden shrink-0 shadow-sm relative">
@@ -162,32 +165,6 @@ export function BlueTickVerificationSheet({
             ))}
           </div>
         </div>
-
-        {/* Footer Actions */}
-        <div className="pt-3 border-t border-gray-100 space-y-2 shrink-0">
-          <button
-            onClick={handleApply}
-            disabled={isLoading}
-            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.99] text-white font-bold rounded-2xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 text-sm transition-all disabled:opacity-60"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Submitting to Verification Center...</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4.5 h-4.5 text-white" />
-                <span>Confirm & Apply for Blue Tick</span>
-              </>
-            )}
-          </button>
-          
-          <p className="text-center text-[11px] text-gray-500">
-            Free merchant verification • Reviewed by Lokaya Verification Center within 1–4 hours
-          </p>
-        </div>
-      </div>
-    </div>
+    </AnimatedBottomSheet>
   );
 }

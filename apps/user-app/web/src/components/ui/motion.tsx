@@ -300,4 +300,9 @@ export function StaggerItem({
   );
 }
 
+// Re-export centralized animation tokens and bottom sheet shell
+export * from '@/lib/animations';
+export { AnimatedBottomSheet } from './AnimatedBottomSheet';
+export type { AnimatedBottomSheetProps } from './AnimatedBottomSheet';
 export { motion, AnimatePresence };
+

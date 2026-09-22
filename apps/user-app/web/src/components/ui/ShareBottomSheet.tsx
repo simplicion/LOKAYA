@@ -23,6 +23,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useGetShareRecipientsQuery, useSendDirectShareMutation } from '@/lib/api';
+import { motion, AnimatePresence } from 'framer-motion';
+import { bottomSheetVariants, backdropVariants } from '@/lib/animations';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 
@@ -92,8 +94,6 @@ export function ShareBottomSheet({
         (r.username && r.username.toLowerCase().includes(q))
     );
   }, [recipients, searchQuery]);
-
-  if (!isOpen) return null;
 
   const handleCopy = () => {
     if (navigator.clipboard) {
@@ -247,20 +247,40 @@ export function ShareBottomSheet({
 
   return (
     <>
-      <div className="fixed inset-0 z-[120] flex flex-col justify-end">
-        {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-          onClick={onClose}
-        />
+      <AnimatePresence>
+        {isOpen && (
+          <div className="fixed inset-0 z-[120] flex flex-col justify-end pointer-events-auto">
+            {/* Backdrop */}
+            <motion.div
+              variants={backdropVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity cursor-pointer"
+              onClick={onClose}
+            />
 
-        {/* Bottom Sheet Container */}
-        <div className="relative bg-white w-full rounded-t-[32px] pt-3 pb-8 px-4 animate-in slide-in-from-bottom duration-300 ease-out shadow-[0_-12px_40px_rgba(0,0,0,0.2)] max-w-lg mx-auto flex flex-col max-h-[85vh]">
-          {/* Drag Handle */}
-          <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-3.5 select-none" />
+            {/* Bottom Sheet Container */}
+            <motion.div
+              variants={bottomSheetVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              drag="y"
+              dragConstraints={{ top: 0 }}
+              dragElastic={{ top: 0.05, bottom: 0.5 }}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > 90 || info.velocity.y > 350) {
+                  onClose();
+                }
+              }}
+              className="relative bg-white w-full rounded-t-[32px] pt-3 pb-8 px-4 shadow-[0_-12px_40px_rgba(0,0,0,0.2)] max-w-lg mx-auto flex flex-col max-h-[85vh] z-10 touch-manipulation"
+            >
+              {/* Drag Handle */}
+              <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-3.5 select-none hover:bg-gray-300 transition-colors cursor-grab active:cursor-grabbing" />
 
-          {/* Header */}
-          <div className="flex items-center justify-between pb-3 px-1">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 px-1">
             <h3 className="text-base font-black text-[#171717] tracking-tight">Share</h3>
             <button
               onClick={onClose}
@@ -379,8 +399,10 @@ export function ShareBottomSheet({
               ))}
             </div>
           </div>
+          </motion.div>
         </div>
-      </div>
+      )}
+    </AnimatePresence>
 
       {/* Instagram-Style QR Code Modal */}
       {isQrModalOpen && (

@@ -13,6 +13,7 @@ import {
   createStorySchema
 } from '../domain/schemas';
 import { redisClient } from '../../../shared/services/redis.service';
+import { MemoryCacheService } from '../../../shared/services/memory-cache.service';
 
 const router: Router = Router();
 
@@ -299,27 +300,35 @@ router.delete('/reels/:reelId', requireAuth, async (req: Request, res: Response,
 
 router.get('/banners', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+    res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=300, stale-while-revalidate=600');
 
-    try {
-      const cached = await redisClient.get('cache:public:banners');
-      if (cached) {
-        return res.status(200).json(JSON.parse(cached));
-      }
-    } catch {}
+    const banners = await MemoryCacheService.getOrSet('public:banners', async () => {
+      try {
+        if (redisClient && redisClient.status === 'ready') {
+          const cached = await redisClient.get('cache:public:banners').catch(() => null);
+          if (cached) {
+            return JSON.parse(cached);
+          }
+        }
+      } catch {}
 
-    const { prisma } = await import('@workspace/db');
-    const banners = await (prisma as any).banner.findMany({
-      where: { isActive: true },
-      orderBy: [
-        { displayOrder: 'asc' },
-        { createdAt: 'desc' }
-      ]
-    });
+      const { prisma } = await import('@workspace/db');
+      const list = await (prisma as any).banner.findMany({
+        where: { isActive: true },
+        orderBy: [
+          { displayOrder: 'asc' },
+          { createdAt: 'desc' }
+        ]
+      });
 
-    try {
-      await redisClient.setex('cache:public:banners', 60, JSON.stringify(banners || []));
-    } catch {}
+      try {
+        if (redisClient && redisClient.status === 'ready') {
+          await redisClient.setex('cache:public:banners', 600, JSON.stringify(list || []));
+        }
+      } catch {}
+
+      return list || [];
+    }, 600);
 
     res.status(200).json(banners || []);
   } catch (error) {

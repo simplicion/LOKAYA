@@ -152,7 +152,11 @@ export class MediaController {
       
       res.setHeader('Content-Type', response.ContentType || contentType);
       res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      if (lowerKey.endsWith('.m3u8')) {
+        res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
