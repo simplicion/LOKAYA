@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   X, 
   Sparkles, 
@@ -14,7 +14,10 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -59,6 +62,7 @@ const DEFAULT_SHOTS: ShotItem[] = [
   { id: 'detail', title: 'Macro & Detail', badge: 'DETAIL', description: 'Extreme close-up highlighting craftsmanship & texture', status: 'pending' },
   { id: 'perspective', title: 'Angle & Dimension', badge: 'PERSPECTIVE', description: 'Dynamic 45° isometric silhouette shot', status: 'pending' },
   { id: 'editorial', title: 'Creative Editorial', badge: 'EDITORIAL', description: 'Artistic high-fashion staging with props', status: 'pending' },
+  { id: 'action', title: 'Action / In-Use', badge: 'ACTION', description: 'Dynamic movement and authentic commercial usage', status: 'pending' },
 ];
 
 export function AiStudioBottomSheet({
@@ -85,7 +89,7 @@ export function AiStudioBottomSheet({
   const [shots, setShots] = useState<ShotItem[]>(DEFAULT_SHOTS);
   const [generatedDetails, setGeneratedDetails] = useState<GeneratedProductDetails | undefined>(undefined);
   const [selectedShotIds, setSelectedShotIds] = useState<string[]>([]);
-  const [previewModalUrl, setPreviewModalUrl] = useState<string | null>(null);
+  const [previewGalleryIndex, setPreviewGalleryIndex] = useState<number | null>(null);
   const [generationStageText, setGenerationStageText] = useState<string>('Analyzing product details & geometry...');
   const [isUploadingToStorage, setIsUploadingToStorage] = useState<boolean>(false);
   const [activePickerSlot, setActivePickerSlot] = useState<1 | 2 | null>(null);
@@ -234,7 +238,7 @@ export function AiStudioBottomSheet({
             const parsedData = JSON.parse(dataStr);
 
             if (eventType === 'plan_ready') {
-              setGenerationStageText('Rendering 5 studio commercial angles in parallel...');
+              setGenerationStageText(`Agent 2: Studio Director architected ${parsedData.shots?.length || 7} commercial angles...`);
               if (parsedData.generatedDetails) {
                 setGeneratedDetails(parsedData.generatedDetails);
               }
@@ -268,7 +272,7 @@ export function AiStudioBottomSheet({
 
               // Automatically select the completed shot
               setSelectedShotIds(prev => prev.includes(parsedData.id) ? prev : [...prev, parsedData.id]);
-              setGenerationStageText(`Generating studio angles (${parsedData.completedCount || 1} of 5 ready)...`);
+              setGenerationStageText(`Generating studio angles (${parsedData.completedCount || 1} of ${parsedData.totalCount || shots.length} ready)...`);
             } else if (eventType === 'shot_error') {
               setShots(prev => prev.map(s => {
                 if (s.id === parsedData.id) {
@@ -600,7 +604,7 @@ export function AiStudioBottomSheet({
                   className="w-full h-12 rounded-xl bg-brand-navy hover:bg-brand-dark-navy text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Generate 5 Studio Photos
+                  Generate AI Studio Catalog (6-10 Photos)
                 </Button>
               </div>
             </div>
@@ -623,7 +627,7 @@ export function AiStudioBottomSheet({
                   </div>
                   <p className="text-[11px] text-gray-500">
                     {step === 'GENERATING' 
-                      ? `${completedReadyCount} of 5 generated in parallel (displaying in real-time)` 
+                      ? `${completedReadyCount} of ${shots.length} ready (displaying in real-time)` 
                       : 'Select which photos to include in your catalog'}
                   </p>
                 </div>
@@ -681,9 +685,11 @@ export function AiStudioBottomSheet({
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            setPreviewModalUrl(imgSrc);
+                            const readyShotsForGallery = shots.filter(s => s.status === 'ready' && Boolean(s.base64 || s.url || s.publicUrl));
+                            const idx = readyShotsForGallery.findIndex(s => s.id === shot.id);
+                            setPreviewGalleryIndex(idx >= 0 ? idx : 0);
                           }}
-                          className="absolute top-2 right-2 w-6 h-6 rounded-md bg-black/60 hover:bg-black text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          className="absolute top-2 right-2 w-6 h-6 rounded-md bg-black/60 hover:bg-black text-white flex items-center justify-center opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
                         >
                           <Maximize2 className="w-3 h-3" />
                         </button>
@@ -840,23 +846,138 @@ export function AiStudioBottomSheet({
           )}
         </div>
 
-        {/* Full Image Preview Zoom Modal */}
-        {previewModalUrl && (
-          <div 
-            className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4"
-            onClick={() => setPreviewModalUrl(null)}
-          >
-            <div className="relative max-w-2xl max-h-[85vh] w-full rounded-xl overflow-hidden shadow-2xl bg-black">
-              <img src={previewModalUrl} alt="Studio Preview" className="w-full h-full object-contain" />
-              <button 
-                onClick={() => setPreviewModalUrl(null)}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
+        {/* Fullscreen Scrollable Gallery Modal */}
+        {previewGalleryIndex !== null && (() => {
+          const galleryShots = shots.filter(s => s.status === 'ready' && Boolean(s.base64 || s.url || s.publicUrl));
+          if (galleryShots.length === 0) return null;
+          const clampedIndex = Math.min(previewGalleryIndex, galleryShots.length - 1);
+          const currentShot = galleryShots[clampedIndex];
+          const currentSrc = currentShot?.base64 || getMediaUrl(currentShot?.url || currentShot?.publicUrl || '');
+
+          const goNext = () => setPreviewGalleryIndex(prev => prev !== null ? Math.min(prev + 1, galleryShots.length - 1) : 0);
+          const goPrev = () => setPreviewGalleryIndex(prev => prev !== null ? Math.max(prev - 1, 0) : 0);
+
+          return (
+            <div 
+              className="fixed inset-0 z-[100] bg-black flex flex-col"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setPreviewGalleryIndex(null);
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goNext();
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goPrev();
+              }}
+              tabIndex={0}
+              ref={(el) => el?.focus()}
+            >
+              {/* Top Bar */}
+              <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm z-10 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-md ${
+                    currentShot?.id === 'hero' 
+                      ? 'bg-brand-navy text-white' 
+                      : 'bg-white/15 text-white/90'
+                  }`}>
+                    {currentShot?.badge || currentShot?.id}
+                  </span>
+                  <span className="text-sm font-semibold text-white">
+                    {currentShot?.title}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-white/60 font-medium tabular-nums">
+                    {clampedIndex + 1} of {galleryShots.length}
+                  </span>
+                  <button 
+                    onClick={() => setPreviewGalleryIndex(null)}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Gallery Area */}
+              <div className="flex-1 relative flex items-center justify-center overflow-hidden min-h-0">
+                {/* Prev Arrow (Desktop) */}
+                {clampedIndex > 0 && (
+                  <button
+                    onClick={goPrev}
+                    className="hidden sm:flex absolute left-3 z-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center transition-all backdrop-blur-sm cursor-pointer"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
+
+                {/* Image Display with touch swipe */}
+                <div 
+                  className="w-full h-full flex items-center justify-center p-4 select-none"
+                  onTouchStart={(e) => {
+                    const touch = e.touches[0];
+                    (e.currentTarget as any)._touchStartX = touch.clientX;
+                    (e.currentTarget as any)._touchStartY = touch.clientY;
+                  }}
+                  onTouchEnd={(e) => {
+                    const startX = (e.currentTarget as any)._touchStartX;
+                    const startY = (e.currentTarget as any)._touchStartY;
+                    if (startX === undefined || startY === undefined) return;
+                    const touch = e.changedTouches[0];
+                    const deltaX = touch.clientX - startX;
+                    const deltaY = touch.clientY - startY;
+                    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+                      if (deltaX < 0) goNext();
+                      else goPrev();
+                    } else if (deltaY > 80) {
+                      setPreviewGalleryIndex(null);
+                    }
+                  }}
+                >
+                  <img 
+                    key={currentShot?.id}
+                    src={currentSrc} 
+                    alt={currentShot?.title || 'Studio Photo'} 
+                    className="max-w-full max-h-full object-contain rounded-lg animate-in fade-in zoom-in-95 duration-200"
+                    draggable={false}
+                  />
+                </div>
+
+                {/* Next Arrow (Desktop) */}
+                {clampedIndex < galleryShots.length - 1 && (
+                  <button
+                    onClick={goNext}
+                    className="hidden sm:flex absolute right-3 z-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center transition-all backdrop-blur-sm cursor-pointer"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Bottom Info Bar */}
+              <div className="shrink-0 bg-black/80 backdrop-blur-sm px-4 py-3 border-t border-white/5">
+                <p className="text-xs text-white/50 text-center mb-2">
+                  {currentShot?.description || ''}
+                </p>
+                {/* Thumbnail Strip */}
+                <div className="flex items-center justify-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  {galleryShots.map((gShot, gIdx) => {
+                    const gSrc = gShot.base64 || getMediaUrl(gShot.url || gShot.publicUrl || '');
+                    return (
+                      <button
+                        key={gShot.id}
+                        onClick={() => setPreviewGalleryIndex(gIdx)}
+                        className={`shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                          gIdx === clampedIndex
+                            ? 'border-white ring-1 ring-white/30 scale-105'
+                            : 'border-white/15 opacity-50 hover:opacity-80'
+                        }`}
+                      >
+                        <img src={gSrc} alt={gShot.title} className="w-full h-full object-cover" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Camera / Gallery Source Picker Action Sheet */}
         {activePickerSlot !== null && (

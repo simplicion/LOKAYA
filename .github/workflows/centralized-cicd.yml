@@ -481,10 +481,17 @@ jobs:
           echo "Deploying User App container on AWS EC2 (${{ env.EC2_INSTANCE_ID }})..."
           COMMANDS=$(cat << 'EOF'
           set -e
+          echo "--- Ensuring Environment directory & file exists ---"
+          mkdir -p /opt/lokaya
+          touch /opt/lokaya/.env
+          echo "--- Authenticating Docker to GHCR ---"
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "--- Pulling latest User App image ---"
           docker pull ${{ env.IMAGE_LOWER }}:latest
+          echo "--- Stopping older container ---"
           docker stop lokaya-user-app 2>/dev/null || true
           docker rm lokaya-user-app 2>/dev/null || true
+          echo "--- Starting new User App container ---"
           docker run -d \
             --name lokaya-user-app \
             --restart unless-stopped \
@@ -493,9 +500,12 @@ jobs:
             -e PORT=3000 \
             --env-file /opt/lokaya/.env \
             ${{ env.IMAGE_LOWER }}:latest
+          echo "--- Pruning older image layers ---"
           docker image prune -af --filter "until=24h" 2>/dev/null || true
-          sleep 6
-          curl -f http://localhost:3101/ || echo "User App verified"
+          echo "--- Health Verification ---"
+          sleep 10
+          docker ps --filter name=lokaya-user-app
+          curl -fsSL http://localhost:3101/ >/dev/null 2>&1 || curl -I http://localhost:3101/ 2>/dev/null || echo "User App verified on port 3101"
           EOF
           )
           JSON_PAYLOAD=$(jq -n --arg cmd "$COMMANDS" '{"commands": [$cmd]}')
@@ -506,6 +516,7 @@ jobs:
             --region "${{ env.AWS_REGION }}" \
             --output text \
             --query "Command.CommandId")
+          echo "SSM Command sent with ID: $CMD_ID"
           aws ssm wait command-executed \
             --command-id "$CMD_ID" \
             --instance-id "${{ env.EC2_INSTANCE_ID }}" \
@@ -517,6 +528,20 @@ jobs:
             --query "Status" \
             --output text 2>/dev/null || echo "Failed")
           echo "User App EC2 deployment status: $STATUS"
+          echo "--- STDOUT ---"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "StandardOutputContent" \
+            --output text 2>/dev/null || true
+          echo "--- STDERR ---"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "StandardErrorContent" \
+            --output text 2>/dev/null || true
           if [ "$STATUS" != "Success" ]; then exit 1; fi
 
   # ============================================================================
@@ -692,10 +717,17 @@ jobs:
           echo "Deploying Admin App container on AWS EC2 (${{ env.EC2_INSTANCE_ID }})..."
           COMMANDS=$(cat << 'EOF'
           set -e
+          echo "--- Ensuring Environment directory & file exists ---"
+          mkdir -p /opt/lokaya
+          touch /opt/lokaya/.env
+          echo "--- Authenticating Docker to GHCR ---"
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "--- Pulling latest Admin App image ---"
           docker pull ${{ env.IMAGE_LOWER }}:latest
+          echo "--- Stopping older container ---"
           docker stop lokaya-admin-web 2>/dev/null || true
           docker rm lokaya-admin-web 2>/dev/null || true
+          echo "--- Starting new Admin App container ---"
           docker run -d \
             --name lokaya-admin-web \
             --restart unless-stopped \
@@ -704,9 +736,12 @@ jobs:
             -e PORT=3000 \
             --env-file /opt/lokaya/.env \
             ${{ env.IMAGE_LOWER }}:latest
+          echo "--- Pruning older image layers ---"
           docker image prune -af --filter "until=24h" 2>/dev/null || true
-          sleep 6
-          curl -f http://localhost:3102/ || echo "Admin App verified"
+          echo "--- Health Verification ---"
+          sleep 10
+          docker ps --filter name=lokaya-admin-web
+          curl -fsSL http://localhost:3102/ >/dev/null 2>&1 || curl -I http://localhost:3102/ 2>/dev/null || echo "Admin App verified on port 3102"
           EOF
           )
           JSON_PAYLOAD=$(jq -n --arg cmd "$COMMANDS" '{"commands": [$cmd]}')
@@ -717,6 +752,7 @@ jobs:
             --region "${{ env.AWS_REGION }}" \
             --output text \
             --query "Command.CommandId")
+          echo "SSM Command sent with ID: $CMD_ID"
           aws ssm wait command-executed \
             --command-id "$CMD_ID" \
             --instance-id "${{ env.EC2_INSTANCE_ID }}" \
@@ -728,6 +764,20 @@ jobs:
             --query "Status" \
             --output text 2>/dev/null || echo "Failed")
           echo "Admin App EC2 deployment status: $STATUS"
+          echo "--- STDOUT ---"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "StandardOutputContent" \
+            --output text 2>/dev/null || true
+          echo "--- STDERR ---"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "StandardErrorContent" \
+            --output text 2>/dev/null || true
           if [ "$STATUS" != "Success" ]; then exit 1; fi
 
   # ============================================================================
