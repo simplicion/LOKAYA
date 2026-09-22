@@ -17,6 +17,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 
 import { VideoPlayer } from '../media/VideoPlayer';
+import { useFeedSound } from '@/context/FeedSoundContext';
 
 export interface SocialReelProps {
   id: string;
@@ -90,7 +91,7 @@ export function SocialReel({
   const showOptimizingBadge = isAuthor && (status === 'PROCESSING' || status === 'PENDING' || isOptimizing);
 
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
+  const { isMuted, toggleMute } = useFeedSound();
   const [progress, setProgress] = useState(progressPercent);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -359,7 +360,7 @@ export function SocialReel({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setIsMuted(!isMuted);
+              toggleMute();
             }}
             className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/10 active:scale-95 transition-transform"
           >
