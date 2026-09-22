@@ -33,7 +33,8 @@ import {
   useGetPresignedUrlMutation, 
   useUploadMediaMutation,
   useGetDeliveryProfileQuery,
-  useGetOnboardingConfigQuery 
+  useGetOnboardingConfigQuery,
+  useGetMyStoreQuery
 } from '@/lib/api';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -46,8 +47,15 @@ export default function SellerOnboardingPage() {
   const router = useRouter();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
+  const { data: myStore, isLoading: isMyStoreLoading } = useGetMyStoreQuery(undefined, { skip: !user });
   const { data: deliveryProfile, isLoading: isDeliveryProfileLoading } = useGetDeliveryProfileQuery(undefined, { skip: !user });
   const { data: onboardingConfig, isLoading: isOnboardingConfigLoading } = useGetOnboardingConfigQuery();
+
+  useEffect(() => {
+    if (myStore) {
+      router.replace('/seller');
+    }
+  }, [myStore, router]);
 
   // Dynamic policy from admin setting (defaults to false for startup fast-track)
   const requireDocs = Boolean(onboardingConfig?.requireSellerDocs);
@@ -323,12 +331,13 @@ export default function SellerOnboardingPage() {
 
     try {
       const res = await onboardStore(payload).unwrap();
-      if (res?.status === 'VERIFIED' || !requireDocs) {
+      const isVerified = res?.store?.status === 'VERIFIED' || res?.status === 'VERIFIED' || !requireDocs;
+      if (isVerified) {
         toast.success('🎉 Store activated! Welcome to your Seller Workspace.');
       } else {
         toast.success('Store application submitted! Waiting for admin review.');
       }
-      router.push('/seller');
+      window.location.href = '/seller';
     } catch (error: any) {
       toast.error(error?.data?.message || error?.message || 'Failed to submit store onboarding');
     }

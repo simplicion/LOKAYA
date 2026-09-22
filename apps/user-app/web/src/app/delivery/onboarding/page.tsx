@@ -236,7 +236,7 @@ export default function DeliveryOnboardingPage() {
       await onboardDeliveryPartner(payload).unwrap();
       if (!requireRiderDocs) {
         toast.success('🎉 Account approved! Welcome to the Lokaya Rider Fleet.');
-        router.push('/delivery');
+        window.location.href = '/delivery';
       } else {
         toast.success('🎉 Application submitted for verification!');
         setStep(4);

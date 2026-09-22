@@ -36,12 +36,12 @@ export default function SellerDashboardPage() {
   const { data: liveSalesData = [] } = useGetSellerSalesTrendQuery(activeDateFilter, { skip: !store?.id || store?.status !== 'VERIFIED' });
 
   useEffect(() => {
-    if (!isLoading && (!store || (error && (error as any).status === 404))) {
+    if (!isLoading && !isFetching && (!store || (error && (error as any).status === 404))) {
       router.push('/seller/onboarding');
     }
-  }, [isLoading, store, error, router]);
+  }, [isLoading, isFetching, store, error, router]);
 
-  if (isLoading) {
+  if (isLoading || isFetching) {
     return (
       <div className="flex h-full min-h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-[#FF5A36]" />
