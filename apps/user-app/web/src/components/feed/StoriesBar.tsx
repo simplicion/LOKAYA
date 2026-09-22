@@ -88,8 +88,8 @@ export function StoriesBar() {
         
         {/* "Your Story" item for Authenticated Sellers with a Store */}
         {isAuthenticated && user && myStore && (
-          <div className="snap-start shrink-0 w-[calc(25vw-20px)] max-w-[76px] flex flex-col items-center gap-1 cursor-pointer group">
-            <div className="relative w-full aspect-square" onClick={handleOpenMyStory}>
+          <div className="snap-start shrink-0 w-[72px] flex flex-col items-center gap-1 cursor-pointer group">
+            <div className="relative w-[68px] h-[68px] aspect-square shrink-0" onClick={handleOpenMyStory}>
               {/* Ring */}
               <div className={cn(
                 "w-full h-full rounded-full flex items-center justify-center p-[2px] transition-transform group-active:scale-95",
@@ -123,7 +123,7 @@ export function StoriesBar() {
               </div>
             </div>
 
-            <span className="text-[11px] font-medium text-[#171717] mt-1 w-full truncate text-center px-0.5">
+            <span className="text-[11px] font-medium text-[#171717] mt-0.5 w-full truncate text-center px-0.5">
               Your Story
             </span>
           </div>
@@ -140,9 +140,9 @@ export function StoriesBar() {
             <div 
               key={group.storeId} 
               onClick={() => handleOpenStoreStory(index)}
-              className="snap-start shrink-0 w-[calc(25vw-20px)] max-w-[76px] flex flex-col items-center gap-1 cursor-pointer group"
+              className="snap-start shrink-0 w-[72px] flex flex-col items-center gap-1 cursor-pointer group"
             >
-              <div className="relative w-full aspect-square">
+              <div className="relative w-[68px] h-[68px] aspect-square shrink-0">
                 {/* Gradient ring if unseen, neutral ring if all seen */}
                 <div className={cn(
                   "w-full h-full rounded-full flex items-center justify-center p-[2px] transition-transform group-active:scale-95",
@@ -168,7 +168,7 @@ export function StoriesBar() {
                 </div>
               </div>
 
-              <span className="text-[11px] font-medium text-[#171717] mt-1 w-full truncate text-center px-0.5">
+              <span className="text-[11px] font-medium text-[#171717] mt-0.5 w-full truncate text-center px-0.5">
                 {group.storeName}
               </span>
             </div>

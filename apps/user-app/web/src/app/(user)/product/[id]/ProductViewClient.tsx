@@ -412,7 +412,7 @@ export default function ProductViewClient({ productId, initialData }: { productI
           <div 
             ref={sliderRef}
             onScroll={handleScroll}
-            className="flex w-full h-full overflow-x-auto snap-x snap-mandatory no-scrollbar touch-pan-x select-none scroll-smooth"
+            className="flex w-full h-full overflow-x-auto snap-x snap-mandatory no-scrollbar touch-pan-y touch-pan-x select-none scroll-smooth"
             style={{ scrollSnapType: 'x mandatory' }}
           >
             {galleryMedia.map((media, idx) => (

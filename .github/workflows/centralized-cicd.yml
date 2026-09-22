@@ -225,6 +225,16 @@ jobs:
           docker stop lokaya-backend 2>/dev/null || true
           docker rm lokaya-backend 2>/dev/null || true
 
+          echo "--- Ensuring Environment & AI API Keys in /opt/lokaya/.env ---"
+          mkdir -p /opt/lokaya
+          touch /opt/lokaya/.env
+          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
+            grep -q "^GEMINI_API_KEY=" /opt/lokaya/.env && sed -i "s|^GEMINI_API_KEY=.*|GEMINI_API_KEY=\"${{ secrets.GEMINI_API_KEY }}\"|" /opt/lokaya/.env || echo "GEMINI_API_KEY=\"${{ secrets.GEMINI_API_KEY }}\"" >> /opt/lokaya/.env
+          fi
+          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+            grep -q "^OPENAI_API_KEY=" /opt/lokaya/.env && sed -i "s|^OPENAI_API_KEY=.*|OPENAI_API_KEY=\"${{ secrets.OPENAI_API_KEY }}\"|" /opt/lokaya/.env || echo "OPENAI_API_KEY=\"${{ secrets.OPENAI_API_KEY }}\"" >> /opt/lokaya/.env
+          fi
+
           echo "--- Starting new Lokaya production container ---"
           docker run -d \
             --name lokaya-backend \

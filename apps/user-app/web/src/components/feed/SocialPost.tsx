@@ -352,7 +352,7 @@ export function SocialPost({
           {/* Scrollable Media List (1-by-1 Instagram Carousel) */}
           <div 
             ref={scrollContainerRef}
-            className="w-full h-full flex overflow-x-auto snap-x snap-mandatory no-scrollbar hide-scrollbar scroll-smooth touch-pan-x select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            className="w-full h-full flex overflow-x-auto snap-x snap-mandatory no-scrollbar hide-scrollbar scroll-smooth touch-pan-y touch-pan-x select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             onScroll={(e) => {
               const target = e.currentTarget;

@@ -88,9 +88,12 @@ export function AiStudioBottomSheet({
   const [previewModalUrl, setPreviewModalUrl] = useState<string | null>(null);
   const [generationStageText, setGenerationStageText] = useState<string>('Analyzing product details & geometry...');
   const [isUploadingToStorage, setIsUploadingToStorage] = useState<boolean>(false);
+  const [activePickerSlot, setActivePickerSlot] = useState<1 | 2 | null>(null);
 
-  const fileInputRef1 = useRef<HTMLInputElement>(null);
-  const fileInputRef2 = useRef<HTMLInputElement>(null);
+  const galleryInputRef1 = useRef<HTMLInputElement>(null);
+  const cameraInputRef1 = useRef<HTMLInputElement>(null);
+  const galleryInputRef2 = useRef<HTMLInputElement>(null);
+  const cameraInputRef2 = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Lock scroll when open
@@ -446,10 +449,21 @@ export function AiStudioBottomSheet({
                     <span className="text-brand-orange text-[10px] font-bold">Required</span>
                   </div>
 
+                  {/* Hidden Inputs for Slot 1: Gallery & Camera */}
                   <input 
                     type="file" 
-                    ref={fileInputRef1} 
+                    ref={galleryInputRef1} 
                     accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleImagePick(e.target.files[0], 1);
+                    }}
+                  />
+                  <input 
+                    type="file" 
+                    ref={cameraInputRef1} 
+                    accept="image/*" 
+                    capture="environment"
                     className="hidden" 
                     onChange={(e) => {
                       if (e.target.files?.[0]) handleImagePick(e.target.files[0], 1);
@@ -461,14 +475,14 @@ export function AiStudioBottomSheet({
                       <img src={preview1} alt="Angle 1" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <button 
-                          onClick={() => fileInputRef1.current?.click()}
-                          className="bg-white text-gray-900 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs hover:bg-gray-100"
+                          onClick={() => setActivePickerSlot(1)}
+                          className="bg-white text-gray-900 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs hover:bg-gray-100 cursor-pointer"
                         >
                           Change
                         </button>
                         <button 
                           onClick={() => removeImage(1)}
-                          className="bg-red-600 text-white p-1.5 rounded-lg text-xs font-semibold shadow-xs hover:bg-red-700"
+                          className="bg-red-600 text-white p-1.5 rounded-lg text-xs font-semibold shadow-xs hover:bg-red-700 cursor-pointer"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -476,14 +490,14 @@ export function AiStudioBottomSheet({
                     </div>
                   ) : (
                     <div 
-                      onClick={() => fileInputRef1.current?.click()}
+                      onClick={() => setActivePickerSlot(1)}
                       className="aspect-square rounded-xl border-2 border-dashed border-[#E5E2DC] hover:border-brand-navy bg-[#FAF9F6] hover:bg-white flex flex-col items-center justify-center p-3 cursor-pointer transition-colors text-center group"
                     >
                       <div className="w-9 h-9 rounded-xl bg-white border border-[#E5E2DC] text-gray-500 group-hover:text-brand-navy flex items-center justify-center mb-1.5 transition-colors">
                         <Camera className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-semibold text-gray-800">Primary Angle</span>
-                      <span className="text-[10px] text-gray-400 mt-0.5">Front product photo</span>
+                      <span className="text-[10px] text-gray-400 mt-0.5">Camera or Gallery</span>
                     </div>
                   )}
                 </div>
@@ -495,10 +509,21 @@ export function AiStudioBottomSheet({
                     <span className="text-gray-400 text-[10px]">Optional</span>
                   </div>
 
+                  {/* Hidden Inputs for Slot 2: Gallery & Camera */}
                   <input 
                     type="file" 
-                    ref={fileInputRef2} 
+                    ref={galleryInputRef2} 
                     accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleImagePick(e.target.files[0], 2);
+                    }}
+                  />
+                  <input 
+                    type="file" 
+                    ref={cameraInputRef2} 
+                    accept="image/*" 
+                    capture="environment"
                     className="hidden" 
                     onChange={(e) => {
                       if (e.target.files?.[0]) handleImagePick(e.target.files[0], 2);
@@ -510,14 +535,14 @@ export function AiStudioBottomSheet({
                       <img src={preview2} alt="Angle 2" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <button 
-                          onClick={() => fileInputRef2.current?.click()}
-                          className="bg-white text-gray-900 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs hover:bg-gray-100"
+                          onClick={() => setActivePickerSlot(2)}
+                          className="bg-white text-gray-900 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs hover:bg-gray-100 cursor-pointer"
                         >
                           Change
                         </button>
                         <button 
                           onClick={() => removeImage(2)}
-                          className="bg-red-600 text-white p-1.5 rounded-lg text-xs font-semibold shadow-xs hover:bg-red-700"
+                          className="bg-red-600 text-white p-1.5 rounded-lg text-xs font-semibold shadow-xs hover:bg-red-700 cursor-pointer"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -525,14 +550,14 @@ export function AiStudioBottomSheet({
                     </div>
                   ) : (
                     <div 
-                      onClick={() => fileInputRef2.current?.click()}
+                      onClick={() => setActivePickerSlot(2)}
                       className="aspect-square rounded-xl border-2 border-dashed border-[#E5E2DC] hover:border-brand-navy bg-[#FAF9F6] hover:bg-white flex flex-col items-center justify-center p-3 cursor-pointer transition-colors text-center group"
                     >
                       <div className="w-9 h-9 rounded-xl bg-white border border-[#E5E2DC] text-gray-500 group-hover:text-brand-navy flex items-center justify-center mb-1.5 transition-colors">
                         <ImageIcon className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-semibold text-gray-800">Second Angle</span>
-                      <span className="text-[10px] text-gray-400 mt-0.5">Side or texture shot</span>
+                      <span className="text-[10px] text-gray-400 mt-0.5">Camera or Gallery</span>
                     </div>
                   )}
                 </div>
@@ -828,6 +853,76 @@ export function AiStudioBottomSheet({
                 className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center"
               >
                 <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Camera / Gallery Source Picker Action Sheet */}
+        {activePickerSlot !== null && (
+          <div 
+            className="fixed inset-0 z-70 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+            onClick={() => setActivePickerSlot(null)}
+          >
+            <div 
+              className="w-full sm:max-w-xs bg-white rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl border border-gray-100 space-y-3 animate-in slide-in-from-bottom-4 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center pb-1">
+                <h4 className="text-sm font-bold text-gray-900">Add Product Photo</h4>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Choose source for Angle {activePickerSlot}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-1">
+                {/* Option 1: Take Photo with Camera */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const slot = activePickerSlot;
+                    setActivePickerSlot(null);
+                    if (slot === 1) cameraInputRef1.current?.click();
+                    if (slot === 2) cameraInputRef2.current?.click();
+                  }}
+                  className="flex items-center gap-3 w-full p-3 bg-slate-50 hover:bg-slate-100 active:scale-[0.98] rounded-xl border border-slate-200/80 transition-all cursor-pointer group text-left"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-orange-50 text-[#FF5A36] flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Camera className="w-5 h-5 text-[#FF5A36]" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-gray-900 block">Take Photo</span>
+                    <span className="text-[10px] text-gray-400">Use device camera</span>
+                  </div>
+                </button>
+
+                {/* Option 2: Choose from Photo Library / Gallery */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const slot = activePickerSlot;
+                    setActivePickerSlot(null);
+                    if (slot === 1) galleryInputRef1.current?.click();
+                    if (slot === 2) galleryInputRef2.current?.click();
+                  }}
+                  className="flex items-center gap-3 w-full p-3 bg-slate-50 hover:bg-slate-100 active:scale-[0.98] rounded-xl border border-slate-200/80 transition-all cursor-pointer group text-left"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <ImageIcon className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-gray-900 block">Choose from Gallery</span>
+                    <span className="text-[10px] text-gray-400">Select from photo library</span>
+                  </div>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActivePickerSlot(null)}
+                className="w-full py-2.5 text-xs font-bold text-gray-500 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-xl transition cursor-pointer"
+              >
+                Cancel
               </button>
             </div>
           </div>

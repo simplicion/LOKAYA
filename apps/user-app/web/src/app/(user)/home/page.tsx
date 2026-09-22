@@ -1,21 +1,27 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StoriesBar } from '@/components/feed/StoriesBar';
 import { FeedUploadProgressBar } from '@/components/feed/FeedUploadProgressBar';
 import { SocialPost } from '@/components/feed/SocialPost';
 import { useGetPostsQuery, useGetMyStoreQuery } from '@/lib/api';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
-import { Sparkles, PlusCircle, Compass, Heart } from 'lucide-react';
+import { Sparkles, PlusCircle, Compass, Heart, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 import { formatTimeAgo } from '@/lib/utils';
+
+const INITIAL_POST_COUNT = 5;
+const BATCH_LOAD_SIZE = 4;
 
 export default function SocialHomePage() {
   const { data: serverPosts, isLoading } = useGetPostsQuery();
   const user = useSelector((state: RootState) => state.auth.user);
   const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
+
+  const [visibleCount, setVisibleCount] = useState<number>(INITIAL_POST_COUNT);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   const postsToRender = (serverPosts && serverPosts.length > 0)
     ? serverPosts.map((p) => ({
@@ -42,11 +48,32 @@ export default function SocialHomePage() {
       }))
     : [];
 
+  const visiblePosts = postsToRender.slice(0, visibleCount);
+  const hasMore = visibleCount < postsToRender.length;
+
+  // Infinite Scroll Intersection Observer
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + BATCH_LOAD_SIZE, postsToRender.length));
+        }
+      },
+      { rootMargin: '400px 0px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, postsToRender.length]);
+
   return (
     <div className="flex flex-col min-h-screen bg-[#FAF9F6] pb-20">
       {/* Main Scrollable Area */}
       <div className="flex-1 mt-0">
-        {/* Stories Bar with 100% live backend data */}
+        {/* Stories Bar with fixed circle layout */}
         <StoriesBar />
         
         {/* Instagram-style real-time upload progress banner */}
@@ -57,12 +84,22 @@ export default function SocialHomePage() {
           <AdaptiveSkeleton variant="feed-post" count={2} />
         )}
 
-        {/* Feed Container */}
-        {!isLoading && postsToRender.length > 0 && (
+        {/* Feed Container with Lazy Batch Loading */}
+        {!isLoading && visiblePosts.length > 0 && (
           <div className="flex flex-col pb-4">
-            {postsToRender.map((post) => (
+            {visiblePosts.map((post) => (
               <SocialPost key={post.id} {...post} />
             ))}
+
+            {/* Infinite Scroll Sentinel */}
+            {hasMore && (
+              <div ref={loadMoreSentinelRef} className="flex justify-center py-6">
+                <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#FF5A36]" />
+                  <span>Loading more stories...</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -99,11 +136,13 @@ export default function SocialHomePage() {
         )}
 
         {/* End of Feed Watermark */}
-        <div className="flex flex-col items-center justify-center py-8 pb-12 opacity-80">
-          <p className="text-xs font-bold text-[#999999] tracking-wide uppercase flex items-center justify-center gap-1">
-            Made with <Heart className="w-3.5 h-3.5 text-[#FF5A36] fill-[#FF5A36]" /> for local communities
-          </p>
-        </div>
+        {!isLoading && !hasMore && postsToRender.length > 0 && (
+          <div className="flex flex-col items-center justify-center py-8 pb-12 opacity-80">
+            <p className="text-xs font-bold text-[#999999] tracking-wide uppercase flex items-center justify-center gap-1">
+              Made with <Heart className="w-3.5 h-3.5 text-[#FF5A36] fill-[#FF5A36]" /> for local communities
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
