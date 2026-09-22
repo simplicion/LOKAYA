@@ -112,12 +112,17 @@ export default function SellerSettingsPage() {
                   description: 'Once downloaded, tap the notification or file to install on your Android device.',
                   duration: 5000,
                 });
+                const apkUrl = typeof window !== 'undefined' && window.location.hostname.includes('lokaya')
+                  ? 'https://api.lokaya.shop/api/v1/media/stream/downloads/lokaya.apk'
+                  : '/downloads/lokaya.apk';
                 const link = document.createElement('a');
-                link.href = '/downloads/lokaya.apk';
+                link.href = apkUrl;
                 link.setAttribute('download', 'lokaya.apk');
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener noreferrer');
                 document.body.appendChild(link);
                 link.click();
-                document.body.removeChild(link);
+                setTimeout(() => document.body.removeChild(link), 150);
               }}
               className="flex items-center justify-between py-4 px-2 hover:bg-emerald-50/70 active:bg-emerald-100/70 rounded-2xl cursor-pointer transition-colors group"
             >

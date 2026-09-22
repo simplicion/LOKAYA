@@ -14,15 +14,22 @@ export function DownloadAppBanner() {
       duration: 5000,
     });
 
+    const apkUrl = typeof window !== 'undefined' && window.location.hostname.includes('lokaya')
+      ? 'https://api.lokaya.shop/api/v1/media/stream/downloads/lokaya.apk'
+      : '/downloads/lokaya.apk';
+
     // Create invisible anchor to download
     const link = document.createElement('a');
-    link.href = '/downloads/lokaya.apk';
+    link.href = apkUrl;
     link.setAttribute('download', 'lokaya.apk');
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-
-    setTimeout(() => setIsDownloading(false), 2000);
+    setTimeout(() => {
+      document.body.removeChild(link);
+      setIsDownloading(false);
+    }, 500);
   };
 
   return (

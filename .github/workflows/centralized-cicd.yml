@@ -380,6 +380,10 @@ jobs:
           if [ -f apps/user-app/web/public/_worker.js ]; then
             cp apps/user-app/web/public/_worker.js apps/user-app/web/out/_worker.js
           fi
+          if [ -d apps/user-app/web/public/downloads ]; then
+            mkdir -p apps/user-app/web/out/downloads
+            cp -r apps/user-app/web/public/downloads/* apps/user-app/web/out/downloads/ || true
+          fi
 
       - name: Deploy to Cloudflare Pages
         env:

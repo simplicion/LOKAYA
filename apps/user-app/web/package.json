@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3101",
-    "build": "next build && node -e \"const fs=require('fs'); if (fs.existsSync('public/_worker.js') && fs.existsSync('out')) fs.copyFileSync('public/_worker.js', 'out/_worker.js');\"",
+    "build": "next build && node -e \"const fs=require('fs'); if (fs.existsSync('public/_worker.js') && fs.existsSync('out')) fs.copyFileSync('public/_worker.js', 'out/_worker.js'); if (fs.existsSync('public/downloads') && fs.existsSync('out')) fs.cpSync('public/downloads', 'out/downloads', {recursive: true});\"",
     "start": "next start",
     "lint": "eslint"
   },
