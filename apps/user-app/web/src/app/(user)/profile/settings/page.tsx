@@ -19,7 +19,8 @@ import {
   MapPin, 
   ChevronRight, 
   Archive,
-  LogOut
+  LogOut,
+  Smartphone
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -98,6 +99,44 @@ export default function SellerSettingsPage() {
             />
             <SettingsItem icon={CreditCard} label="Payments & Payouts" href="/seller/finance" />
             <SettingsItem icon={MapPin} label="Addresses" href="/seller/store/locations" />
+          </div>
+        </div>
+
+        {/* App & Download Section */}
+        <div className="px-4 py-4 border-t border-gray-100">
+          <h2 className="text-sm font-bold text-gray-500 mb-2 px-2 uppercase tracking-wider">App & Experience</h2>
+          <div className="flex flex-col">
+            <div 
+              onClick={() => {
+                toast.success('Downloading LOKAYA Android APK...', {
+                  description: 'Once downloaded, tap the notification or file to install on your Android device.',
+                  duration: 5000,
+                });
+                const link = document.createElement('a');
+                link.href = '/downloads/lokaya.apk';
+                link.setAttribute('download', 'lokaya.apk');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="flex items-center justify-between py-4 px-2 hover:bg-emerald-50/70 active:bg-emerald-100/70 rounded-2xl cursor-pointer transition-colors group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+                  <Smartphone className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-semibold text-[#171717] text-sm">Download Android App</span>
+                  <span className="text-[11px] text-gray-400 font-medium">Native APK build with push notifications & haptics</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-700 font-bold text-xs bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                  APK
+                </span>
+                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </div>
           </div>
         </div>
 
