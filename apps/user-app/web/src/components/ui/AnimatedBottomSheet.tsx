@@ -38,7 +38,7 @@ export function AnimatedBottomSheet({
   className,
   contentClassName,
   headerClassName,
-  zIndex = 50,
+  zIndex = 100,
   showCloseButton = true,
 }: AnimatedBottomSheetProps) {
   // Close on Escape key press
@@ -103,7 +103,7 @@ export function AnimatedBottomSheet({
             onDragEnd={handleDragEnd}
             style={{ maxHeight }}
             className={cn(
-              'relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[#E5E2DC] z-10 flex flex-col overflow-hidden touch-manipulation',
+              'relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[#E5E2DC] z-10 flex flex-col overflow-hidden touch-manipulation pb-safe',
               className
             )}
           >

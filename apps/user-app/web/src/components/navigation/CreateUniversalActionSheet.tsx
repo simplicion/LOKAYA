@@ -78,6 +78,7 @@ export function CreateUniversalActionSheet({
     {
       id: 'product',
       title: 'Add Product',
+      description: 'List a new item in your store catalog',
       icon: ShoppingBag,
       gradient: 'from-emerald-500 to-teal-500',
       onClick: handleAddProduct,
@@ -85,6 +86,7 @@ export function CreateUniversalActionSheet({
     {
       id: 'post',
       title: 'Create Post',
+      description: 'Share photos or videos to feed',
       icon: Camera,
       gradient: 'from-[#FF5A36] to-[#FF8A65]',
       onClick: handleCreatePost,
@@ -92,6 +94,7 @@ export function CreateUniversalActionSheet({
     {
       id: 'story',
       title: 'Add Story',
+      description: 'Post a 24-hour update for buyers',
       icon: Film,
       gradient: 'from-purple-600 to-indigo-600',
       onClick: handleAddStory,
@@ -103,13 +106,14 @@ export function CreateUniversalActionSheet({
       isOpen={isOpen}
       onClose={onClose}
       title="Create"
+      zIndex={100}
       icon={
         <div className="w-9 h-9 rounded-2xl bg-orange-100 text-[#FF5A36] flex items-center justify-center font-bold">
           <Sparkles className="w-5 h-5" />
         </div>
       }
     >
-      <div className="p-4 sm:p-5 space-y-2.5 pb-6">
+      <div className="p-4 sm:p-5 space-y-2.5 pb-8 sm:pb-6">
         {actions.map((item) => {
           const Icon = item.icon;
           return (
@@ -125,9 +129,14 @@ export function CreateUniversalActionSheet({
                 <div className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${item.gradient} text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform`}>
                   <Icon className="w-5 h-5" />
                 </div>
-                <span className="font-extrabold text-[15px] sm:text-base text-[#171717] group-hover:text-[#FF5A36] transition-colors truncate">
-                  {item.title}
-                </span>
+                <div className="min-w-0 pr-2">
+                  <span className="font-extrabold text-[15px] sm:text-base text-[#171717] group-hover:text-[#FF5A36] transition-colors truncate block">
+                    {item.title}
+                  </span>
+                  <p className="text-xs text-[#737373] mt-0.5 truncate font-normal">
+                    {item.description}
+                  </p>
+                </div>
               </div>
 
               <div className="w-8 h-8 rounded-xl bg-gray-50 group-hover:bg-orange-100 flex items-center justify-center shrink-0 text-gray-400 group-hover:text-[#FF5A36] transition-colors ml-1">
