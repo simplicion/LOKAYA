@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChevronDown, Loader2, ArrowDownCircle, AlertCircle, Clock, CheckCircle2, XCircle, PlusCircle, Building2 } from 'lucide-react';
