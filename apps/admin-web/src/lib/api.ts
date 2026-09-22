@@ -39,7 +39,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates', 'Notifications', 'OnboardingConfig', 'Payouts'],
+  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates', 'Notifications', 'OnboardingConfig', 'Payouts', 'RiderPayouts'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
       query: () => '/seller/pending',
@@ -386,6 +386,42 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['Payouts'],
     }),
+
+    // Rider / Delivery Partner Payouts Management
+    getRiderPayouts: builder.query<{
+      payouts: any[];
+      total: number;
+      page: number;
+      limit: number;
+      stats: {
+        pendingCount: number;
+        pendingAmount: number;
+        completedCount: number;
+        completedAmount: number;
+      };
+    }, { status?: string; page?: number; limit?: number; search?: string } | void>({
+      query: (params) => ({
+        url: '/admin/rider-payouts',
+        params: params || {},
+      }),
+      providesTags: ['RiderPayouts'],
+    }),
+    completeRiderPayout: builder.mutation<any, { id: string; transactionRef?: string }>({
+      query: ({ id, transactionRef }) => ({
+        url: `/admin/rider-payouts/${id}/complete`,
+        method: 'PATCH',
+        body: { transactionRef },
+      }),
+      invalidatesTags: ['RiderPayouts'],
+    }),
+    rejectRiderPayout: builder.mutation<any, { id: string; reason: string }>({
+      query: ({ id, reason }) => ({
+        url: `/admin/rider-payouts/${id}/reject`,
+        method: 'PATCH',
+        body: { reason },
+      }),
+      invalidatesTags: ['RiderPayouts'],
+    }),
   }),
 });
 
@@ -440,5 +476,8 @@ export const {
   useGetPayoutsQuery,
   useCompletePayoutMutation,
   useRejectPayoutMutation,
+  useGetRiderPayoutsQuery,
+  useCompleteRiderPayoutMutation,
+  useRejectRiderPayoutMutation,
 } = adminApi;
 

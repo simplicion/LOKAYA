@@ -1101,12 +1101,53 @@ model DeliveryPartner {
   partnerStores         StoreDeliveryPartner[]
   fulfilledOrders       Order[]               @relation("OrderDeliveryPartner")
   deliveryBatches       DeliveryBatch[]
+  bankAccounts          RiderBankAccount[]
+  payouts               RiderPayout[]
 
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 
   @@index([status, isOnline, isBusy])
   @@index([currentLatitude, currentLongitude])
+}
+
+model RiderBankAccount {
+  id                String          @id @default(uuid())
+  deliveryPartnerId String
+  accountName       String
+  bankName          String
+  accountNumber     String          // Masked e.g., "****9042"
+  fullAccount       String?
+  ifsc              String
+  isPrimary         Boolean         @default(false)
+  isVerified        Boolean         @default(true)
+
+  deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+  payouts           RiderPayout[]
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([deliveryPartnerId])
+}
+
+model RiderPayout {
+  id                String           @id @default(uuid())
+  deliveryPartnerId String
+  bankAccountId     String
+  amount            Float
+  fee               Float            @default(0)
+  status            PayoutStatus     @default(PENDING)
+  referenceNumber   String?          @unique
+  failureReason     String?
+
+  deliveryPartner   DeliveryPartner  @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+  bankAccount       RiderBankAccount @relation(fields: [bankAccountId], references: [id])
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([deliveryPartnerId])
 }
 
 model StoreDeliveryPartner {

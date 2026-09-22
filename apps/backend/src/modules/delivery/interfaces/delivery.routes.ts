@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { DeliveryService } from '../application/delivery.service';
+import { DeliveryFinanceService } from '../application/delivery-finance.service';
 import { ParcelAssignmentService } from '../application/parcel-assignment.service';
 import { requireAuth } from '../../../shared/middleware/auth';
 import { validateRequest } from '../../../shared/middleware/validate';
@@ -430,6 +431,72 @@ router.get('/fuel-rates/:countryCode', async (req: Request, res: Response, next:
   }
 });
 
+// --- Delivery Partner Finance & Payouts Endpoints ---
+
+router.get('/finance/summary', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const summary = await DeliveryFinanceService.getSummary((req as any).user.id);
+    res.status(200).json(summary);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/finance/bank-accounts', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const accounts = await DeliveryFinanceService.getBankAccounts((req as any).user.id);
+    res.status(200).json(accounts);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/finance/bank-accounts', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const account = await DeliveryFinanceService.addBankAccount((req as any).user.id, req.body);
+    res.status(201).json(account);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/finance/bank-accounts/:id/primary', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await DeliveryFinanceService.setPrimaryBankAccount((req as any).user.id, req.params.id);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/finance/bank-accounts/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await DeliveryFinanceService.deleteBankAccount((req as any).user.id, req.params.id);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/finance/payouts', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const payouts = await DeliveryFinanceService.getPayouts((req as any).user.id);
+    res.status(200).json(payouts);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/finance/payouts/request', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const payout = await DeliveryFinanceService.requestPayout((req as any).user.id, req.body);
+    res.status(201).json(payout);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export const deliveryRouter = router;
+
 
 

@@ -8,6 +8,7 @@ import { MemoryCacheService } from '../../../shared/services/memory-cache.servic
 import { redisClient } from '../../../shared/services/redis.service';
 
 import { FinanceService } from '../../seller/application/finance.service';
+import { DeliveryFinanceService } from '../../delivery/application/delivery-finance.service';
 
 export const adminRouter: Router = Router();
 
@@ -1117,5 +1118,50 @@ adminRouter.patch('/payouts/:id/reject', requireAuth, requireAdmin, async (req: 
     next(error);
   }
 });
+
+// ==========================================
+// Rider / Delivery Partner Payouts Management
+// ==========================================
+
+// GET /api/v1/admin/rider-payouts - List rider payouts with filtering, stats & bank details
+adminRouter.get('/rider-payouts', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { status, page, limit, search } = req.query;
+    const result = await DeliveryFinanceService.getAdminRiderPayouts({
+      status: status as string,
+      page: page ? parseInt(page as string, 10) : 1,
+      limit: limit ? parseInt(limit as string, 10) : 50,
+      search: search as string
+    });
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/rider-payouts/:id/complete - Mark rider payout as completed with transaction ref
+adminRouter.patch('/rider-payouts/:id/complete', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    const { transactionRef } = req.body;
+    const result = await DeliveryFinanceService.completeRiderPayout(id, transactionRef);
+    res.status(200).json({ success: true, message: 'Rider payout marked as completed', data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/rider-payouts/:id/reject - Reject rider payout request with reason
+adminRouter.patch('/rider-payouts/:id/reject', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const result = await DeliveryFinanceService.rejectRiderPayout(id, reason);
+    res.status(200).json({ success: true, message: 'Rider payout request rejected', data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 

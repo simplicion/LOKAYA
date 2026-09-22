@@ -4,7 +4,10 @@ import React, { useState } from 'react';
 import { 
   useGetPayoutsQuery,
   useCompletePayoutMutation,
-  useRejectPayoutMutation
+  useRejectPayoutMutation,
+  useGetRiderPayoutsQuery,
+  useCompleteRiderPayoutMutation,
+  useRejectRiderPayoutMutation
 } from '@/lib/api';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
@@ -27,11 +30,15 @@ import {
   User,
   Phone,
   DollarSign,
-  ArrowUpRight
+  ArrowUpRight,
+  Bike,
+  Store,
+  Navigation
 } from 'lucide-react';
 
 export default function AdminPayoutsPage() {
   const { formatPrice } = useCurrency();
+  const [payoutType, setPayoutType] = useState<'rider' | 'seller'>('rider');
   const [selectedStatus, setSelectedStatus] = useState<string>('PENDING');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -43,18 +50,39 @@ export default function AdminPayoutsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Seller Payouts Queries
   const { 
-    data, 
-    isLoading, 
-    refetch, 
-    isFetching 
+    data: sellerData, 
+    isLoading: isSellerLoading, 
+    refetch: refetchSeller, 
+    isFetching: isSellerFetching 
   } = useGetPayoutsQuery({
     status: selectedStatus === 'ALL' ? undefined : selectedStatus,
     search: searchQuery.trim() || undefined,
-  });
+  }, { skip: payoutType !== 'seller' });
 
-  const [completePayout, { isLoading: isCompleting }] = useCompletePayoutMutation();
-  const [rejectPayout, { isLoading: isRejecting }] = useRejectPayoutMutation();
+  // Rider Payouts Queries
+  const { 
+    data: riderData, 
+    isLoading: isRiderLoading, 
+    refetch: refetchRider, 
+    isFetching: isRiderFetching 
+  } = useGetRiderPayoutsQuery({
+    status: selectedStatus === 'ALL' ? undefined : selectedStatus,
+    search: searchQuery.trim() || undefined,
+  }, { skip: payoutType !== 'rider' });
+
+  const [completeSellerPayout, { isLoading: isCompletingSeller }] = useCompletePayoutMutation();
+  const [rejectSellerPayout, { isLoading: isRejectingSeller }] = useRejectPayoutMutation();
+
+  const [completeRiderPayout, { isLoading: isCompletingRider }] = useCompleteRiderPayoutMutation();
+  const [rejectRiderPayout, { isLoading: isRejectingRider }] = useRejectRiderPayoutMutation();
+
+  const isCompleting = isCompletingSeller || isCompletingRider;
+  const isRejecting = isRejectingSeller || isRejectingRider;
+  const isLoading = payoutType === 'rider' ? isRiderLoading : isSellerLoading;
+  const isFetching = payoutType === 'rider' ? isRiderFetching : isSellerFetching;
+  const data = payoutType === 'rider' ? riderData : sellerData;
 
   const payouts = data?.payouts || [];
   const stats = data?.stats || {
@@ -62,6 +90,11 @@ export default function AdminPayoutsPage() {
     pendingAmount: 0,
     completedCount: 0,
     completedAmount: 0,
+  };
+
+  const handleRefetch = () => {
+    if (payoutType === 'rider') refetchRider();
+    else refetchSeller();
   };
 
   const handleCopy = (text: string, id: string) => {
@@ -86,14 +119,23 @@ export default function AdminPayoutsPage() {
   const handleCompleteSubmit = async () => {
     if (!activePayout) return;
     try {
-      await completePayout({
-        id: activePayout.id,
-        transactionRef: transactionRef.trim() || undefined,
-      }).unwrap();
-      toast.success(`Payout of ${formatPrice(activePayout.amount)} marked as completed! Seller panel updated.`);
+      if (payoutType === 'rider') {
+        await completeRiderPayout({
+          id: activePayout.id,
+          transactionRef: transactionRef.trim() || undefined,
+        }).unwrap();
+        toast.success(`Rider payout of ${formatPrice(activePayout.amount)} marked as completed! Payment Done will show on rider's screen.`);
+        refetchRider();
+      } else {
+        await completeSellerPayout({
+          id: activePayout.id,
+          transactionRef: transactionRef.trim() || undefined,
+        }).unwrap();
+        toast.success(`Payout of ${formatPrice(activePayout.amount)} marked as completed! Seller panel updated.`);
+        refetchSeller();
+      }
       setShowCompleteModal(false);
       setActivePayout(null);
-      refetch();
     } catch (error: any) {
       toast.error(error?.data?.message || 'Failed to complete payout');
     }
@@ -106,14 +148,23 @@ export default function AdminPayoutsPage() {
       return;
     }
     try {
-      await rejectPayout({
-        id: activePayout.id,
-        reason: rejectReason.trim(),
-      }).unwrap();
-      toast.success(`Payout rejected. Funds restored to seller's balance.`);
+      if (payoutType === 'rider') {
+        await rejectRiderPayout({
+          id: activePayout.id,
+          reason: rejectReason.trim(),
+        }).unwrap();
+        toast.success(`Rider payout rejected. Funds restored to rider's available balance.`);
+        refetchRider();
+      } else {
+        await rejectSellerPayout({
+          id: activePayout.id,
+          reason: rejectReason.trim(),
+        }).unwrap();
+        toast.success(`Payout rejected. Funds restored to seller's balance.`);
+        refetchSeller();
+      }
       setShowRejectModal(false);
       setActivePayout(null);
-      refetch();
     } catch (error: any) {
       toast.error(error?.data?.message || 'Failed to reject payout');
     }
@@ -129,23 +180,61 @@ export default function AdminPayoutsPage() {
               <Banknote className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Seller Payouts & Withdrawals</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {payoutType === 'rider' ? 'Delivery Partner Payouts' : 'Seller Payouts & Withdrawals'}
+              </h1>
               <p className="text-sm text-gray-500 mt-0.5">
-                Review withdrawal requests, verify seller bank details, and disburse payments.
+                {payoutType === 'rider'
+                  ? 'Review rider payout requests, verify bank accounts, and process payment transfers.'
+                  : 'Review withdrawal requests, verify seller bank details, and disburse payments.'}
               </p>
             </div>
           </div>
         </div>
 
-        <Button 
-          variant="outline" 
-          onClick={() => refetch()} 
-          disabled={isFetching}
-          className="flex items-center gap-2 border-gray-200 text-gray-700 bg-white hover:bg-gray-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-emerald-600' : ''}`} />
-          <span>Refresh</span>
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* Main Category Switcher Tab */}
+          <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200">
+            <button
+              onClick={() => {
+                setPayoutType('rider');
+                setSelectedStatus('PENDING');
+              }}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                payoutType === 'rider'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <Bike className="w-4 h-4 text-[#FF5A36]" />
+              <span>Riders / Delivery</span>
+            </button>
+            <button
+              onClick={() => {
+                setPayoutType('seller');
+                setSelectedStatus('PENDING');
+              }}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                payoutType === 'seller'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <Store className="w-4 h-4 text-emerald-600" />
+              <span>Stores / Sellers</span>
+            </button>
+          </div>
+
+          <Button 
+            variant="outline" 
+            onClick={handleRefetch} 
+            disabled={isFetching}
+            className="flex items-center gap-2 border-gray-200 text-gray-700 bg-white hover:bg-gray-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-emerald-600' : ''}`} />
+            <span>Refresh</span>
+          </Button>
+        </div>
       </div>
 
       {/* KPI Stats Banner */}
@@ -153,26 +242,26 @@ export default function AdminPayoutsPage() {
         <div className="bg-white p-5 rounded-2xl border border-amber-100 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg">
-              Pending Clearance
+              Pending Clearance (In Progress)
             </span>
             <Clock className="w-5 h-5 text-amber-500" />
           </div>
           <p className="text-3xl font-extrabold text-gray-900 mt-3">{formatPrice(stats.pendingAmount)}</p>
           <p className="text-xs text-gray-500 mt-1">
-            <strong className="text-amber-600 font-semibold">{stats.pendingCount}</strong> request{stats.pendingCount === 1 ? '' : 's'} awaiting payout
+            <strong className="text-amber-600 font-semibold">{stats.pendingCount}</strong> {payoutType === 'rider' ? 'rider' : 'seller'} request{stats.pendingCount === 1 ? '' : 's'} awaiting payout
           </p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">
-              Total Disbursed
+              Total Disbursed (Payment Done)
             </span>
             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
           </div>
           <p className="text-3xl font-extrabold text-gray-900 mt-3">{formatPrice(stats.completedAmount)}</p>
           <p className="text-xs text-gray-500 mt-1">
-            <strong className="text-emerald-600 font-semibold">{stats.completedCount}</strong> payout{stats.completedCount === 1 ? '' : 's'} settled successfully
+            <strong className="text-emerald-600 font-semibold">{stats.completedCount}</strong> payout{stats.completedCount === 1 ? '' : 's'} marked as completed
           </p>
         </div>
 
@@ -184,7 +273,7 @@ export default function AdminPayoutsPage() {
             <Building2 className="w-5 h-5 text-indigo-500" />
           </div>
           <p className="text-3xl font-extrabold text-gray-900 mt-3">{data?.total || 0}</p>
-          <p className="text-xs text-gray-500 mt-1">Total lifetime payout applications</p>
+          <p className="text-xs text-gray-500 mt-1">Lifetime {payoutType === 'rider' ? 'rider' : 'seller'} payout applications</p>
         </div>
       </div>
 
@@ -193,8 +282,8 @@ export default function AdminPayoutsPage() {
         {/* Status Tabs */}
         <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl w-full md:w-auto">
           {[
-            { id: 'PENDING', label: 'Pending', count: stats.pendingCount },
-            { id: 'COMPLETED', label: 'Completed', count: stats.completedCount },
+            { id: 'PENDING', label: 'Pending / In Progress', count: stats.pendingCount },
+            { id: 'COMPLETED', label: 'Payment Done', count: stats.completedCount },
             { id: 'FAILED', label: 'Rejected' },
             { id: 'ALL', label: 'All Requests' },
           ].map((tab) => (
@@ -223,7 +312,7 @@ export default function AdminPayoutsPage() {
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <Input 
-            placeholder="Search store, seller, bank, IFSC..." 
+            placeholder={payoutType === 'rider' ? 'Search rider, phone, bank, IFSC...' : 'Search store, seller, bank, IFSC...'} 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10 rounded-xl border-gray-200 text-sm"
@@ -257,7 +346,7 @@ export default function AdminPayoutsPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/60 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Store & Seller</th>
+                  <th className="py-3.5 px-4">{payoutType === 'rider' ? 'Delivery Partner' : 'Store & Seller'}</th>
                   <th className="py-3.5 px-4">Bank Details (NEFT/IMPS)</th>
                   <th className="py-3.5 px-4">Amount</th>
                   <th className="py-3.5 px-4">Date & Ref</th>
@@ -267,28 +356,57 @@ export default function AdminPayoutsPage() {
               </thead>
               <tbody className="divide-y divide-gray-100 text-sm">
                 {payouts.map((payout: any) => {
-                  const store = payout.store;
                   const bank = payout.bankAccount;
-                  const owner = store?.users?.[0]?.user;
                   const isPending = payout.status === 'PENDING' || payout.status === 'PROCESSING';
                   const isCompleted = payout.status === 'COMPLETED';
                   const isFailed = payout.status === 'FAILED';
 
+                  // Specific details depending on type
+                  const rider = payout.deliveryPartner;
+                  const riderUser = rider?.user;
+                  const store = payout.store;
+                  const owner = store?.users?.[0]?.user;
+
                   return (
                     <tr key={payout.id} className="hover:bg-gray-50/60 transition-colors">
-                      {/* Store & Seller Info */}
+                      {/* Recipient Details */}
                       <td className="py-4 px-4 align-top">
-                        <div className="font-semibold text-gray-900">{store?.name || 'Local Store'}</div>
-                        {owner?.name && (
-                          <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                            <User className="w-3 h-3 text-gray-400" />
-                            <span>{owner.name}</span>
+                        {payoutType === 'rider' ? (
+                          <div>
+                            <div className="font-semibold text-gray-900 flex items-center gap-1.5">
+                              <span>{riderUser?.name || 'Delivery Partner'}</span>
+                              <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-orange-100 text-[#FF5A36]">
+                                {rider?.vehicleType || 'Rider'}
+                              </span>
+                            </div>
+                            {riderUser?.phone && (
+                              <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                <Phone className="w-3 h-3 text-gray-400" />
+                                <span>{riderUser.phone}</span>
+                              </div>
+                            )}
+                            {rider?.locationArea && (
+                              <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                                <Navigation className="w-3 h-3 text-gray-400" />
+                                <span className="truncate max-w-[160px]">{rider.locationArea}</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {(store?.contactPhone || owner?.phone) && (
-                          <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                            <Phone className="w-3 h-3 text-gray-400" />
-                            <span>{store?.contactPhone || owner?.phone}</span>
+                        ) : (
+                          <div>
+                            <div className="font-semibold text-gray-900">{store?.name || 'Local Store'}</div>
+                            {owner?.name && (
+                              <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                <User className="w-3 h-3 text-gray-400" />
+                                <span>{owner.name}</span>
+                              </div>
+                            )}
+                            {(store?.contactPhone || owner?.phone) && (
+                              <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                <Phone className="w-3 h-3 text-gray-400" />
+                                <span>{store?.contactPhone || owner?.phone}</span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>
@@ -368,13 +486,13 @@ export default function AdminPayoutsPage() {
                         {isPending && (
                           <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full text-xs font-bold">
                             <Clock className="w-3 h-3 animate-spin text-amber-500" />
-                            <span>Pending</span>
+                            <span>In Progress</span>
                           </span>
                         )}
                         {isCompleted && (
                           <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-xs font-bold">
                             <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                            <span>Paid</span>
+                            <span>Payment Done</span>
                           </span>
                         )}
                         {isFailed && (
@@ -415,7 +533,7 @@ export default function AdminPayoutsPage() {
                             </Button>
                           </div>
                         ) : isCompleted ? (
-                          <span className="text-xs font-medium text-emerald-600">Settled</span>
+                          <span className="text-xs font-medium text-emerald-600">Settled (Paid)</span>
                         ) : (
                           <span className="text-xs font-medium text-gray-400">Closed</span>
                         )}
@@ -448,8 +566,12 @@ export default function AdminPayoutsPage() {
 
             <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3.5 space-y-1.5 text-xs text-emerald-950">
               <div className="flex justify-between">
-                <span className="text-gray-600">Store:</span>
-                <span className="font-bold">{activePayout.store?.name}</span>
+                <span className="text-gray-600">{payoutType === 'rider' ? 'Delivery Partner:' : 'Store:'}</span>
+                <span className="font-bold">
+                  {payoutType === 'rider'
+                    ? (activePayout.deliveryPartner?.user?.name || 'Rider')
+                    : (activePayout.store?.name || 'Store')}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Disbursement Amount:</span>
@@ -457,7 +579,9 @@ export default function AdminPayoutsPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Bank & A/C:</span>
-                <span className="font-semibold">{activePayout.bankAccount?.bankName} ({activePayout.bankAccount?.fullAccount || activePayout.bankAccount?.accountNumber})</span>
+                <span className="font-semibold">
+                  {activePayout.bankAccount?.bankName} ({activePayout.bankAccount?.fullAccount || activePayout.bankAccount?.accountNumber})
+                </span>
               </div>
               {activePayout.bankAccount?.ifsc && (
                 <div className="flex justify-between">
@@ -478,7 +602,7 @@ export default function AdminPayoutsPage() {
                 className="rounded-xl border-gray-300 font-mono text-sm"
               />
               <p className="text-[11px] text-gray-500">
-                This reference number will be visible to the seller on their withdrawal history and notification.
+                This reference number will be visible on the {payoutType === 'rider' ? 'delivery partner\'s' : 'seller\'s'} withdrawal history screen.
               </p>
             </div>
 
@@ -522,10 +646,13 @@ export default function AdminPayoutsPage() {
 
             <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 text-xs text-rose-800 space-y-1">
               <p className="font-semibold">
-                Rejecting withdrawal of {formatPrice(activePayout.amount)} for {activePayout.store?.name}.
+                Rejecting withdrawal of {formatPrice(activePayout.amount)} for{' '}
+                {payoutType === 'rider'
+                  ? (activePayout.deliveryPartner?.user?.name || 'Rider')
+                  : (activePayout.store?.name || 'Store')}.
               </p>
               <p className="text-[11px] text-rose-700">
-                Note: The full requested amount will immediately be credited back to the seller's available balance.
+                Note: The full requested amount will immediately be credited back to the {payoutType === 'rider' ? 'rider\'s' : 'seller\'s'} available balance.
               </p>
             </div>
 

@@ -31,7 +31,7 @@ export const api = createApi({
   refetchOnFocus: false,
   refetchOnReconnect: true,
   keepUnusedDataFor: 300, // 5 minutes cache retention to eliminate redundant network fetches
-  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'UserNotifications', 'Story', 'Highlight', 'SavedPost', 'FollowedStores', 'SupportTicket', 'Review', 'DeliveryPartner', 'DeliveryAssignment', 'StorePartner', 'OnboardingConfig'],
+  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'UserNotifications', 'Story', 'Highlight', 'SavedPost', 'FollowedStores', 'SupportTicket', 'Review', 'DeliveryPartner', 'DeliveryAssignment', 'StorePartner', 'OnboardingConfig', 'RiderFinance'],
   endpoints: (builder) => ({
     checkAuth: builder.query<any, void>({
       query: () => '/identity/me',
@@ -1334,6 +1334,61 @@ export const api = createApi({
       query: () => '/meta/onboarding-config',
       providesTags: ['OnboardingConfig'],
     }),
+
+    // Delivery Partner Finance & Payouts
+    getRiderFinanceSummary: builder.query<{
+      totalEarnings: number;
+      availableBalance: number;
+      pendingPayouts: number;
+      totalPayouts: number;
+      completedPayoutCount: number;
+      pendingPayoutCount: number;
+      totalDrops: number;
+      vehicleMode: string;
+      verified: boolean;
+      primaryBank?: any;
+    }, void>({
+      query: () => '/delivery/finance/summary',
+      providesTags: ['RiderFinance'],
+    }),
+    getRiderBankAccounts: builder.query<any[], void>({
+      query: () => '/delivery/finance/bank-accounts',
+      providesTags: ['RiderFinance'],
+    }),
+    addRiderBankAccount: builder.mutation<any, { accountName: string; bankName: string; accountNumber: string; ifsc: string }>({
+      query: (body) => ({
+        url: '/delivery/finance/bank-accounts',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['RiderFinance'],
+    }),
+    setPrimaryRiderBankAccount: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/delivery/finance/bank-accounts/${id}/primary`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['RiderFinance'],
+    }),
+    deleteRiderBankAccount: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/delivery/finance/bank-accounts/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['RiderFinance'],
+    }),
+    getRiderPayouts: builder.query<{ totalPayouts: number; pendingPayouts: number; successRate: string; payouts: any[] }, void>({
+      query: () => '/delivery/finance/payouts',
+      providesTags: ['RiderFinance'],
+    }),
+    requestRiderPayout: builder.mutation<any, { amount: number; bankAccountId?: string }>({
+      query: (body) => ({
+        url: '/delivery/finance/payouts/request',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['RiderFinance'],
+    }),
   }),
 });
 
@@ -1522,6 +1577,15 @@ export const {
   useVerifyBatchDropOtpMutation,
   useGetMultiStoreBlendedPricingMutation,
   useGetPublicParcelVerificationQuery,
+
+  // Delivery Partner Finance Hooks
+  useGetRiderFinanceSummaryQuery,
+  useGetRiderBankAccountsQuery,
+  useAddRiderBankAccountMutation,
+  useSetPrimaryRiderBankAccountMutation,
+  useDeleteRiderBankAccountMutation,
+  useGetRiderPayoutsQuery,
+  useRequestRiderPayoutMutation,
 
   // Consumer User Notifications Hooks
   useGetUserNotificationsQuery,
