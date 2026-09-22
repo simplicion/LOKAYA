@@ -1,4 +1,4 @@
-import { prisma, OrderStatus, PayoutStatus, TransactionType } from '@workspace/db';
+import { prisma, OrderStatus, PayoutStatus, TransactionType, NotificationType } from '@workspace/db';
 import { AppError } from '../../../shared/errors/AppError';
 
 export class FinanceService {
@@ -85,18 +85,24 @@ export class FinanceService {
   static async addBankAccount(storeId: string, data: { accountName: string; bankName: string; accountNumber: string; ifsc: string }) {
     const { accountName, bankName, accountNumber, ifsc } = data;
 
-    // Validate IFSC format (4 letters, 0, 6 letters/digits)
-    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-    if (!ifscRegex.test(ifsc.toUpperCase())) {
-      throw new AppError('Invalid IFSC code format (e.g. HDFC0001234)', 400);
+    if (!accountName || !accountName.trim()) {
+      throw new AppError('Account holder name is required', 400);
+    }
+    if (!bankName || !bankName.trim()) {
+      throw new AppError('Bank name is required', 400);
+    }
+    if (!accountNumber || !accountNumber.trim()) {
+      throw new AppError('Account number is required', 400);
+    }
+    if (!ifsc || !ifsc.trim()) {
+      throw new AppError('IFSC code is required', 400);
     }
 
-    if (accountNumber.length < 8 || accountNumber.length > 20) {
-      throw new AppError('Account number must be between 8 and 20 digits', 400);
-    }
+    const cleanAccount = accountNumber.trim();
+    const cleanIfsc = ifsc.trim().toUpperCase();
 
     // Mask account number: show last 4 digits e.g. ****9042
-    const masked = '****' + accountNumber.slice(-4);
+    const masked = cleanAccount.length > 4 ? '****' + cleanAccount.slice(-4) : cleanAccount;
 
     // Check if store already has any bank accounts; if not, make this primary
     const count = await prisma.sellerBankAccount.count({ where: { storeId } });
@@ -105,11 +111,11 @@ export class FinanceService {
     return await prisma.sellerBankAccount.create({
       data: {
         storeId,
-        accountName,
-        bankName,
+        accountName: accountName.trim(),
+        bankName: bankName.trim(),
         accountNumber: masked,
-        fullAccount: accountNumber,
-        ifsc: ifsc.toUpperCase(),
+        fullAccount: cleanAccount,
+        ifsc: cleanIfsc,
         isPrimary,
         isVerified: true
       }
@@ -168,17 +174,24 @@ export class FinanceService {
     const totalPayoutsAmount = payouts
       .filter(p => p.status === PayoutStatus.COMPLETED)
       .reduce((sum, p) => sum + p.amount, 0);
+    const pendingPayoutsAmount = payouts
+      .filter(p => p.status === PayoutStatus.PENDING || p.status === PayoutStatus.PROCESSING)
+      .reduce((sum, p) => sum + p.amount, 0);
 
     const formatted = payouts.map(p => ({
       id: p.id,
       date: new Date(p.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       amount: p.amount,
       status: p.status === PayoutStatus.COMPLETED ? 'Completed' : (p.status === PayoutStatus.FAILED ? 'Failed' : 'Pending'),
-      bank: `${p.bankAccount?.bankName || 'Bank'} (${p.bankAccount?.accountNumber || ''})`
+      rawStatus: p.status,
+      bank: `${p.bankAccount?.bankName || 'Bank'} (${p.bankAccount?.accountNumber || ''})`,
+      referenceNumber: p.referenceNumber,
+      failureReason: p.failureReason
     }));
 
     return {
       totalPayouts: totalPayoutsAmount,
+      pendingPayouts: pendingPayoutsAmount,
       successRate,
       payouts: formatted
     };
@@ -214,23 +227,190 @@ export class FinanceService {
           bankAccountId: targetBankId!,
           amount,
           fee: 0,
-          status: PayoutStatus.COMPLETED, // Auto-mark completed in sandbox/dev
+          status: PayoutStatus.PENDING,
           referenceNumber: `PAY-${Date.now()}`
         }
       });
 
-      // Write to ledger
+      // Write pending transaction to ledger
       await tx.sellerTransaction.create({
         data: {
           storeId,
-          title: `Payout to Bank (${payout.referenceNumber})`,
+          title: `Withdrawal Requested (${payout.referenceNumber})`,
           amount: -amount,
           type: TransactionType.PAYOUT,
-          description: `Withdrawal to linked bank account`
+          description: `Payout request submitted for admin processing`
         }
       });
 
       return payout;
+    }, { maxWait: 15000, timeout: 30000 });
+  }
+
+  // Admin Payouts Management
+  static async getAdminPayouts(query: { status?: string; page?: number; limit?: number; search?: string }) {
+    const { status, page = 1, limit = 50, search } = query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const where: any = {};
+    if (status && status !== 'all' && status !== 'ALL') {
+      where.status = status as PayoutStatus;
+    }
+    if (search && search.trim()) {
+      const s = search.trim();
+      where.OR = [
+        { referenceNumber: { contains: s, mode: 'insensitive' } },
+        { store: { name: { contains: s, mode: 'insensitive' } } },
+        { bankAccount: { accountName: { contains: s, mode: 'insensitive' } } },
+        { bankAccount: { bankName: { contains: s, mode: 'insensitive' } } },
+        { bankAccount: { fullAccount: { contains: s, mode: 'insensitive' } } }
+      ];
+    }
+
+    const [payouts, total, pendingAgg, completedAgg] = await Promise.all([
+      prisma.sellerPayout.findMany({
+        where,
+        skip,
+        take: Number(limit),
+        orderBy: { createdAt: 'desc' },
+        include: {
+          store: {
+            select: {
+              id: true,
+              name: true,
+              contactPhone: true,
+              users: {
+                select: {
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true,
+                      phone: true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          bankAccount: true
+        }
+      }),
+      prisma.sellerPayout.count({ where }),
+      prisma.sellerPayout.aggregate({
+        where: { status: { in: [PayoutStatus.PENDING, PayoutStatus.PROCESSING] } },
+        _count: { id: true },
+        _sum: { amount: true }
+      }),
+      prisma.sellerPayout.aggregate({
+        where: { status: PayoutStatus.COMPLETED },
+        _count: { id: true },
+        _sum: { amount: true }
+      })
+    ]);
+
+    return {
+      payouts,
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      stats: {
+        pendingCount: pendingAgg._count.id || 0,
+        pendingAmount: pendingAgg._sum.amount || 0,
+        completedCount: completedAgg._count.id || 0,
+        completedAmount: completedAgg._sum.amount || 0
+      }
+    };
+  }
+
+  static async completePayout(payoutId: string, transactionRef?: string) {
+    const payout = await prisma.sellerPayout.findUnique({
+      where: { id: payoutId },
+      include: { store: true, bankAccount: true }
+    });
+
+    if (!payout) {
+      throw new AppError('Payout record not found', 404);
+    }
+    if (payout.status === PayoutStatus.COMPLETED) {
+      throw new AppError('Payout is already marked as completed', 400);
+    }
+
+    const ref = transactionRef?.trim() || payout.referenceNumber || `PAY-DONE-${Date.now()}`;
+
+    return await prisma.$transaction(async (tx) => {
+      const updated = await tx.sellerPayout.update({
+        where: { id: payoutId },
+        data: {
+          status: PayoutStatus.COMPLETED,
+          referenceNumber: ref,
+          failureReason: null
+        },
+        include: { store: true, bankAccount: true }
+      });
+
+      // Write completed ledger transaction
+      await tx.sellerTransaction.create({
+        data: {
+          storeId: payout.storeId,
+          title: `Payout Completed (${ref})`,
+          amount: -payout.amount,
+          type: TransactionType.PAYOUT,
+          description: `Withdrawal of ${payout.amount} transferred to ${payout.bankAccount?.bankName || 'bank'} (${payout.bankAccount?.accountNumber || ''})`
+        }
+      });
+
+      // Send seller notification
+      await tx.sellerNotification.create({
+        data: {
+          storeId: payout.storeId,
+          type: NotificationType.PAYOUT,
+          title: 'Payout Processed Successfully',
+          message: `Your withdrawal request for रु${payout.amount.toLocaleString()} has been processed and paid out. Reference: ${ref}`
+        }
+      });
+
+      return updated;
+    }, { maxWait: 15000, timeout: 30000 });
+  }
+
+  static async rejectPayout(payoutId: string, reason: string) {
+    if (!reason || !reason.trim()) {
+      throw new AppError('Rejection reason is required', 400);
+    }
+
+    const payout = await prisma.sellerPayout.findUnique({
+      where: { id: payoutId }
+    });
+
+    if (!payout) {
+      throw new AppError('Payout record not found', 404);
+    }
+    if (payout.status === PayoutStatus.COMPLETED) {
+      throw new AppError('Cannot reject an already completed payout', 400);
+    }
+
+    return await prisma.$transaction(async (tx) => {
+      const updated = await tx.sellerPayout.update({
+        where: { id: payoutId },
+        data: {
+          status: PayoutStatus.FAILED,
+          failureReason: reason.trim()
+        },
+        include: { store: true, bankAccount: true }
+      });
+
+      // Send alert notification to seller
+      await tx.sellerNotification.create({
+        data: {
+          storeId: payout.storeId,
+          type: NotificationType.ALERT,
+          title: 'Payout Request Rejected',
+          message: `Your withdrawal request for रु${payout.amount.toLocaleString()} was rejected: ${reason.trim()}. The amount is restored in your available balance.`
+        }
+      });
+
+      return updated;
     }, { maxWait: 15000, timeout: 30000 });
   }
 

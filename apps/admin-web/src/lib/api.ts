@@ -39,7 +39,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates', 'Notifications', 'OnboardingConfig'],
+  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates', 'Notifications', 'OnboardingConfig', 'Payouts'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
       query: () => '/seller/pending',
@@ -350,6 +350,42 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['OnboardingConfig', 'Products', 'Stores', 'DeliveryPartners'],
     }),
+
+    // Seller Payouts Management
+    getPayouts: builder.query<{
+      payouts: any[];
+      total: number;
+      page: number;
+      limit: number;
+      stats: {
+        pendingCount: number;
+        pendingAmount: number;
+        completedCount: number;
+        completedAmount: number;
+      };
+    }, { status?: string; page?: number; limit?: number; search?: string } | void>({
+      query: (params) => ({
+        url: '/admin/payouts',
+        params: params || {},
+      }),
+      providesTags: ['Payouts'],
+    }),
+    completePayout: builder.mutation<any, { id: string; transactionRef?: string }>({
+      query: ({ id, transactionRef }) => ({
+        url: `/admin/payouts/${id}/complete`,
+        method: 'PATCH',
+        body: { transactionRef },
+      }),
+      invalidatesTags: ['Payouts'],
+    }),
+    rejectPayout: builder.mutation<any, { id: string; reason: string }>({
+      query: ({ id, reason }) => ({
+        url: `/admin/payouts/${id}/reject`,
+        method: 'PATCH',
+        body: { reason },
+      }),
+      invalidatesTags: ['Payouts'],
+    }),
   }),
 });
 
@@ -401,4 +437,8 @@ export const {
   useGetNotificationStatsQuery,
   useGetOnboardingConfigQuery,
   useUpdateOnboardingConfigMutation,
+  useGetPayoutsQuery,
+  useCompletePayoutMutation,
+  useRejectPayoutMutation,
 } = adminApi;
+

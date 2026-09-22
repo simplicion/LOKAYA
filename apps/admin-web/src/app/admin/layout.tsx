@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { logout } from '@/lib/features/authSlice';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Store, PackageCheck, Users, LogOut, Sparkles, Ticket, Headphones, Bike, Fuel, Bell, Sliders } from 'lucide-react';
+import { LayoutDashboard, Store, PackageCheck, Users, LogOut, Sparkles, Ticket, Headphones, Bike, Fuel, Bell, Sliders, Banknote } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
 
 export default function AdminLayout({
@@ -38,11 +38,17 @@ export default function AdminLayout({
           <span className="text-[10px] font-bold tracking-wider uppercase bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Admin</span>
         </div>
         
-        <nav className="flex-1 p-4 flex flex-col gap-2">
+        <nav className="flex-1 p-4 flex flex-col gap-2 overflow-y-auto">
           <Link href="/admin">
             <Button variant="ghost" className="w-full justify-start">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               Dashboard
+            </Button>
+          </Link>
+          <Link href="/admin/payouts">
+            <Button variant="ghost" className="w-full justify-start text-emerald-700 font-bold hover:text-emerald-800 hover:bg-emerald-50">
+              <Banknote className="mr-2 h-4 w-4" />
+              Seller Payouts
             </Button>
           </Link>
           <Link href="/admin/onboarding">

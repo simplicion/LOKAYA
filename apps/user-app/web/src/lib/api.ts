@@ -1012,7 +1012,7 @@ export const api = createApi({
       }),
       invalidatesTags: ['SellerFinance'],
     }),
-    getPayouts: builder.query<{ totalPayouts: number; successRate: string; payouts: any[] }, void>({
+    getPayouts: builder.query<{ totalPayouts: number; pendingPayouts?: number; successRate: string; payouts: any[] }, void>({
       query: () => '/seller/finance/payouts',
       providesTags: ['SellerFinance'],
     }),

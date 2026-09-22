@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAddBankAccountMutation } from '@/lib/api';
+import { toast } from 'sonner';
 
 export default function AddBankAccountPage() {
   const router = useRouter();
@@ -21,22 +22,23 @@ export default function AddBankAccountPage() {
   });
 
   const handleSave = async () => {
-    if (!formData.accountName || !formData.accountNumber || !formData.ifsc || !formData.bankName) {
-      setError('Please fill in all required fields.');
+    if (!formData.accountName.trim() || !formData.accountNumber.trim() || !formData.bankName.trim()) {
+      setError('Please fill in Account Holder Name, Account Number, and Bank Name.');
       return;
     }
 
     try {
       setError('');
       await addBankAccount({
-        accountName: formData.accountName,
-        accountNumber: formData.accountNumber,
-        ifsc: formData.ifsc,
-        bankName: formData.bankName
+        accountName: formData.accountName.trim(),
+        accountNumber: formData.accountNumber.trim(),
+        ifsc: formData.ifsc.trim().toUpperCase() || 'NA',
+        bankName: formData.bankName.trim()
       }).unwrap();
+      toast.success('Bank account added and linked successfully!');
       router.back();
     } catch (err: any) {
-      setError(err?.data?.message || 'Failed to link bank account. Please verify IFSC and account number.');
+      setError(err?.data?.message || 'Failed to link bank account. Please check the details and try again.');
     }
   };
 

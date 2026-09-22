@@ -7,6 +7,8 @@ import { FcmService } from '../../notification/application/fcm.service';
 import { MemoryCacheService } from '../../../shared/services/memory-cache.service';
 import { redisClient } from '../../../shared/services/redis.service';
 
+import { FinanceService } from '../../seller/application/finance.service';
+
 export const adminRouter: Router = Router();
 
 const invalidateBannerCache = async () => {
@@ -1071,4 +1073,49 @@ adminRouter.put('/onboarding-config', requireAuth, requireAdmin, async (req: Aut
     next(error);
   }
 });
+
+// ==========================================
+// Seller Payouts & Withdrawals Management
+// ==========================================
+
+// GET /api/v1/admin/payouts - List payouts with filtering, stats & full seller/bank details
+adminRouter.get('/payouts', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { status, page, limit, search } = req.query;
+    const result = await FinanceService.getAdminPayouts({
+      status: status as string,
+      page: page ? parseInt(page as string, 10) : 1,
+      limit: limit ? parseInt(limit as string, 10) : 50,
+      search: search as string
+    });
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/payouts/:id/complete - Mark payout as completed with optional transaction ref
+adminRouter.patch('/payouts/:id/complete', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    const { transactionRef } = req.body;
+    const result = await FinanceService.completePayout(id, transactionRef);
+    res.status(200).json({ success: true, message: 'Payout marked as completed', data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/v1/admin/payouts/:id/reject - Reject payout request with reason
+adminRouter.patch('/payouts/:id/reject', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const result = await FinanceService.rejectPayout(id, reason);
+    res.status(200).json({ success: true, message: 'Payout request rejected', data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
 
