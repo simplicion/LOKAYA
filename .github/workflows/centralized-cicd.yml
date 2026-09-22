@@ -381,6 +381,75 @@ jobs:
           fi
           pnpm exec wrangler pages deploy apps/user-app/web/out --project-name=lokaya-user-app --branch=${{ github.ref_name }}
 
+      - name: Purge Cloudflare Edge Cache for User App
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+        run: |
+          node << 'EOF'
+          const https = require('https');
+          const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+          const apiKey = process.env.CLOUDFLARE_API_KEY;
+          const email = process.env.CLOUDFLARE_EMAIL;
+
+          function cfRequest(path, method = 'GET', body = null, useToken = true) {
+            return new Promise((resolve) => {
+              const headers = { 'Content-Type': 'application/json' };
+              if (useToken && apiToken) {
+                headers['Authorization'] = `Bearer ${apiToken}`;
+              } else if (apiKey && email) {
+                headers['X-Auth-Key'] = apiKey;
+                headers['X-Auth-Email'] = email;
+              } else if (apiToken) {
+                headers['Authorization'] = `Bearer ${apiToken}`;
+              } else {
+                return resolve({ status: 0, body: { success: false, message: 'No credentials' } });
+              }
+
+              const req = https.request({
+                hostname: 'api.cloudflare.com',
+                path: `/client/v4${path}`,
+                method,
+                headers
+              }, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try {
+                    resolve({ status: res.statusCode, body: JSON.parse(data) });
+                  } catch (e) {
+                    resolve({ status: res.statusCode, body: data });
+                  }
+                });
+              });
+              req.on('error', (err) => resolve({ status: 500, error: err.message }));
+              if (body) req.write(JSON.stringify(body));
+              req.end();
+            });
+          }
+
+          async function purge() {
+            if (!apiToken && (!apiKey || !email)) {
+              console.log('Skipping cache purge: no Cloudflare credentials found.');
+              return;
+            }
+            console.log('🔄 Resolving Zone ID for lokaya.shop...');
+            let res = await cfRequest('/zones?name=lokaya.shop', 'GET', null, !!apiToken);
+            if ((res.status === 401 || res.status === 403) && apiKey && email) {
+              res = await cfRequest('/zones?name=lokaya.shop', 'GET', null, false);
+            }
+            const zoneId = res.body?.result?.[0]?.id || '3eecd01fbde936e4a07d533b4b06d1e6';
+            console.log(`🧹 Purging Cloudflare Cache for Zone: ${zoneId}...`);
+            let purgeRes = await cfRequest(`/zones/${zoneId}/purge_cache`, 'POST', { purge_everything: true }, !!apiToken);
+            if ((purgeRes.status === 401 || purgeRes.status === 403) && apiKey && email) {
+              purgeRes = await cfRequest(`/zones/${zoneId}/purge_cache`, 'POST', { purge_everything: true }, false);
+            }
+            console.log('Purge result:', purgeRes.status, JSON.stringify(purgeRes.body));
+          }
+          purge().catch(e => console.error('Cache purge error:', e));
+          EOF
+
       - name: Configure AWS Credentials for User App EC2 Deployment
         if: env.EC2_INSTANCE_ID != '' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         uses: aws-actions/configure-aws-credentials@v4
@@ -522,6 +591,75 @@ jobs:
             exit 0
           fi
           pnpm exec wrangler pages deploy apps/admin-web/out --project-name=lokaya-admin-app --branch=${{ github.ref_name }}
+
+      - name: Purge Cloudflare Edge Cache for Admin App
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+        run: |
+          node << 'EOF'
+          const https = require('https');
+          const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+          const apiKey = process.env.CLOUDFLARE_API_KEY;
+          const email = process.env.CLOUDFLARE_EMAIL;
+
+          function cfRequest(path, method = 'GET', body = null, useToken = true) {
+            return new Promise((resolve) => {
+              const headers = { 'Content-Type': 'application/json' };
+              if (useToken && apiToken) {
+                headers['Authorization'] = `Bearer ${apiToken}`;
+              } else if (apiKey && email) {
+                headers['X-Auth-Key'] = apiKey;
+                headers['X-Auth-Email'] = email;
+              } else if (apiToken) {
+                headers['Authorization'] = `Bearer ${apiToken}`;
+              } else {
+                return resolve({ status: 0, body: { success: false, message: 'No credentials' } });
+              }
+
+              const req = https.request({
+                hostname: 'api.cloudflare.com',
+                path: `/client/v4${path}`,
+                method,
+                headers
+              }, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try {
+                    resolve({ status: res.statusCode, body: JSON.parse(data) });
+                  } catch (e) {
+                    resolve({ status: res.statusCode, body: data });
+                  }
+                });
+              });
+              req.on('error', (err) => resolve({ status: 500, error: err.message }));
+              if (body) req.write(JSON.stringify(body));
+              req.end();
+            });
+          }
+
+          async function purge() {
+            if (!apiToken && (!apiKey || !email)) {
+              console.log('Skipping cache purge: no Cloudflare credentials found.');
+              return;
+            }
+            console.log('🔄 Resolving Zone ID for lokaya.shop...');
+            let res = await cfRequest('/zones?name=lokaya.shop', 'GET', null, !!apiToken);
+            if ((res.status === 401 || res.status === 403) && apiKey && email) {
+              res = await cfRequest('/zones?name=lokaya.shop', 'GET', null, false);
+            }
+            const zoneId = res.body?.result?.[0]?.id || '3eecd01fbde936e4a07d533b4b06d1e6';
+            console.log(`🧹 Purging Cloudflare Cache for Zone: ${zoneId}...`);
+            let purgeRes = await cfRequest(`/zones/${zoneId}/purge_cache`, 'POST', { purge_everything: true }, !!apiToken);
+            if ((purgeRes.status === 401 || purgeRes.status === 403) && apiKey && email) {
+              purgeRes = await cfRequest(`/zones/${zoneId}/purge_cache`, 'POST', { purge_everything: true }, false);
+            }
+            console.log('Purge result:', purgeRes.status, JSON.stringify(purgeRes.body));
+          }
+          purge().catch(e => console.error('Cache purge error:', e));
+          EOF
 
       - name: Configure AWS Credentials for Admin App EC2 Deployment
         if: env.EC2_INSTANCE_ID != '' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
