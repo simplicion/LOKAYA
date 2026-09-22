@@ -717,10 +717,7 @@ export default function SellerOnboardingPage() {
                       Creating your store...
                     </span>
                   ) : (
-                    <>
-                      <Zap className="w-5 h-5 fill-white" />
-                      <span>Launch Store & Start Selling (Instant)</span>
-                    </>
+                    <span>Start Selling</span>
                   )}
                 </Button>
               )}
