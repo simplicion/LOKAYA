@@ -173,7 +173,7 @@ export default function UserPublicProfilePage({ params }: { params: Promise<{ id
           <div className="grid grid-cols-3 w-full border-t border-b border-gray-100 py-3 mt-5">
             <div className="flex flex-col items-center">
               <span className="text-[17px] font-bold text-gray-900 tabular-nums">
-                {profile._count?.posts || 0}
+                {(profile._count?.posts || 0) + (profile._count?.reels || 0)}
               </span>
               <span className="text-[11px] text-gray-500 font-medium uppercase tracking-wider">Posts</span>
             </div>

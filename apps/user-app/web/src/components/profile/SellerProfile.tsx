@@ -256,7 +256,10 @@ export function SellerProfile({ myStore, user }: { myStore: any, user: any }) {
           <div className="flex gap-6 pr-4">
             <div className="flex flex-col items-center">
               <span className="font-bold text-lg text-[#171717]">
-                {formatCount(storePosts?.length ?? storeSummary?.postsCount ?? 0)}
+                {formatCount(
+                  (storePosts?.length ?? 0) + (storeReels?.length ?? 0) ||
+                  (storeSummary?.postsCount ?? 0) + (storeSummary?.reelsCount ?? 0)
+                )}
               </span>
               <span className="text-sm text-[#171717]">posts</span>
             </div>
