@@ -364,7 +364,7 @@ export class SocialService {
   // ==========================================
 
   static async getUserProfile(userId: string, currentUserId?: string) {
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -376,7 +376,20 @@ export class SocialService {
         stores: {
           include: {
             store: {
-              select: { id: true, name: true, logoUrl: true, status: true, description: true }
+              select: { 
+                id: true, 
+                name: true, 
+                logoUrl: true, 
+                status: true, 
+                description: true,
+                category: true,
+                isVerified: true,
+                verificationStatus: true,
+                address: true,
+                contactPhone: true,
+                openingTime: true,
+                closingTime: true
+              }
             }
           }
         },
@@ -391,37 +404,100 @@ export class SocialService {
       }
     });
 
+    // Fallback: If userId was actually a storeId, resolve its owner
+    if (!user) {
+      const storeUser = await prisma.storeUser.findFirst({
+        where: { storeId: userId },
+        select: { userId: true }
+      });
+      if (storeUser?.userId) {
+        user = await prisma.user.findUnique({
+          where: { id: storeUser.userId },
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            city: true,
+            state: true,
+            createdAt: true,
+            stores: {
+              include: {
+                store: {
+                  select: { 
+                    id: true, 
+                    name: true, 
+                    logoUrl: true, 
+                    status: true, 
+                    description: true,
+                    category: true,
+                    isVerified: true,
+                    verificationStatus: true,
+                    address: true,
+                    contactPhone: true,
+                    openingTime: true,
+                    closingTime: true
+                  }
+                }
+              }
+            },
+            _count: {
+              select: {
+                posts: true,
+                reels: true,
+                followers: true,
+                following: true
+              }
+            }
+          }
+        });
+      }
+    }
+
     if (!user) throw new AppError('User not found', 404);
 
     let isFollowing = false;
-    if (currentUserId && currentUserId !== userId) {
+    if (currentUserId && currentUserId !== user.id) {
       const follow = await prisma.follow.findUnique({
         where: {
           followerId_followingId: {
             followerId: currentUserId,
-            followingId: userId
+            followingId: user.id
           }
         }
       });
       isFollowing = !!follow;
     }
 
-    const posts = await prisma.post.findMany({
-      where: { authorId: userId },
-      orderBy: { createdAt: 'desc' },
-      take: 12,
-      include: {
-        media: true,
-        _count: {
-          select: { likes: true, comments: true }
+    const [posts, reels] = await Promise.all([
+      prisma.post.findMany({
+        where: { authorId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+        include: {
+          media: true,
+          _count: {
+            select: { likes: true, comments: true }
+          }
         }
-      }
-    });
+      }),
+      prisma.reel.findMany({
+        where: { authorId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+        include: {
+          media: true,
+          _count: {
+            select: { likes: true, comments: true }
+          }
+        }
+      })
+    ]);
 
     return {
       ...user,
       isFollowing,
-      posts
+      posts,
+      reels
     };
   }
 

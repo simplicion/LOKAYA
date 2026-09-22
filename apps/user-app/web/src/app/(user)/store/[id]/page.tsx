@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Headphones, Loader2, Users, Truck, CreditCard, Banknote, Tag, Bike, User, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Share2, Star, CheckCircle2, MapPin, Clock, ShoppingBag, Store as StoreIcon, Phone, Headphones, Loader2, Truck, CreditCard, Banknote, Tag, Bike, User, ChevronRight } from 'lucide-react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
@@ -10,8 +10,6 @@ import {
   useGetStoreSummaryQuery, 
   useGetStoreProductsQuery, 
   useGetStoreCategoriesQuery,
-  useGetStoreFollowStatusQuery,
-  useFollowStoreMutation,
   useGetDeliveryProfileQuery,
   useSendStorePartnerRequestMutation
 } from '@/lib/api';
@@ -38,17 +36,11 @@ export default function StoreProfilePage({ params }: { params?: Promise<{ id: st
   
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
-  const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
-  const [followersDelta, setFollowersDelta] = useState(0);
 
   // Live Backend Data Fetching
   const { data: storeSummary, isLoading: isStoreLoading, error: storeError } = useGetStoreSummaryQuery(storeId, {
     skip: !storeId
   });
-  const { data: followData } = useGetStoreFollowStatusQuery(storeId, {
-    skip: !storeId
-  });
-  const [toggleFollowStore, { isLoading: isTogglingFollow }] = useFollowStoreMutation();
   const { data: products = [], isLoading: isProductsLoading } = useGetStoreProductsQuery(storeId, {
     skip: !storeId
   });
@@ -70,28 +62,6 @@ export default function StoreProfilePage({ params }: { params?: Promise<{ id: st
       toast.success('Partner request sent to store owner!');
     } catch (err: any) {
       toast.error(err?.data?.message || 'Failed to send partner request');
-    }
-  };
-
-  const activeFollowing = isFollowing !== null ? isFollowing : (followData?.following ?? false);
-  const currentFollowersCount = Math.max(0, (followData?.followersCount ?? storeSummary?.followersCount ?? 0) + followersDelta);
-
-  const handleToggleFollow = async () => {
-    if (!currentUser) {
-      toast.error('Please sign in to follow stores');
-      router.push('/login');
-      return;
-    }
-
-    const nextState = !activeFollowing;
-    setIsFollowing(nextState);
-    setFollowersDelta(prev => prev + (nextState ? 1 : -1));
-    try {
-      await toggleFollowStore(storeId).unwrap();
-    } catch (err: any) {
-      setIsFollowing(!nextState);
-      setFollowersDelta(prev => prev + (nextState ? -1 : 1));
-      toast.error(err?.data?.message || 'Failed to update follow status');
     }
   };
 
@@ -251,13 +221,8 @@ export default function StoreProfilePage({ params }: { params?: Promise<{ id: st
                 </p>
               )}
               
-              {/* Ratings, Followers & Operating Hours Badges */}
+              {/* Ratings & Operating Hours Badges */}
               <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                <div className="flex items-center text-xs font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-lg">
-                  <Users className="w-3.5 h-3.5 text-gray-500 mr-1" />
-                  <span>{currentFollowersCount}</span>
-                  <span className="text-gray-400 font-normal ml-1">{currentFollowersCount === 1 ? 'follower' : 'followers'}</span>
-                </div>
 
                 {reviewCount > 0 ? (
                   <div className="flex items-center text-xs font-bold text-gray-800 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded-lg">
@@ -305,7 +270,7 @@ export default function StoreProfilePage({ params }: { params?: Promise<{ id: st
                   <button
                     onClick={() => router.push(`/user/${ownerUserId}`)}
                     className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-stone-100/90 hover:bg-stone-200 border border-stone-200/90 text-stone-800 transition-all active:scale-95 cursor-pointer group shadow-2xs"
-                    title="View Store Owner Public Profile"
+                    title="Visit Store Owner Public Profile"
                   >
                     <div className="w-5 h-5 rounded-full overflow-hidden bg-orange-100 flex items-center justify-center text-[10px] font-black text-[#FF5A36] shrink-0 border border-[#FF5A36]/30">
                       {ownerUser?.avatarUrl ? (
@@ -314,9 +279,10 @@ export default function StoreProfilePage({ params }: { params?: Promise<{ id: st
                         <User className="w-3 h-3 text-[#FF5A36]" />
                       )}
                     </div>
-                    <span className="truncate max-w-[200px]">
-                      Store Owner: <span className="font-bold text-gray-900 group-hover:text-[#FF5A36] transition-colors">{ownerUser?.name || 'View Profile'}</span>
+                    <span className="truncate max-w-[220px]">
+                      Store Owner: <span className="font-bold text-gray-900 group-hover:text-[#FF5A36] transition-colors">{ownerUser?.name || 'Owner'}</span>
                     </span>
+                    <span className="text-[11px] text-[#FF5A36] font-semibold hidden sm:inline">• Visit Profile</span>
                     <ChevronRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#FF5A36] transition-transform group-hover:translate-x-0.5 shrink-0" />
                   </button>
                 </div>
@@ -344,35 +310,20 @@ export default function StoreProfilePage({ params }: { params?: Promise<{ id: st
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Partner as Rider Button */}
-              {deliveryProfile && (
+            {/* Partner as Rider Button */}
+            {deliveryProfile && (
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={handlePartnerRequest}
                   disabled={isPartnering}
-                  className="px-3.5 py-2 rounded-full text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition-all active:scale-95 flex items-center gap-1.5 shadow-xs"
+                  className="px-3.5 py-2 rounded-full text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition-all active:scale-95 flex items-center gap-1.5 shadow-xs cursor-pointer"
                   title="Send Delivery Partner Request to Store"
                 >
                   {isPartnering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bike className="w-3.5 h-3.5 text-[#FF6B00]" />}
                   <span>Partner as Rider</span>
                 </button>
-              )}
-
-              {/* Follow / Following Action Button */}
-              <button
-                onClick={handleToggleFollow}
-                disabled={isTogglingFollow}
-                className={cn(
-                  "px-4 py-2 rounded-full text-xs font-bold transition-all active:scale-95 shrink-0 flex items-center gap-1.5 shadow-xs cursor-pointer",
-                  activeFollowing
-                    ? "bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200"
-                    : "bg-[#FF5A36] text-white hover:bg-[#e04d2d] shadow-orange-500/20"
-                )}
-              >
-                {isTogglingFollow && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {activeFollowing ? 'Following' : 'Follow'}
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
