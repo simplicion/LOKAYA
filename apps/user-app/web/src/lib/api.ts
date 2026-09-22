@@ -31,7 +31,7 @@ export const api = createApi({
   refetchOnFocus: false,
   refetchOnReconnect: true,
   keepUnusedDataFor: 300, // 5 minutes cache retention to eliminate redundant network fetches
-  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'UserNotifications', 'Story', 'Highlight', 'SavedPost', 'FollowedStores', 'SupportTicket', 'Review', 'DeliveryPartner', 'DeliveryAssignment', 'StorePartner'],
+  tagTypes: ['Product', 'Order', 'Store', 'User', 'Category', 'Reel', 'Post', 'Comment', 'Wishlist', 'SellerDashboard', 'SellerFinance', 'SellerAnalytics', 'SellerNotifications', 'UserNotifications', 'Story', 'Highlight', 'SavedPost', 'FollowedStores', 'SupportTicket', 'Review', 'DeliveryPartner', 'DeliveryAssignment', 'StorePartner', 'OnboardingConfig'],
   endpoints: (builder) => ({
     checkAuth: builder.query<any, void>({
       query: () => '/identity/me',
@@ -1147,6 +1147,10 @@ export const api = createApi({
         body,
       }),
     }),
+    getOnboardingConfig: builder.query<any, void>({
+      query: () => '/meta/onboarding-config',
+      providesTags: ['OnboardingConfig'],
+    }),
   }),
 });
 
@@ -1162,6 +1166,7 @@ export const {
   useGetStoreQuery,
   useResolveQrQuery, 
   useOnboardStoreMutation, 
+  useGetOnboardingConfigQuery,
   useAddProductMutation,
   useCreateOrderMutation,
   useCreateManualOrderMutation,

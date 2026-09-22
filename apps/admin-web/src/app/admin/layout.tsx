@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { logout } from '@/lib/features/authSlice';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Store, PackageCheck, Users, LogOut, Sparkles, Ticket, Headphones, Bike, Fuel, Bell } from 'lucide-react';
+import { LayoutDashboard, Store, PackageCheck, Users, LogOut, Sparkles, Ticket, Headphones, Bike, Fuel, Bell, Sliders } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
 
 export default function AdminLayout({
@@ -43,6 +43,12 @@ export default function AdminLayout({
             <Button variant="ghost" className="w-full justify-start">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               Dashboard
+            </Button>
+          </Link>
+          <Link href="/admin/onboarding">
+            <Button variant="ghost" className="w-full justify-start text-purple-600 font-semibold hover:text-purple-700 hover:bg-purple-50">
+              <Sliders className="mr-2 h-4 w-4" />
+              Onboarding Control
             </Button>
           </Link>
           <Link href="/admin/stores">

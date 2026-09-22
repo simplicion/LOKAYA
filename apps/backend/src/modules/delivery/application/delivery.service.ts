@@ -11,6 +11,7 @@ import {
 import { AppError } from '../../../shared/errors/AppError';
 import { ParcelAssignmentService } from './parcel-assignment.service';
 import { FuelRateService } from './fuel-rate.service';
+import { PlatformConfigService } from '../../common/platform-config.service';
 
 export class DeliveryService {
   /**
@@ -57,13 +58,18 @@ export class DeliveryService {
 
     const resolvedLocationArea = data.locationArea || [detectedCity, detectedState, detectedCountry].filter(Boolean).join(', ') || locationSummary || null;
 
+    // Dynamic Onboarding Policy: Fast-track auto-approval vs strict KYC verification
+    const config = await PlatformConfigService.getOnboardingConfig();
+    const shouldAutoApprove = !config.requireRiderDocs || config.autoApproveRider;
+    const initialStatus = shouldAutoApprove ? DeliveryPartnerStatus.APPROVED : DeliveryPartnerStatus.PENDING;
+
     if (existing) {
       if (existing.status === DeliveryPartnerStatus.REJECTED) {
         // Allow re-submission
         return await prisma.deliveryPartner.update({
           where: { userId },
           data: {
-            status: DeliveryPartnerStatus.PENDING,
+            status: initialStatus,
             vehicleType,
             vehicleNumber,
             vehiclePhotoUrl,
@@ -101,11 +107,11 @@ export class DeliveryService {
       }
     });
 
-    // Create delivery partner profile in PENDING verification state
+    // Create delivery partner profile
     const partner = await prisma.deliveryPartner.create({
       data: {
         userId,
-        status: DeliveryPartnerStatus.PENDING,
+        status: initialStatus,
         vehicleType,
         vehicleNumber,
         vehiclePhotoUrl,

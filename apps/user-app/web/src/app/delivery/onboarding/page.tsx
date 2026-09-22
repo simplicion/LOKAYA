@@ -9,7 +9,8 @@ import {
   useGetDeliveryProfileQuery,
   useGetMyStoreQuery,
   useGetPricingBenchmarksQuery,
-  useUploadMediaMutation 
+  useUploadMediaMutation,
+  useGetOnboardingConfigQuery
 } from '@/lib/api';
 import { 
   Bike, 
@@ -49,8 +50,12 @@ export default function DeliveryOnboardingPage() {
   const user = useSelector((state: RootState) => state.auth.user);
   const { data: profile, isLoading: isProfileLoading, refetch } = useGetDeliveryProfileQuery(undefined, { skip: !user });
   const { data: myStore, isLoading: isStoreLoading } = useGetMyStoreQuery(undefined, { skip: !user });
+  const { data: onboardingConfig, isLoading: isOnboardingConfigLoading } = useGetOnboardingConfigQuery();
   const [onboardDeliveryPartner, { isLoading: isSubmitting }] = useOnboardDeliveryPartnerMutation();
   const [uploadMedia] = useUploadMediaMutation();
+
+  // Dynamic policy from admin toggle (defaults to false for startup fast-track)
+  const requireRiderDocs = Boolean(onboardingConfig?.requireRiderDocs);
 
   const [step, setStep] = useState(1);
 
@@ -177,25 +182,28 @@ export default function DeliveryOnboardingPage() {
   const currencySym = locationContext?.currencySymbol || benchmarkData?.benchmark?.currencySymbol || '₹';
 
   const handleSubmit = async () => {
-    if (!formData.selfieUrl) {
-      toast.error('Please upload your Selfie photo.');
-      return;
-    }
-    if (!formData.identityDocumentUrl) {
-      toast.error('Please upload your Government ID document.');
-      return;
-    }
-    const isEco = formData.vehicleType === 'WALKER' || formData.vehicleType === 'BICYCLE';
-    if (!isEco && !formData.vehicleDocumentUrl) {
-      toast.error('Please upload your vehicle registration paper / RC.');
-      setStep(2);
-      return;
+    if (requireRiderDocs) {
+      if (!formData.selfieUrl) {
+        toast.error('Please upload your Selfie photo.');
+        return;
+      }
+      if (!formData.identityDocumentUrl) {
+        toast.error('Please upload your Government ID document.');
+        return;
+      }
+      const isEco = formData.vehicleType === 'WALKER' || formData.vehicleType === 'BICYCLE';
+      if (!isEco && !formData.vehicleDocumentUrl) {
+        toast.error('Please upload your vehicle registration paper / RC.');
+        setStep(2);
+        return;
+      }
     }
 
     try {
       const defaultFloor = benchmarkData?.floors?.[formData.vehicleType] || 3.0;
       const defaultBase = benchmarkData?.benchmark?.minDeliveryFloor || 50.0;
       const defaultKm = Math.max(defaultFloor, benchmarkData?.benchmark?.standardPerKmRate ? benchmarkData.benchmark.standardPerKmRate / 2 : 8.0);
+      const isEco = formData.vehicleType === 'WALKER' || formData.vehicleType === 'BICYCLE';
 
       const payload = {
         name: formData.name.trim(),
@@ -215,19 +223,24 @@ export default function DeliveryOnboardingPage() {
         currencySymbol: locationContext?.currencySymbol,
         // Vehicle & Pricing
         vehicleType: formData.vehicleType,
-        vehicleNumber: formData.vehicleNumber?.trim() || (isEco ? formData.vehicleType : 'RC_UPLOADED'),
+        vehicleNumber: formData.vehicleNumber?.trim() || (isEco ? formData.vehicleType : 'RC_AUTO'),
         perKmRate: formData.perKmRate || defaultKm,
         baseFare: formData.baseFare || defaultBase,
-        selfieUrl: formData.selfieUrl,
+        selfieUrl: formData.selfieUrl || undefined,
         identityDocumentType: formData.identityDocumentType || 'GOVERNMENT_ID',
-        identityDocumentUrl: formData.identityDocumentUrl,
-        vehiclePhotoUrl: formData.vehiclePhotoUrl || formData.selfieUrl || '',
-        vehicleDocumentUrl: formData.vehicleDocumentUrl || ''
+        identityDocumentUrl: formData.identityDocumentUrl || undefined,
+        vehiclePhotoUrl: formData.vehiclePhotoUrl || undefined,
+        vehicleDocumentUrl: formData.vehicleDocumentUrl || undefined
       };
 
       await onboardDeliveryPartner(payload).unwrap();
-      toast.success('🎉 Application submitted for verification!');
-      setStep(4);
+      if (!requireRiderDocs) {
+        toast.success('🎉 Account approved! Welcome to the Lokaya Rider Fleet.');
+        router.push('/delivery');
+      } else {
+        toast.success('🎉 Application submitted for verification!');
+        setStep(4);
+      }
     } catch (err: any) {
       toast.error(err?.data?.message || err?.message || 'Failed to submit onboarding application');
     }
@@ -404,11 +417,17 @@ export default function DeliveryOnboardingPage() {
         {/* Stepper Progress */}
         {step < 4 && (
           <div className="flex items-center justify-between px-6 max-w-md mx-auto">
-            {[
-              { num: 1, label: 'Personal' },
-              { num: 2, label: 'Vehicle & Papers' },
-              { num: 3, label: 'Identity KYC' },
-            ].map((s) => (
+            {(requireRiderDocs
+              ? [
+                  { num: 1, label: 'Personal' },
+                  { num: 2, label: 'Vehicle & Papers' },
+                  { num: 3, label: 'Identity KYC' },
+                ]
+              : [
+                  { num: 1, label: 'Personal' },
+                  { num: 2, label: 'Vehicle Setup' },
+                ]
+            ).map((s) => (
               <div key={s.num} className="flex items-center gap-2">
                 <div
                   className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
@@ -522,7 +541,7 @@ export default function DeliveryOnboardingPage() {
               }}
               className="w-full h-12 rounded-2xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md mt-4"
             >
-              <span>Continue to Vehicle Details & Papers</span>
+              <span>{requireRiderDocs ? 'Continue to Vehicle Details & Papers' : 'Continue to Vehicle Setup'}</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
@@ -533,7 +552,7 @@ export default function DeliveryOnboardingPage() {
           <div className="bg-white rounded-3xl p-6 border border-[#E5E2DC] shadow-sm space-y-4">
             <h2 className="text-base font-extrabold text-[#171717] flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-orange-100 text-[#FF5A36] text-xs font-black flex items-center justify-center">2</span>
-              Vehicle Details & Papers
+              {requireRiderDocs ? 'Vehicle Details & Papers' : 'Vehicle Mode & Setup'}
             </h2>
 
             <div className="space-y-3">
@@ -583,7 +602,34 @@ export default function DeliveryOnboardingPage() {
                 );
               })()}
 
-              {formData.vehicleType !== 'WALKER' && formData.vehicleType !== 'BICYCLE' ? (
+              {/* Vehicle Registration Number Input */}
+              {formData.vehicleType !== 'WALKER' && formData.vehicleType !== 'BICYCLE' && (
+                <div className="pt-1">
+                  <label className="text-xs font-bold text-[#171717] block mb-1">
+                    Vehicle Registration / Plate Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.vehicleNumber}
+                    onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
+                    placeholder="e.g. DL 01 AB 1234 or BA 2 PA 1234"
+                    className="w-full h-11 px-3.5 rounded-xl border border-[#E5E2DC] focus:outline-none focus:ring-2 focus:ring-[#FF5A36] font-medium text-xs uppercase"
+                  />
+                </div>
+              )}
+
+              {/* Fast-Track Startup Mode Notice or Strict KYC Document Uploads */}
+              {!requireRiderDocs ? (
+                <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-emerald-800 space-y-1 mt-2">
+                  <p className="text-xs font-bold flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-emerald-600" />
+                    Fast-Track Rider Verification Active
+                  </p>
+                  <p className="text-[11px] leading-relaxed">
+                    Document uploads (vehicle papers, RC, and identity scans) are bypassed. You will be automatically approved and activated upon submission!
+                  </p>
+                </div>
+              ) : formData.vehicleType !== 'WALKER' && formData.vehicleType !== 'BICYCLE' ? (
                 <>
                   {/* Vehicle Papers / RC Document Upload */}
                   <div className="pt-2">
@@ -684,30 +730,50 @@ export default function DeliveryOnboardingPage() {
               >
                 Back
               </Button>
-              <Button
-                onClick={() => {
-                  const isEco = formData.vehicleType === 'WALKER' || formData.vehicleType === 'BICYCLE';
-                  if (!isEco && !formData.vehicleDocumentUrl) {
-                    toast.error('Please upload your vehicle registration paper / RC document.');
-                    return;
-                  }
-                  if (!isEco && !formData.vehiclePhotoUrl) {
-                    toast.error('Please upload a photo of your vehicle.');
-                    return;
-                  }
-                  setStep(3);
-                }}
-                className="flex-1 h-12 rounded-2xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md"
-              >
-                <span>Continue to KYC Documents</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
+              {requireRiderDocs ? (
+                <Button
+                  onClick={() => {
+                    const isEco = formData.vehicleType === 'WALKER' || formData.vehicleType === 'BICYCLE';
+                    if (!isEco && !formData.vehicleDocumentUrl) {
+                      toast.error('Please upload your vehicle registration paper / RC document.');
+                      return;
+                    }
+                    if (!isEco && !formData.vehiclePhotoUrl) {
+                      toast.error('Please upload a photo of your vehicle.');
+                      return;
+                    }
+                    setStep(3);
+                  }}
+                  className="flex-1 h-12 rounded-2xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md"
+                >
+                  <span>Continue to KYC Documents</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="flex-1 h-12 rounded-2xl bg-[#FF5A36] hover:bg-[#e04d2d] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Activating Account...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      <span>Complete & Start Delivering</span>
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         )}
 
         {/* STEP 3: KYC Documents */}
-        {step === 3 && (
+        {step === 3 && requireRiderDocs && (
           <div className="bg-white rounded-3xl p-6 border border-[#E5E2DC] shadow-sm space-y-4">
             <h2 className="text-base font-extrabold text-[#171717] flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-orange-100 text-[#FF5A36] text-xs font-black flex items-center justify-center">3</span>

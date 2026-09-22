@@ -1026,3 +1026,34 @@ adminRouter.get('/notifications/stats', requireAuth, requireAdmin, async (req: A
   }
 });
 
+// ==========================================
+// Onboarding & KYC Management
+// ==========================================
+
+// GET /api/v1/admin/onboarding-config
+adminRouter.get('/onboarding-config', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { PlatformConfigService } = await import('../../common/platform-config.service');
+    const config = await PlatformConfigService.getOnboardingConfig();
+    res.status(200).json(config);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/v1/admin/onboarding-config
+adminRouter.put('/onboarding-config', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { PlatformConfigService } = await import('../../common/platform-config.service');
+    const updatedBy = req.user?.id || 'admin';
+    const config = await PlatformConfigService.updateOnboardingConfig(req.body, updatedBy);
+    res.status(200).json({
+      success: true,
+      message: 'Onboarding policy updated successfully',
+      config
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+

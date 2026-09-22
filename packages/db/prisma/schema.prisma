@@ -1075,8 +1075,8 @@ model DeliveryPartner {
   // Vehicle Details
   vehicleType           VehicleType           @default(MOTORCYCLE)
   vehicleNumber         String
-  vehiclePhotoUrl       String
-  vehicleDocumentUrl    String
+  vehiclePhotoUrl       String?
+  vehicleDocumentUrl    String?
 
   // Dynamic Custom Pricing
   perKmRate             Float                 @default(8.0)
@@ -1084,10 +1084,10 @@ model DeliveryPartner {
   isCustomPricingEnabled Boolean              @default(true)
   operatingCountry      String                @default("IN")
 
-  // Identity & KYC (4 mandatory documents total)
-  selfieUrl             String
+  // Identity & KYC (optional for fast-track startup onboarding)
+  selfieUrl             String?
   identityDocumentType  String                @default("GOVERNMENT_ID")
-  identityDocumentUrl   String
+  identityDocumentUrl   String?
   rejectionReason       String?
 
   // Metrics & Stats
@@ -1306,5 +1306,17 @@ model NotificationCampaign {
 
   @@index([status])
   @@index([createdAt])
+}
+
+model PlatformSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
 }
 

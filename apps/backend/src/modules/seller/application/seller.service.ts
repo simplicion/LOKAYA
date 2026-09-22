@@ -1,5 +1,6 @@
 import { prisma } from '@workspace/db';
 import { AppError } from '../../../shared/errors/AppError';
+import { PlatformConfigService } from '../../common/platform-config.service';
 
 export class SellerService {
   async onboardStore(userId: string, data: any) {
@@ -46,6 +47,13 @@ export class SellerService {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     const storeName = data.name?.trim() || user?.name || "My Store";
 
+    // Dynamic Onboarding Policy: Fast-track auto-approval vs strict KYC verification
+    const config = await PlatformConfigService.getOnboardingConfig();
+    const shouldAutoApprove = !config.requireSellerDocs || config.autoApproveSeller;
+    const initialStatus: 'VERIFIED' | 'PENDING' = shouldAutoApprove ? 'VERIFIED' : 'PENDING';
+    const initialVerificationStatus = shouldAutoApprove ? 'APPROVED' : (config.requireSellerDocs ? 'PENDING' : 'APPROVED');
+    const isVerified = shouldAutoApprove;
+
     if (existingStoreUser) {
       if (existingStoreUser.store.status === 'REJECTED') {
         // Resubmit KYC
@@ -67,7 +75,9 @@ export class SellerService {
             aadharPanUrl: aadharPanFallback,
             gstOrLicenseUrl: businessDoc,
             shopPhotos: data.shopPhotos || [],
-            status: 'PENDING',
+            status: initialStatus,
+            isVerified: isVerified,
+            verificationStatus: initialVerificationStatus,
           }
         });
 
@@ -108,7 +118,9 @@ export class SellerService {
         aadharPanUrl: aadharPanFallback,
         gstOrLicenseUrl: businessDoc,
         shopPhotos: data.shopPhotos || [],
-        status: 'PENDING',
+        status: initialStatus,
+        isVerified: isVerified,
+        verificationStatus: initialVerificationStatus,
         users: {
           create: {
             userId: userId

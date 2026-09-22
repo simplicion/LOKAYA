@@ -39,7 +39,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates', 'Notifications'],
+  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates', 'Notifications', 'OnboardingConfig'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
       query: () => '/seller/pending',
@@ -338,6 +338,18 @@ export const adminApi = createApi({
       query: () => '/admin/notifications/stats',
       providesTags: ['Notifications'],
     }),
+    getOnboardingConfig: builder.query<any, void>({
+      query: () => '/admin/onboarding-config',
+      providesTags: ['OnboardingConfig'],
+    }),
+    updateOnboardingConfig: builder.mutation<any, Partial<any>>({
+      query: (body) => ({
+        url: '/admin/onboarding-config',
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['OnboardingConfig'],
+    }),
   }),
 });
 
@@ -387,4 +399,6 @@ export const {
   useGetNotificationCampaignsQuery,
   useBroadcastNotificationMutation,
   useGetNotificationStatsQuery,
+  useGetOnboardingConfigQuery,
+  useUpdateOnboardingConfigMutation,
 } = adminApi;

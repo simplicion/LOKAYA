@@ -69,4 +69,19 @@ router.post('/convert-currency', async (req: Request, res: Response, next: NextF
   }
 });
 
+/**
+ * GET /api/v1/meta/onboarding-config
+ * Public policy endpoint indicating whether document verification is required
+ */
+router.get('/onboarding-config', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { PlatformConfigService } = await import('./platform-config.service');
+    const config = await PlatformConfigService.getOnboardingConfig();
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+    res.json(config);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export const metaRoutes: Router = router;
