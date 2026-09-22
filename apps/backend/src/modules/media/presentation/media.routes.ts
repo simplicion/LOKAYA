@@ -72,6 +72,7 @@ mediaRouter.post('/upload', handleUpload, mediaController.uploadFile.bind(mediaC
 
 // AI Product Studio Photoshoot (Accepts 1-2 product photos, returns 5 studio shots)
 mediaRouter.post('/ai-photoshoot', handlePhotoshootUpload, mediaController.generateAiPhotoshoot.bind(mediaController));
+mediaRouter.post('/ai-photoshoot-stream', handlePhotoshootUpload, mediaController.streamAiPhotoshoot.bind(mediaController));
 
 // Streaming view endpoint with query param support (?key=...)
 mediaRouter.get('/view', mediaController.viewFile.bind(mediaController));

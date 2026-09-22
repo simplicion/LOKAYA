@@ -61,6 +61,56 @@ export class MediaController {
     }
   }
 
+  async streamAiPhotoshoot(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id || 'anonymous-seller';
+      const files = ((req as any).files as Express.Multer.File[]) || [];
+      const singleFile = (req as any).file as Express.Multer.File;
+
+      const uploadList = files.length > 0 ? files : (singleFile ? [singleFile] : []);
+
+      if (uploadList.length === 0) {
+        return res.status(400).json({ error: 'Please upload at least 1 product reference image' });
+      }
+
+      const { productName, category, customPrompt } = req.body;
+
+      // Set Server-Sent Events headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders?.();
+
+      const sendEvent = (event: string, data: any) => {
+        if (res.writableEnded) return;
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        if ((res as any).flush) (res as any).flush();
+      };
+
+      await aiStudioService.runStreamingPhotoshoot(
+        userId,
+        uploadList,
+        productName,
+        category,
+        customPrompt,
+        sendEvent
+      );
+
+      if (!res.writableEnded) {
+        res.end();
+      }
+    } catch (error: any) {
+      console.error('[MediaController] Error during streaming AI Photoshoot:', error);
+      if (!res.headersSent) {
+        return res.status(500).json({ error: error?.message || 'Failed to stream photoshoot' });
+      } else {
+        res.write(`event: error\ndata: ${JSON.stringify({ error: error?.message || 'Stream error' })}\n\n`);
+        res.end();
+      }
+    }
+  }
+
   async viewFile(req: Request, res: Response) {
     try {
       let rawKey = (req.params[0] as string) || (req.query.key as string) || '';

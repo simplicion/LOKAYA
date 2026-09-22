@@ -272,15 +272,13 @@ Respond strictly with valid JSON without markdown formatting:
   }
 
   /**
-   * Step 2: Render image using OpenAI Image models or Google Imagen 3
+   * Step 2: Render image using OpenAI Image models (gpt-image-1-mini, gpt-image-1)
    */
   async generateSingleImage(prompt: string, shotId: string): Promise<Buffer | null> {
     const openAiKey = this.getOpenAiApiKey();
-    const geminiKey = this.getGeminiApiKey();
 
-    // 1. Try OpenAI Image models first if OpenAI key is present
     if (openAiKey) {
-      const openAiModels = ['gpt-image-1-mini', 'gpt-image-1', 'chatgpt-image-latest', 'dall-e-3'];
+      const openAiModels = ['gpt-image-1-mini', 'gpt-image-1', 'gpt-image-1.5'];
       for (const model of openAiModels) {
         try {
           const res = await axios.post(
@@ -314,42 +312,100 @@ Respond strictly with valid JSON without markdown formatting:
       }
     }
 
-    // 2. Try Google Imagen 3 / Gemini Image if Gemini key is present
-    if (geminiKey) {
-      try {
-        const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${geminiKey}`;
-        const res = await axios.post(
-          imagenUrl,
-          {
-            instances: [{ prompt }],
-            parameters: {
-              sampleCount: 1,
-              aspectRatio: '1:1',
-              outputMimeType: 'image/jpeg',
-              personGeneration: 'ALLOW_ADULT',
-              safetySetting: 'BLOCK_ONLY_HIGH',
-            },
-          },
-          { headers: { 'Content-Type': 'application/json' }, timeout: 45000 }
-        );
-
-        const b64 =
-          res.data?.predictions?.[0]?.bytesBase64Encoded ||
-          res.data?.generatedImages?.[0]?.image?.imageBytes;
-
-        if (b64) {
-          return Buffer.from(b64, 'base64');
-        }
-      } catch (err: any) {
-        console.warn(`[AiStudioService] Imagen 3 error on ${shotId}:`, err?.response?.data || err?.message);
-      }
-    }
-
     return null;
   }
 
   /**
-   * Step 3: End-to-End Photoshoot Orchestration
+   * Step 3: Progressive Real-Time Streaming Photoshoot Orchestration
+   * Streams 5 angle prompts and image outputs in parallel directly as base64 without intermediate R2 uploads
+   */
+  async runStreamingPhotoshoot(
+    userId: string,
+    images: ReferenceImage[],
+    productName?: string,
+    category?: string,
+    customPrompt?: string,
+    onEvent?: (event: string, data: any) => void
+  ): Promise<void> {
+    // 1. Vision Analysis & Prompt Planning
+    const { productAnalysis, generatedDetails, shots: shotPrompts } = await this.analyzeProductAndGeneratePrompts(
+      images,
+      productName,
+      category,
+      customPrompt
+    );
+
+    // Emit plan_ready event immediately so client renders individual cards & details
+    if (onEvent) {
+      onEvent('plan_ready', {
+        productAnalysis,
+        generatedDetails,
+        shots: shotPrompts.map((s) => ({
+          id: s.id,
+          title: s.title,
+          badge: s.badge,
+          description: s.description,
+          prompt: s.prompt,
+        })),
+      });
+    }
+
+    // 2. Generate all 5 shots in parallel
+    let completedCount = 0;
+    const tasks = shotPrompts.map(async (shot) => {
+      try {
+        const imageBuffer = await this.generateSingleImage(shot.prompt, shot.id);
+
+        if (imageBuffer) {
+          completedCount++;
+          const base64Data = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+
+          if (onEvent) {
+            onEvent('shot_complete', {
+              id: shot.id,
+              title: shot.title,
+              badge: shot.badge,
+              description: shot.description,
+              base64: base64Data,
+              prompt: shot.prompt,
+              completedCount,
+              totalCount: shotPrompts.length,
+            });
+          }
+          return { id: shot.id, success: true };
+        } else {
+          if (onEvent) {
+            onEvent('shot_error', {
+              id: shot.id,
+              error: 'Failed to render image',
+            });
+          }
+        }
+      } catch (err: any) {
+        console.error(`[AiStudioService] Error generating shot ${shot.id}:`, err?.message || err);
+        if (onEvent) {
+          onEvent('shot_error', {
+            id: shot.id,
+            error: err?.message || 'Generation failed',
+          });
+        }
+      }
+      return { id: shot.id, success: false };
+    });
+
+    await Promise.allSettled(tasks);
+
+    if (onEvent) {
+      onEvent('done', {
+        success: completedCount > 0,
+        totalCompleted: completedCount,
+        totalRequested: shotPrompts.length,
+      });
+    }
+  }
+
+  /**
+   * Step 4: Fallback Non-Streaming End-to-End Photoshoot Orchestration
    */
   async runPhotoshoot(
     userId: string,
@@ -358,7 +414,6 @@ Respond strictly with valid JSON without markdown formatting:
     category?: string,
     customPrompt?: string
   ): Promise<{ success: boolean; productAnalysis: any; generatedDetails?: GeneratedProductDetails; shots: GeneratedStudioShot[] }> {
-    // 1. Analyze and craft prompts
     const { productAnalysis, generatedDetails, shots: shotPrompts } = await this.analyzeProductAndGeneratePrompts(
       images,
       productName,
@@ -366,7 +421,6 @@ Respond strictly with valid JSON without markdown formatting:
       customPrompt
     );
 
-    // 2. Generate all 5 shots concurrently
     const generatedShots: GeneratedStudioShot[] = [];
 
     const generationTasks = shotPrompts.map(async (shot) => {
@@ -374,7 +428,6 @@ Respond strictly with valid JSON without markdown formatting:
         const imageBuffer = await this.generateSingleImage(shot.prompt, shot.id);
 
         if (imageBuffer) {
-          // Upload to R2 / S3
           const uploadResult = await this.mediaService.uploadFile(userId, {
             originalname: `ai-studio-${shot.id}-${Date.now()}.jpg`,
             buffer: imageBuffer,
