@@ -3,11 +3,16 @@
 import React, { useEffect } from 'react';
 import { useCapacitorNative } from '@/lib/native/useCapacitorNative';
 import { usePushNotifications } from '@/lib/native/usePushNotifications';
+import { useNativeAppFeel } from '@/lib/native/useNativeAppFeel';
+import { RealtimeAlertListener } from './RealtimeAlertListener';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 
 export function NativeBridgeProvider({ children }: { children: React.ReactNode }) {
   const user = useSelector((state: RootState) => state.auth.user);
+
+  // Initialize native app feel (disables browser pinch-zoom, text select, ghost drag, callouts)
+  useNativeAppFeel();
 
   // Initialize native shell, back button, haptics, status bar
   useCapacitorNative();
@@ -38,5 +43,10 @@ export function NativeBridgeProvider({ children }: { children: React.ReactNode }
     return () => window.removeEventListener('error', handleChunkError);
   }, []);
 
-  return <>{children}</>;
+  return (
+    <>
+      <RealtimeAlertListener />
+      {children}
+    </>
+  );
 }

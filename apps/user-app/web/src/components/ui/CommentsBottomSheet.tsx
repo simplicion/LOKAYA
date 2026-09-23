@@ -114,7 +114,8 @@ export function CommentsBottomSheet({ isOpen, onClose, targetId, type, onComment
 
     if (!currentUser) {
       toast.error('Please sign in to comment');
-      router.push('/login');
+      const currentUrl = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '/home';
+      router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`);
       return;
     }
 

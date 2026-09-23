@@ -359,6 +359,14 @@ export const api = createApi({
         return response || { users: [], stores: [], products: [], posts: [] };
       },
     }),
+    getTrendingSearch: builder.query<{ trendingKeywords: string[] }, void>({
+      query: () => '/search/trending',
+      transformResponse: (response: any) => {
+        if (response?.data) return response.data;
+        return response || { trendingKeywords: [] };
+      },
+      keepUnusedDataFor: 120,
+    }),
     
     // Wishlist
     getWishlist: builder.query<{ success: boolean; data: any[] }, void>({
@@ -886,11 +894,26 @@ export const api = createApi({
       query: (range = 'Today') => `/seller/dashboard/stats?range=${encodeURIComponent(range || 'Today')}`,
       providesTags: ['SellerDashboard'],
     }),
-    getSellerRecentOrders: builder.query<any[], number | void>({
-      query: (limit = 10) => `/seller/dashboard/recent-orders?limit=${limit || 10}`,
+    getSellerRecentOrders: builder.query<any[], { limit?: number; status?: string } | number | void>({
+      query: (arg) => {
+        let limit = 3;
+        let status = 'PENDING';
+        if (typeof arg === 'number') {
+          limit = arg;
+          status = '';
+        } else if (arg && typeof arg === 'object') {
+          if (arg.limit !== undefined) limit = arg.limit;
+          if (arg.status !== undefined) status = arg.status;
+        }
+        const params = new URLSearchParams();
+        if (limit) params.set('limit', String(limit));
+        if (status) params.set('status', status);
+        const qs = params.toString();
+        return `/seller/dashboard/recent-orders${qs ? `?${qs}` : ''}`;
+      },
       providesTags: ['SellerDashboard', 'Order'],
     }),
-    getSellerSalesTrend: builder.query<Array<{ name: string; value: number }>, string | void>({
+    getSellerSalesTrend: builder.query<Array<{ name: string; value: number; date?: string; fullDate?: string; ordersCount?: number }>, string | void>({
       query: (range = '7d') => `/seller/dashboard/sales-trend?range=${encodeURIComponent(range || '7d')}`,
       providesTags: ['SellerDashboard'],
     }),
@@ -1496,6 +1519,7 @@ export const {
   useLikePostMutation,
   useFollowUserMutation,
   useSearchGlobalQuery,
+  useGetTrendingSearchQuery,
   useGetReelCommentsQuery,
   useAddReelCommentMutation,
 

@@ -20,17 +20,41 @@ export default {
       return env.ASSETS.fetch(request);
     }
 
-    // 2. Direct exact static route match (e.g. /home, /cart, /checkout, /login, /search, /profile, /seller, etc.)
+    // 2. Normalize path and detect React Server Component (RSC) requests
+    const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+    const isRSC = url.searchParams.has('_rsc') || request.headers.get('rsc') === '1' || request.headers.get('accept')?.includes('text/x-component');
+
+    // 3. For RSC requests on static routes, serve the corresponding .txt payload with text/x-component
+    if (isRSC) {
+      const rscCandidatePath = normalizedPath === '/' ? '/index.txt' : `${normalizedPath}.txt`;
+      const rscCandidateUrl = new URL(rscCandidatePath, url.origin);
+      const rscCandidateRes = await env.ASSETS.fetch(new Request(rscCandidateUrl.toString(), {
+        method: 'GET',
+        headers: {
+          ...Object.fromEntries(request.headers),
+          'Accept': 'text/x-component'
+        }
+      }));
+
+      if (rscCandidateRes.status >= 200 && rscCandidateRes.status < 300) {
+        const newHeaders = new Headers(rscCandidateRes.headers);
+        newHeaders.set('Content-Type', 'text/x-component');
+        newHeaders.set('Cache-Control', 'public, max-age=0, must-revalidate');
+        return new Response(rscCandidateRes.body, {
+          status: 200,
+          statusText: 'OK',
+          headers: newHeaders
+        });
+      }
+    }
+
+    // 4. Direct exact static route match (e.g. /home, /cart, /checkout, /login, /search, /profile, /seller, etc.)
     const exactAssetResponse = await env.ASSETS.fetch(request);
     if (exactAssetResponse.status === 200) {
       return exactAssetResponse;
     }
 
-    // 3. Dynamic Route Resolution
-    // Normalize path by stripping trailing slashes for consistent segment matching
-    const normalizedPath = pathname.replace(/\/+$/, '') || '/';
-    const isRSC = url.searchParams.has('_rsc') || request.headers.get('rsc') === '1';
-
+    // 5. Dynamic Route Resolution
     const resolveDynamicRoute = async (cleanPath, rscPath) => {
       if (isRSC && rscPath) {
         const rscUrl = new URL(rscPath, url.origin);

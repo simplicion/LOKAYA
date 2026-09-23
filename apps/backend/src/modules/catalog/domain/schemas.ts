@@ -5,7 +5,8 @@ export const variantSchema = z.object({
   name: z.string().min(1, 'Variant name is required'),
   sku: z.string().optional().nullable(),
   price: z.coerce.number().min(0, 'Variant price cannot be negative'),
-  stockCount: z.coerce.number().int().min(0, 'Variant stock cannot be negative').default(0)
+  stockCount: z.coerce.number().int().min(0, 'Variant stock cannot be negative').default(0),
+  imageUrl: z.string().optional().nullable()
 });
 
 export const createProductSchema = z.object({
@@ -14,11 +15,11 @@ export const createProductSchema = z.object({
   }).optional(),
   body: z.object({
     storeId: z.string().uuid('Invalid store ID').optional(),
-    name: z.string().min(2, 'Name must be at least 2 characters'),
+    name: z.string().min(1, 'Name is required').default('Untitled Product'),
     brand: z.string().optional().nullable(),
     description: z.string().optional().nullable(),
     category: z.string().optional().nullable(),
-    categoryId: z.string().uuid('Invalid category ID').optional().nullable(),
+    categoryId: z.union([z.string().uuid('Invalid category ID'), z.literal(''), z.null()]).optional().nullable(),
     sku: z.string().optional().nullable(),
     mrp: z.coerce.number().min(0, 'MRP cannot be negative').optional().nullable(),
     sellingPrice: z.coerce.number().min(0, 'Selling price cannot be negative').optional().nullable(),

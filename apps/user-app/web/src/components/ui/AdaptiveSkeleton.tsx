@@ -16,6 +16,8 @@ export type SkeletonVariant =
   | 'profile'
   | 'category-pills'
   | 'table'
+  | 'search-results'
+  | 'search-discovery'
   | 'custom';
 
 export interface AdaptiveSkeletonProps {
@@ -23,6 +25,7 @@ export interface AdaptiveSkeletonProps {
   count?: number;
   className?: string;
   gridCols?: number;
+  activeFilter?: string;
   children?: React.ReactNode;
 }
 
@@ -31,6 +34,7 @@ export function AdaptiveSkeleton({
   count = 1,
   className,
   gridCols = 2,
+  activeFilter = 'all',
   children,
 }: AdaptiveSkeletonProps) {
   
@@ -436,6 +440,216 @@ export function AdaptiveSkeleton({
             <Skeleton className="h-4 w-16 rounded-md" />
           </div>
         ))}
+      </div>
+    );
+  }
+
+  // 13. SEARCH RESULTS PRESET (Adapts to activeFilter tab)
+  if (variant === 'search-results') {
+    const filter = (activeFilter || 'all').toLowerCase();
+
+    if (filter === 'products') {
+      return (
+        <div className={cn("grid grid-cols-2 gap-3 pb-24", className)}>
+          {Array.from({ length: count > 1 ? count : 6 }).map((_, i) => (
+            <ProductCardSkeleton key={i} />
+          ))}
+        </div>
+      );
+    }
+
+    if (filter === 'posts') {
+      return (
+        <div className={cn("flex flex-col gap-4 pb-24", className)}>
+          {Array.from({ length: count > 1 ? count : 2 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <SkeletonAvatar size="md" />
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-28 rounded-md" />
+                  <Skeleton className="h-3 w-16 rounded-md" />
+                </div>
+              </div>
+              <div className="w-full aspect-[4/5] rounded-xl overflow-hidden">
+                <Skeleton className="w-full h-full rounded-xl" />
+              </div>
+              <div className="space-y-1.5 pt-1">
+                <Skeleton className="h-3.5 w-32 rounded-md" />
+                <Skeleton className="h-3 w-3/4 rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (filter === 'stores') {
+      return (
+        <div className={cn("flex flex-col gap-3 pb-24", className)}>
+          {Array.from({ length: count > 1 ? count : 4 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-gray-100 p-3.5 flex items-center justify-between shadow-2xs">
+              <div className="flex items-center gap-3">
+                <SkeletonAvatar size="md" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-4 w-32 rounded-md" />
+                    <Skeleton shape="circle" className="w-3.5 h-3.5" />
+                  </div>
+                  <Skeleton className="h-3 w-20 rounded-md" />
+                </div>
+              </div>
+              <Skeleton className="h-8 w-20 rounded-full" />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Default: 'all' filter multi-category search skeleton
+    return (
+      <div className={cn("flex flex-col gap-6 pb-24", className)}>
+        {/* Products Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-0.5">
+            <div className="flex items-center gap-2">
+              <Skeleton shape="circle" className="w-4 h-4" />
+              <Skeleton className="h-4 w-28 rounded-md" />
+            </div>
+            <Skeleton className="h-3.5 w-16 rounded-md" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+
+        {/* Stores Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-0.5">
+            <Skeleton shape="circle" className="w-4 h-4" />
+            <Skeleton className="h-4 w-24 rounded-md" />
+          </div>
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-3 flex items-center justify-between shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <SkeletonAvatar size="md" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-4 w-28 rounded-md" />
+                    <Skeleton className="h-3 w-20 rounded-md" />
+                  </div>
+                </div>
+                <Skeleton className="h-3.5 w-12 rounded-md" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Posts Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-0.5">
+            <Skeleton shape="circle" className="w-4 h-4" />
+            <Skeleton className="h-4 w-32 rounded-md" />
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <SkeletonAvatar size="sm" />
+              <Skeleton className="h-4 w-24 rounded-md" />
+            </div>
+            <div className="w-full aspect-[4/5] rounded-xl overflow-hidden">
+              <Skeleton className="w-full h-full rounded-xl" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 14. SEARCH DISCOVERY PRESET (Instagram Explore Style)
+  if (variant === 'search-discovery') {
+    return (
+      <div className={cn("space-y-6 pb-24", className)}>
+        {/* Trending Keywords Pills */}
+        <div className="space-y-2.5 px-1">
+          <div className="flex items-center gap-2">
+            <Skeleton shape="circle" className="w-4 h-4" />
+            <Skeleton className="h-3.5 w-36 rounded-md" />
+          </div>
+          <div className="flex gap-2 overflow-hidden py-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <SkeletonPill key={i} className="h-8 w-24 rounded-xl shrink-0" />
+            ))}
+          </div>
+        </div>
+
+        {/* Top 5 Reels Carousel */}
+        <div className="space-y-3 px-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Skeleton className="w-7 h-7 rounded-xl" />
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-32 rounded-md" />
+                <Skeleton className="h-3 w-24 rounded-md" />
+              </div>
+            </div>
+            <Skeleton className="h-3.5 w-16 rounded-md" />
+          </div>
+          <div className="flex gap-3 overflow-hidden -mx-4 px-4 pb-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="w-[136px] sm:w-[155px] aspect-[9/16] rounded-2xl overflow-hidden shrink-0 border border-gray-100 bg-gray-100 relative">
+                <Skeleton className="w-full h-full rounded-2xl" />
+                <div className="absolute top-2 left-2">
+                  <Skeleton shape="pill" className="h-5 w-8 rounded-full bg-white/70" />
+                </div>
+                <div className="absolute bottom-2 left-2 right-2 space-y-1">
+                  <Skeleton className="h-3 w-12 rounded-md bg-white/60" />
+                  <Skeleton className="h-3 w-20 rounded-md bg-white/60" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Trending Posts Grid */}
+        <div className="space-y-3 px-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Skeleton className="w-7 h-7 rounded-xl" />
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-28 rounded-md" />
+                <Skeleton className="h-3 w-36 rounded-md" />
+              </div>
+            </div>
+            <Skeleton className="h-3.5 w-16 rounded-md" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="aspect-square rounded-2xl overflow-hidden bg-gray-100 border border-gray-100">
+                <Skeleton className="w-full h-full rounded-2xl" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Trending Products Grid */}
+        <div className="space-y-3 px-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Skeleton className="w-7 h-7 rounded-xl" />
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-36 rounded-md" />
+                <Skeleton className="h-3 w-40 rounded-md" />
+              </div>
+            </div>
+            <Skeleton className="h-3.5 w-16 rounded-md" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

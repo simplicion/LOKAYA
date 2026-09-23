@@ -4,7 +4,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Filter, 
-  PlusCircle, 
   MoreVertical, 
   Star, 
   Package, 
@@ -86,8 +85,16 @@ export default function MyProductsPage() {
   // Delete Product
   const handleConfirmDelete = async () => {
     if (!productToDelete) return;
+    if (productToDelete.isLocalOnly) {
+      handleDiscardLocalDraft();
+      setProductToDelete(null);
+      return;
+    }
     try {
       await deleteProduct(productToDelete.id).unwrap();
+      if (localDraft?.draftProductId === productToDelete.id) {
+        handleDiscardLocalDraft();
+      }
       toast.success(`"${productToDelete.name}" deleted successfully`);
       setProductToDelete(null);
     } catch (err: any) {
@@ -96,17 +103,75 @@ export default function MyProductsPage() {
     }
   };
 
+  // Check for unsaved local draft
+  const [localDraft, setLocalDraft] = useState<any | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('lokaya_product_draft');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (parsed.name || parsed.category || (parsed.media && parsed.media.length > 0))) {
+          setLocalDraft(parsed);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  const handleDiscardLocalDraft = () => {
+    localStorage.removeItem('lokaya_product_draft');
+    setLocalDraft(null);
+    toast.success('Unsaved draft discarded');
+  };
+
   // Filter Logic
+  const isLocalDraftAlreadyInDb = useMemo(() => {
+    if (!localDraft?.draftProductId) return false;
+    return products.some((p: any) => p.id === localDraft.draftProductId);
+  }, [localDraft, products]);
+
+  const draftCount = useMemo(() => {
+    const dbDrafts = products.filter((p: any) => p.status === 'DRAFT').length;
+    return dbDrafts + (localDraft && !isLocalDraftAlreadyInDb ? 1 : 0);
+  }, [products, localDraft, isLocalDraftAlreadyInDb]);
+
   const filteredProducts = useMemo(() => {
-    return products.filter((p: any) => {
+    let list = [...products];
+
+    // If there is an unsaved local draft not yet in DB, synthesize a draft entry for it
+    if (localDraft && !isLocalDraftAlreadyInDb) {
+      const localMedia = (localDraft.media || []).filter((m: any) => m.url && !m.url.startsWith('blob:'));
+      const localPrimary = localMedia.find((m: any) => m.isPrimary) || localMedia[0];
+      const localEntry = {
+        id: localDraft.draftProductId || 'local-draft',
+        isLocalOnly: true,
+        name: localDraft.name || 'Untitled Draft',
+        sku: localDraft.sku || 'LOCAL-DRAFT',
+        sellingPrice: localDraft.sellingPrice || 0,
+        stockCount: localDraft.stockCount || 0,
+        status: 'DRAFT',
+        isActive: false,
+        media: localMedia,
+        imageUrl: localPrimary?.url || ''
+      };
+      list = [localEntry, ...list];
+    }
+
+    return list.filter((p: any) => {
       const matchesSearch = 
         (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || 
         (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase()));
       
+      if (activeCategory === 'drafts') {
+        return matchesSearch && p.status === 'DRAFT';
+      }
+
       const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [products, searchQuery, activeCategory]);
+  }, [products, searchQuery, activeCategory, localDraft, isLocalDraftAlreadyInDb]);
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-white pb-24">
@@ -115,32 +180,82 @@ export default function MyProductsPage() {
         title="Products" 
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        rightAction={<PlusCircle className="w-6 h-6" onClick={() => router.push('/seller/products/add')} />}
       />
+
+      {/* Unsaved Local Draft Banner */}
+      {localDraft && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-amber-900 animate-in fade-in">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 animate-ping" />
+            <span className="truncate font-medium">
+              Unsaved draft: <strong>{localDraft.name || 'Untitled Product'}</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => {
+                if (localDraft?.draftProductId) {
+                  router.push(`/seller/products/add?draftId=${localDraft.draftProductId}`);
+                } else {
+                  router.push('/seller/products/add');
+                }
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-1 rounded-lg text-[11px] transition-colors cursor-pointer"
+            >
+              Resume
+            </button>
+            <button
+              onClick={handleDiscardLocalDraft}
+              className="text-amber-700 hover:text-amber-900 font-semibold px-2 py-1 text-[11px] cursor-pointer"
+            >
+              Discard
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Category Tags & Filter */}
       <div className="bg-white border-b border-[#E5E2DC] flex items-center justify-between px-4">
-        <div className="flex overflow-x-auto no-scrollbar py-3 gap-6 flex-1">
+        <div className="flex overflow-x-auto no-scrollbar py-3 gap-3 flex-1">
           {/* Always show All tab */}
           <button
             onClick={() => setActiveCategory('all')}
-            className={`text-sm font-semibold whitespace-nowrap transition-colors px-5 py-1.5 rounded-full ${
+            className={`text-sm font-semibold whitespace-nowrap transition-colors px-4 py-1.5 rounded-full cursor-pointer ${
               activeCategory === 'all' 
                 ? 'bg-brand-navy text-white' 
-                : 'text-[#6B6B6B] bg-transparent'
+                : 'text-[#6B6B6B] bg-[#F9F9F9] hover:bg-gray-200'
             }`}
           >
             All
+          </button>
+
+          {/* Drafts Tab */}
+          <button
+            onClick={() => setActiveCategory('drafts')}
+            className={`text-sm font-semibold whitespace-nowrap transition-colors px-4 py-1.5 rounded-full flex items-center gap-1.5 cursor-pointer ${
+              activeCategory === 'drafts' 
+                ? 'bg-amber-500 text-white shadow-sm' 
+                : 'text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/60'
+            }`}
+          >
+            <span>Drafts</span>
+            {(draftCount > 0 || localDraft) && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                activeCategory === 'drafts' ? 'bg-white text-amber-600' : 'bg-amber-200 text-amber-900'
+              }`}>
+                {draftCount + (localDraft ? 1 : 0)}
+              </span>
+            )}
           </button>
           
           {categories.map((category: any) => (
             <button
               key={category.id}
               onClick={() => setActiveCategory(category.id)}
-              className={`text-sm font-semibold whitespace-nowrap transition-colors px-5 py-1.5 rounded-full ${
+              className={`text-sm font-semibold whitespace-nowrap transition-colors px-4 py-1.5 rounded-full cursor-pointer ${
                 activeCategory === category.id 
                   ? 'bg-brand-navy text-white' 
-                  : 'text-[#6B6B6B] bg-transparent'
+                  : 'text-[#6B6B6B] bg-[#F9F9F9] hover:bg-gray-200'
               }`}
             >
               {category.name}
@@ -170,7 +285,17 @@ export default function MyProductsPage() {
                 <div 
                   key={product.id} 
                   className={`p-4 flex gap-4 transition-colors relative ${idx !== filteredProducts.length - 1 ? 'border-b border-[#F2EFE9]' : ''} hover:bg-gray-50/50 cursor-pointer`}
-                  onClick={() => router.push(`/seller/products/${product.id}`)}
+                  onClick={() => {
+                    if (product.status === 'DRAFT') {
+                      if (product.isLocalOnly) {
+                        router.push('/seller/products/add');
+                      } else {
+                        router.push(`/seller/products/add?draftId=${product.id}`);
+                      }
+                    } else {
+                      router.push(`/seller/products/${product.id}`);
+                    }
+                  }}
                 >
                   {/* Image */}
                   <div className="w-24 h-24 bg-[#F2EFE9] rounded-2xl overflow-hidden relative shrink-0 flex items-center justify-center">
@@ -233,50 +358,72 @@ export default function MyProductsPage() {
                                 className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.14)] border border-gray-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150 origin-top-right overflow-hidden"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                {/* Edit Product */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setMenuOpenId(null);
-                                    router.push(`/seller/products/${product.id}/edit`);
-                                  }}
-                                  className="w-full px-3.5 py-2.5 text-left text-[13px] font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center gap-2.5 transition-colors"
-                                >
-                                  <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
-                                    <Edit3 className="w-4 h-4" />
-                                  </div>
-                                  <span>Edit Product</span>
-                                </button>
+                                {product.status === 'DRAFT' ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMenuOpenId(null);
+                                      if (product.isLocalOnly) {
+                                        router.push('/seller/products/add');
+                                      } else {
+                                        router.push(`/seller/products/add?draftId=${product.id}`);
+                                      }
+                                    }}
+                                    className="w-full px-3.5 py-2.5 text-left text-[13px] font-semibold text-amber-800 hover:bg-amber-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+                                      <Edit3 className="w-4 h-4" />
+                                    </div>
+                                    <span>Resume Editing</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMenuOpenId(null);
+                                      router.push(`/seller/products/${product.id}/edit`);
+                                    }}
+                                    className="w-full px-3.5 py-2.5 text-left text-[13px] font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                                      <Edit3 className="w-4 h-4" />
+                                    </div>
+                                    <span>Edit Product</span>
+                                  </button>
+                                )}
 
-                                {/* Toggle Active / Inactive */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleToggleActive(e, product)}
-                                  className="w-full px-3.5 py-2.5 text-left text-[13px] font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center gap-2.5 transition-colors"
-                                >
-                                  {product.isActive ? (
-                                    <>
-                                      <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
-                                        <EyeOff className="w-4 h-4" />
-                                      </div>
-                                      <div className="flex flex-col min-w-0">
-                                        <span className="leading-tight">Mark Inactive</span>
-                                        <span className="text-[10px] text-gray-400 font-normal">Hide from buyers</span>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
-                                        <Eye className="w-4 h-4" />
-                                      </div>
-                                      <div className="flex flex-col min-w-0">
-                                        <span className="leading-tight text-emerald-700 font-semibold">Mark Active</span>
-                                        <span className="text-[10px] text-gray-400 font-normal">Show in store</span>
-                                      </div>
-                                    </>
-                                  )}
-                                </button>
+                                {/* Toggle Active / Inactive (Only for non-drafts) */}
+                                {product.status !== 'DRAFT' && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleToggleActive(e, product)}
+                                    className="w-full px-3.5 py-2.5 text-left text-[13px] font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    {product.isActive ? (
+                                      <>
+                                        <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+                                          <EyeOff className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="leading-tight">Mark Inactive</span>
+                                          <span className="text-[10px] text-gray-400 font-normal">Hide from buyers</span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                                          <Eye className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="leading-tight text-emerald-700 font-semibold">Mark Active</span>
+                                          <span className="text-[10px] text-gray-400 font-normal">Show in store</span>
+                                        </div>
+                                      </>
+                                    )}
+                                  </button>
+                                )}
 
                                 <div className="h-px bg-gray-100 my-1" />
 
@@ -319,7 +466,27 @@ export default function MyProductsPage() {
                       </div>
                       
                       <div className="flex items-center gap-1.5">
-                        {product.verificationStatus === 'APPROVED' ? (
+                        {product.status === 'DRAFT' ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                              Draft
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (product.isLocalOnly) {
+                                  router.push('/seller/products/add');
+                                } else {
+                                  router.push(`/seller/products/add?draftId=${product.id}`);
+                                }
+                              }}
+                              className="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold px-2 py-0.5 rounded-md text-[10px] transition-colors cursor-pointer"
+                            >
+                              Resume
+                            </button>
+                          </div>
+                        ) : product.verificationStatus === 'APPROVED' ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             Verified
                           </span>

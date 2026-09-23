@@ -1,7 +1,6 @@
 'use client';
 
-import { Bell } from 'lucide-react';
-import Link from 'next/link';
+import { NotificationBell } from '@/components/common/NotificationBell';
 
 export function SocialHeader() {
   return (
@@ -26,13 +25,8 @@ export function SocialHeader() {
       </div>
 
       {/* Notifications */}
-      <div className="flex-shrink-0 relative">
-        <Link href="/notifications">
-          <Bell className="w-6 h-6 text-[#171717]" />
-          <div className="absolute -top-1 -right-1 w-[18px] h-[18px] bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#FAF9F6]">
-            3
-          </div>
-        </Link>
+      <div className="flex-shrink-0 flex items-center justify-center">
+        <NotificationBell />
       </div>
     </div>
   );

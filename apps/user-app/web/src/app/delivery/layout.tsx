@@ -13,9 +13,10 @@ import {
   Loader2,
   Navigation,
   ArrowLeft,
-  Bike
+  Bike,
+  Bell
 } from 'lucide-react';
-import { useGetDeliveryProfileQuery, useUpdateDeliveryLocationMutation } from '@/lib/api';
+import { useGetDeliveryProfileQuery, useUpdateDeliveryLocationMutation, useGetUserNotificationsQuery } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -30,6 +31,11 @@ export default function DeliveryLayout({
   const user = useSelector((state: RootState) => state.auth.user);
   
   const { data: profile, isLoading } = useGetDeliveryProfileQuery(undefined, { skip: !user });
+  const { data: notifData } = useGetUserNotificationsQuery(undefined, {
+    skip: !user,
+    pollingInterval: 30000
+  });
+  const unreadCount = notifData?.unreadCount || 0;
   const [updateLocation] = useUpdateDeliveryLocationMutation();
 
   const isOnboarding = pathname === '/delivery/onboarding';
@@ -131,6 +137,18 @@ export default function DeliveryLayout({
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              href="/delivery/notifications"
+              className="relative p-2 text-[#171717] hover:bg-gray-100 rounded-full transition-colors"
+              aria-label="Delivery notifications"
+            >
+              <Bell className="w-5 h-5 text-[#171717]" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-[1.125rem] h-[1.125rem] px-1 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white tabular-nums animate-pulse">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Link>
             <Link
               href="/delivery/profile"
               className="w-9 h-9 rounded-full bg-[#171717] text-white border border-[#E5E2DC] overflow-hidden flex items-center justify-center font-bold text-xs shadow-xs hover:ring-2 hover:ring-[#FF5A36] transition-all"

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useGetProductByIdQuery, useUpdateProductMutation } from '@/lib/api';
 import { getMediaUrl } from '@/lib/utils';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useCurrency } from '@/context/CurrencyContext';
 
 export default function ProductDetailsClient({ params }: { params?: { id: string } }) {
@@ -49,6 +50,7 @@ export default function ProductDetailsClient({ params }: { params?: { id: string
       damaged: 0,
       returned: 0
     },
+    hasVariants: Boolean(productData?.hasVariants),
     variants: productData?.variants || [],
     image: productData?.imageUrl || productData?.media?.[0]?.url ? getMediaUrl(productData?.imageUrl || productData?.media?.[0]?.url) : '',
     orders: (productData?.orderItems || []).map((item: any) => ({
@@ -217,26 +219,47 @@ export default function ProductDetailsClient({ params }: { params?: { id: string
         </div>
 
         {/* Variants Listing */}
-        {product.variants.length > 0 && (
+        {(product.hasVariants || product.variants.length > 0) && (
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
-            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-              <Tag className="w-4 h-4 text-purple-600" />
-              Available Variants ({product.variants.length})
-            </h3>
-            <div className="space-y-2">
-              {product.variants.map((v: any) => (
-                <div key={v.id} className="flex justify-between items-center p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-sm">
-                  <div>
-                    <p className="font-bold text-gray-900">{v.name}</p>
-                    <p className="text-[11px] text-gray-500">SKU: {v.sku}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-gray-900">{formatPrice(v.price)}</p>
-                    <p className="text-[11px] text-gray-500">{v.stockCount} in stock</p>
-                  </div>
-                </div>
-              ))}
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <Tag className="w-4 h-4 text-purple-600" />
+                Available Variants ({product.variants.length})
+              </h3>
+              <Link
+                href={`/seller/products/${productId}/edit`}
+                className="text-xs font-bold text-[#FF5A36] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                Manage Variants
+              </Link>
             </div>
+
+            {product.variants.length > 0 ? (
+              <div className="space-y-2">
+                {product.variants.map((v: any) => (
+                  <div key={v.id} className="flex justify-between items-center p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-sm">
+                    <div>
+                      <p className="font-bold text-gray-900">{v.name}</p>
+                      <p className="text-[11px] text-gray-500">SKU: {v.sku}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-gray-900">{formatPrice(v.price)}</p>
+                      <p className="text-[11px] text-gray-500">{v.stockCount} in stock</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 bg-orange-50/60 border border-orange-100 rounded-xl text-center">
+                <p className="text-xs text-gray-600 font-medium">Variants are enabled, but none configured yet.</p>
+                <Link
+                  href={`/seller/products/${productId}/edit`}
+                  className="inline-block mt-2 text-xs font-bold text-[#FF5A36] hover:underline cursor-pointer"
+                >
+                  + Add Variant Options Now
+                </Link>
+              </div>
+            )}
           </div>
         )}
 

@@ -1,21 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Home, Search, PlaySquare, ShoppingCart, User, Compass } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useSelector } from 'react-redux';
+import { cn, getMediaUrl } from '@/lib/utils';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
-import { api } from '@/lib/api';
+import { api, useGetMyStoreQuery } from '@/lib/api';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
   const cart = useSelector((state: RootState) => state.cart);
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
+
+  const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatarUrl, myStore?.logoUrl]);
+
+  const avatarSrc = user?.avatarUrl || myStore?.logoUrl;
 
   const handleTabPrefetch = (href: string) => {
     try {
@@ -62,13 +71,18 @@ export function MobileBottomNav() {
     <>
       {/* Spacer to prevent content from hiding behind the fixed nav */}
       <div className="h-24 w-full md:hidden" />
-      <div className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 flex h-16 w-full items-center justify-around border-t border-[#E5E2DC] bg-[#FFFFFF] pb-safe transition-transform duration-300 md:hidden",
-        "translate-y-0"
-      )}>
+      <nav 
+        aria-label="Bottom Navigation"
+        className={cn(
+          "fixed bottom-0 left-0 right-0 z-50 flex h-16 w-full items-center justify-around border-t border-[#E5E2DC] bg-[#FFFFFF] pb-safe transition-transform duration-300 md:hidden",
+          "translate-y-0"
+        )}
+      >
         {links.map((link) => {
         const Icon = link.icon;
-        const targetHref = link.href === '/profile' && !user ? '/login?redirect=/profile' : link.href;
+        const isProfileTab = link.href === '/profile';
+        const showProfileAvatar = isProfileTab && Boolean(user);
+        const targetHref = isProfileTab && !user ? '/login?redirect=/profile' : link.href;
         let isActive = false;
         if (link.href === '/home') {
           isActive = pathname === '/home' || pathname === '/';
@@ -81,12 +95,22 @@ export function MobileBottomNav() {
         } else {
           isActive = pathname === link.href || pathname?.startsWith(`${link.href}/`);
         }
+
+        const isAuthRedirect = targetHref.includes('?');
+
+        const handleClick = (e: React.MouseEvent) => {
+          if (link.href === '/profile' && !user) {
+            e.preventDefault();
+            router.push(targetHref);
+          }
+        };
         
         return (
           <Link
             key={link.href}
             href={targetHref}
-            prefetch={true}
+            prefetch={!isAuthRedirect}
+            onClick={handleClick}
             onMouseEnter={() => handleTabPrefetch(targetHref)}
             onTouchStart={() => handleTabPrefetch(targetHref)}
             className={cn(
@@ -96,12 +120,37 @@ export function MobileBottomNav() {
           >
             <div className={cn(
               "relative flex items-center justify-center w-[46px] h-8 rounded-2xl transition-all duration-300 ease-out",
-              isActive ? "bg-[#FF5A36]/15 scale-110" : "bg-transparent scale-100"
+              isActive 
+                ? (showProfileAvatar ? "scale-105" : "bg-[#FF5A36]/15 scale-110") 
+                : "bg-transparent scale-100"
             )}>
-              <Icon 
-                className={cn("h-[22px] w-[22px] transition-transform duration-300")} 
-                strokeWidth={isActive ? 2.5 : 2} 
-              />
+              {showProfileAvatar ? (
+                <div className={cn(
+                  "w-7 h-7 rounded-full overflow-hidden transition-all duration-200 border flex items-center justify-center bg-orange-100/70 shrink-0",
+                  isActive 
+                    ? "ring-2 ring-[#FF5A36] ring-offset-1.5 border-[#FF5A36] shadow-xs" 
+                    : "border-gray-200 hover:border-gray-400"
+                )}>
+                  {avatarSrc && !avatarError ? (
+                    <img
+                      src={getMediaUrl(avatarSrc)}
+                      alt={user?.name || myStore?.name || "Profile"}
+                      className="w-full h-full object-cover rounded-full"
+                      referrerPolicy="no-referrer"
+                      onError={() => setAvatarError(true)}
+                    />
+                  ) : (
+                    <span className="text-xs font-bold text-[#FF5A36] select-none">
+                      {user?.name ? user.name.charAt(0).toUpperCase() : <User className="w-4 h-4 text-gray-500" />}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <Icon 
+                  className={cn("h-[22px] w-[22px] transition-transform duration-300")} 
+                  strokeWidth={isActive ? 2.5 : 2} 
+                />
+              )}
               {/* Cart Badge */}
               {link.label === 'Cart' && cartTotalItems > 0 && (
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF5A36] text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white shadow-sm">
@@ -112,7 +161,7 @@ export function MobileBottomNav() {
           </Link>
         );
       })}
-    </div>
+    </nav>
     </>
   );
 }

@@ -62,8 +62,9 @@ export default function ManualOrderBookingPage() {
   // Active POS Cart
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // Customer Information (All Optional)
+  // Customer Information (Customer Name is Mandatory)
   const [customerName, setCustomerName] = useState('');
+  const [customerNameError, setCustomerNameError] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [notes, setNotes] = useState('');
@@ -212,6 +213,12 @@ export default function ManualOrderBookingPage() {
       return;
     }
 
+    if (!customerName.trim()) {
+      setCustomerNameError('Customer name is mandatory');
+      toast.error('Customer name is mandatory');
+      return;
+    }
+
     if (!storeId) {
       toast.error('Store information not loaded');
       return;
@@ -254,6 +261,7 @@ export default function ManualOrderBookingPage() {
   const handleStartNewSale = () => {
     setCartItems([]);
     setCustomerName('');
+    setCustomerNameError('');
     setCustomerPhone('');
     setCustomerEmail('');
     setNotes('');
@@ -605,22 +613,38 @@ export default function ManualOrderBookingPage() {
               </div>
             )}
 
-            {/* Customer Details Form (All Optional) */}
+            {/* Customer Details Form (Customer Name is Mandatory) */}
             <div className="space-y-3 pt-3 border-t border-gray-100 text-xs">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                Customer Details (Optional)
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                  Customer Details <span className="text-red-500 font-bold">*</span>
+                </span>
+                <span className="text-[10px] text-red-500 font-bold">Name Required</span>
+              </div>
 
               <div className="space-y-2">
-                <div className="relative">
-                  <User className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Customer Name (e.g. John Doe)"
-                    className="w-full h-8 pl-8 pr-3 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-gray-400 focus:bg-white transition-all font-medium"
-                  />
+                <div>
+                  <div className="relative">
+                    <User className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                    <input
+                      type="text"
+                      required
+                      value={customerName}
+                      onChange={(e) => {
+                        setCustomerName(e.target.value);
+                        if (customerNameError) setCustomerNameError('');
+                      }}
+                      placeholder="Customer Name * (Required)"
+                      className={`w-full h-8 pl-8 pr-3 bg-gray-50 border rounded-lg text-xs outline-none focus:bg-white transition-all font-medium ${
+                        customerNameError 
+                          ? 'border-red-500 bg-red-50/40 text-red-900 placeholder:text-red-300' 
+                          : 'border-gray-200 focus:border-gray-400'
+                      }`}
+                    />
+                  </div>
+                  {customerNameError && (
+                    <p className="text-[11px] text-red-500 font-medium mt-1 ml-1">{customerNameError}</p>
+                  )}
                 </div>
 
                 <div className="relative">
@@ -629,7 +653,7 @@ export default function ManualOrderBookingPage() {
                     type="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="Phone Number (e.g. 9876543210)"
+                    placeholder="Phone Number (Optional)"
                     className="w-full h-8 pl-8 pr-3 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-gray-400 focus:bg-white transition-all font-medium"
                   />
                 </div>
@@ -640,7 +664,7 @@ export default function ManualOrderBookingPage() {
                     type="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
-                    placeholder="Email (Auto-sends Tax Invoice)"
+                    placeholder="Email (Optional, auto-sends Tax Invoice)"
                     className="w-full h-8 pl-8 pr-3 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-gray-400 focus:bg-white transition-all font-medium"
                   />
                 </div>
@@ -832,28 +856,46 @@ export default function ManualOrderBookingPage() {
                 ))}
               </div>
 
-              {/* Customer Info (Optional) */}
+              {/* Customer Info (Customer Name is Mandatory) */}
               <div className="space-y-2 pt-3 border-t border-gray-100">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Customer Details (Optional)</span>
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Customer Name"
-                  className="w-full h-9 px-3 bg-gray-50 border border-gray-200 rounded-xl text-xs"
-                />
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                    Customer Details <span className="text-red-500 font-bold">*</span>
+                  </span>
+                  <span className="text-[10px] text-red-500 font-bold">Name Required</span>
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    required
+                    value={customerName}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value);
+                      if (customerNameError) setCustomerNameError('');
+                    }}
+                    placeholder="Customer Name * (Required)"
+                    className={`w-full h-9 px-3 bg-gray-50 border rounded-xl text-xs transition-colors ${
+                      customerNameError 
+                        ? 'border-red-500 bg-red-50/40 text-red-900 placeholder:text-red-300' 
+                        : 'border-gray-200'
+                    }`}
+                  />
+                  {customerNameError && (
+                    <p className="text-[11px] text-red-500 font-medium mt-1 ml-1">{customerNameError}</p>
+                  )}
+                </div>
                 <input
                   type="tel"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="Phone Number"
+                  placeholder="Phone Number (Optional)"
                   className="w-full h-9 px-3 bg-gray-50 border border-gray-200 rounded-xl text-xs"
                 />
                 <input
                   type="email"
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
-                  placeholder="Email (Sends Tax Invoice Automatically)"
+                  placeholder="Email (Optional, sends invoice automatically)"
                   className="w-full h-9 px-3 bg-gray-50 border border-gray-200 rounded-xl text-xs"
                 />
               </div>
@@ -920,9 +962,25 @@ export default function ManualOrderBookingPage() {
 
       {/* Post-Booking Success Modal */}
       {createdOrderData && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 text-center">
+        <div 
+          onClick={handleStartNewSale}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 text-center relative cursor-default"
+          >
             
+            {/* Top-Right Close Button */}
+            <button
+              type="button"
+              onClick={handleStartNewSale}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
             <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-9 h-9" />
             </div>
@@ -986,6 +1044,15 @@ export default function ManualOrderBookingPage() {
                   <Plus className="w-3.5 h-3.5" /> New Sale
                 </Button>
               </div>
+
+              {/* Bottom Close Button */}
+              <Button
+                variant="ghost"
+                onClick={handleStartNewSale}
+                className="w-full h-9 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              >
+                Close
+              </Button>
             </div>
 
           </div>

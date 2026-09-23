@@ -92,8 +92,8 @@ export class CatalogService {
       : await CatalogService.generateUniqueStandardSku('LKY');
 
     // Resolve category and categoryId
-    let categoryId = data.categoryId || null;
-    let categoryName = data.category || null;
+    let categoryId = (data.categoryId && typeof data.categoryId === 'string' && data.categoryId.trim().length > 0) ? data.categoryId : null;
+    let categoryName = (data.category && typeof data.category === 'string' && data.category.trim().length > 0) ? data.category : null;
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (categoryName && uuidRegex.test(categoryName) && !categoryId) {
@@ -158,7 +158,7 @@ export class CatalogService {
 
     const productData = {
       storeId: data.storeId,
-      name: data.name,
+      name: data.name && typeof data.name === 'string' && data.name.trim().length > 0 ? data.name.trim() : 'Untitled Product',
       brand: data.brand || null,
       description: data.description || null,
       category: categoryName,
@@ -205,12 +205,13 @@ export class CatalogService {
 
     // Handle variants if provided
     if (data.variants && data.variants.length > 0) {
-      for (const [idx, v] of data.variants.entries()) {
+      for (let idx = 0; idx < data.variants.length; idx++) {
+        const v = data.variants[idx];
         const variantSku = v.sku && typeof v.sku === 'string' && v.sku.trim().length > 0
           ? v.sku.trim()
           : `${sku}-V${idx + 1}`;
 
-        const variant = await prisma.productVariant.create({
+        const variant = await (prisma.productVariant as any).create({
           data: {
             productId: product.id,
             name: v.name,
@@ -220,6 +221,14 @@ export class CatalogService {
             status: 'ACTIVE'
           }
         });
+
+        if (v.imageUrl) {
+          await prisma.$executeRawUnsafe(
+            `UPDATE "ProductVariant" SET "imageUrl" = $1 WHERE "id" = $2`,
+            v.imageUrl,
+            variant.id
+          ).catch(() => {});
+        }
         
         await prisma.inventory.create({
           data: {
@@ -235,14 +244,16 @@ export class CatalogService {
     MemoryCacheService.invalidatePrefix(`store:products:${data.storeId}`);
     MemoryCacheService.invalidatePrefix('catalog:products:');
 
-    // Automated Push Notification Trigger to Store Followers
-    try {
-      const { FcmService } = require('../../notification/application/fcm.service');
-      FcmService.notifyStoreNewProduct(product.storeId, product.id, product.name, product.imageUrl).catch((err: any) =>
-        console.warn('[FCM] Product follower push dispatch error:', err)
-      );
-    } catch (e) {
-      // ignore
+    // Automated Push Notification Trigger to Store Followers (only if PUBLISHED)
+    if (product.status === 'PUBLISHED') {
+      try {
+        const { FcmService } = require('../../notification/application/fcm.service');
+        FcmService.notifyStoreNewProduct(product.storeId, product.id, product.name, product.imageUrl).catch((err: any) =>
+          console.warn('[FCM] Product follower push dispatch error:', err)
+        );
+      } catch (e) {
+        // ignore
+      }
     }
 
     return await prisma.product.findUnique({
@@ -260,8 +271,8 @@ export class CatalogService {
     const { variants, media, ...rawUpdateData } = data;
 
     // Resolve category and categoryId if provided
-    let categoryId = rawUpdateData.categoryId !== undefined ? rawUpdateData.categoryId : undefined;
-    let categoryName = rawUpdateData.category !== undefined ? rawUpdateData.category : undefined;
+    let categoryId = rawUpdateData.categoryId !== undefined ? (rawUpdateData.categoryId && typeof rawUpdateData.categoryId === 'string' && rawUpdateData.categoryId.trim().length > 0 ? rawUpdateData.categoryId : null) : undefined;
+    let categoryName = rawUpdateData.category !== undefined ? (rawUpdateData.category && typeof rawUpdateData.category === 'string' && rawUpdateData.category.trim().length > 0 ? rawUpdateData.category : null) : undefined;
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (categoryName && uuidRegex.test(categoryName) && !categoryId) {
@@ -306,8 +317,11 @@ export class CatalogService {
       }
     }
 
+    const willBePublished = rawUpdateData.status === 'PUBLISHED';
     const updateData: any = {
       ...rawUpdateData,
+      ...(willBePublished && rawUpdateData.isActive === undefined ? { isActive: true } : {}),
+      ...(rawUpdateData.name !== undefined ? { name: (rawUpdateData.name && rawUpdateData.name.trim().length > 0) ? rawUpdateData.name.trim() : 'Untitled Product' } : {}),
       ...(categoryName !== undefined ? { category: categoryName } : {}),
       ...(categoryId !== undefined ? { categoryId } : {}),
       ...(imageUrl !== undefined ? { imageUrl } : {}),
@@ -382,48 +396,93 @@ export class CatalogService {
     }
 
     // Handle variants update (upsert)
-    if (variants) {
+    if (variants && Array.isArray(variants)) {
       const existingVariants = await prisma.productVariant.findMany({ where: { productId: id } });
       const existingVariantIds = existingVariants.map((v) => v.id);
       const newVariantIds = variants.map((v: any) => v.id).filter(Boolean);
 
-      // Delete variants that are no longer in the list
+      // Delete variants that are no longer in the list (only if variants were explicitly passed and list changed)
       const variantsToDelete = existingVariantIds.filter(id => !newVariantIds.includes(id));
       if (variantsToDelete.length > 0) {
+        // Also clean up any associated inventory first if cascade not configured
+        await prisma.inventory.deleteMany({
+          where: { variantId: { in: variantsToDelete } }
+        }).catch(() => {});
+
         await prisma.productVariant.deleteMany({
           where: { id: { in: variantsToDelete } }
         });
       }
 
       // Upsert variants
-      for (const v of variants) {
+      for (let idx = 0; idx < variants.length; idx++) {
+        const v = variants[idx];
+        const fallbackSku = `${product.sku || 'SKU'}-V${idx + 1}-${Date.now().toString().slice(-4)}`;
+        const finalSku = (v.sku && typeof v.sku === 'string' && v.sku.trim().length > 0)
+          ? v.sku.trim()
+          : fallbackSku;
+
         if (v.id) {
-          await prisma.productVariant.update({
+          await (prisma.productVariant as any).update({
             where: { id: v.id },
             data: {
               name: v.name,
-              sku: v.sku,
-              price: v.price,
-              stockCount: v.stockCount,
+              sku: finalSku,
+              price: Number(v.price) || 0,
+              stockCount: Number(v.stockCount) || 0,
               status: v.status || 'ACTIVE'
             }
           });
+
+          if (v.imageUrl !== undefined) {
+            await prisma.$executeRawUnsafe(
+              `UPDATE "ProductVariant" SET "imageUrl" = $1 WHERE "id" = $2`,
+              v.imageUrl || null,
+              v.id
+            ).catch(() => {});
+          }
+
+          // Ensure inventory record exists
+          const inv = await prisma.inventory.findFirst({ where: { variantId: v.id } });
+          if (inv) {
+            await prisma.inventory.update({
+              where: { id: inv.id },
+              data: { available: Number(v.stockCount) || 0 }
+            });
+          } else {
+            await prisma.inventory.create({
+              data: {
+                variantId: v.id,
+                available: Number(v.stockCount) || 0,
+                reserved: 0,
+                threshold: 5
+              }
+            });
+          }
         } else {
-          const newVariant = await prisma.productVariant.create({
+          const newVariant = await (prisma.productVariant as any).create({
             data: {
               productId: id,
               name: v.name,
-              sku: v.sku,
-              price: v.price,
-              stockCount: v.stockCount,
+              sku: finalSku,
+              price: Number(v.price) || 0,
+              stockCount: Number(v.stockCount) || 0,
               status: 'ACTIVE'
             }
           });
 
+          if (v.imageUrl) {
+            await prisma.$executeRawUnsafe(
+              `UPDATE "ProductVariant" SET "imageUrl" = $1 WHERE "id" = $2`,
+              v.imageUrl,
+              newVariant.id
+            ).catch(() => {});
+          }
+
           await prisma.inventory.create({
             data: {
               variantId: newVariant.id,
-              available: v.stockCount,
+              available: Number(v.stockCount) || 0,
               reserved: 0,
               threshold: 5
             }
@@ -435,6 +494,18 @@ export class CatalogService {
     MemoryCacheService.invalidateKey(`product:${id}`);
     MemoryCacheService.invalidatePrefix(`store:products:${product.storeId}`);
     MemoryCacheService.invalidatePrefix('catalog:products:');
+
+    // If transitioned from DRAFT to PUBLISHED, notify store followers
+    if (product.status !== 'PUBLISHED' && rawUpdateData.status === 'PUBLISHED') {
+      try {
+        const { FcmService } = require('../../notification/application/fcm.service');
+        FcmService.notifyStoreNewProduct(product.storeId, product.id, rawUpdateData.name || product.name, imageUrl || product.imageUrl).catch((err: any) =>
+          console.warn('[FCM] Product follower push dispatch error:', err)
+        );
+      } catch (e) {
+        // ignore
+      }
+    }
 
     return await prisma.product.findUnique({
       where: { id },
@@ -448,11 +519,14 @@ export class CatalogService {
     const cacheKey = `store:products:${storeId}:${isOwner}:${requireVerification}`;
     return await MemoryCacheService.getOrSet(cacheKey, async () => {
       const where: any = { storeId, status: { not: 'ARCHIVED' } };
-      if (!isOwner && requireVerification) {
-        where.OR = [
-          { isVerified: true },
-          { verificationStatus: 'APPROVED' }
-        ];
+      if (!isOwner) {
+        where.status = 'PUBLISHED';
+        if (requireVerification) {
+          where.OR = [
+            { isVerified: true },
+            { verificationStatus: 'APPROVED' }
+          ];
+        }
       }
 
       const products = await prisma.product.findMany({
@@ -549,6 +623,25 @@ export class CatalogService {
       if (!product) {
         MemoryCacheService.set(`product:${id}`, { __notFound: true }, 60);
         throw new AppError('Product not found', 404);
+      }
+
+      // Augment variants with imageUrl from DB table
+      if (product.variants && product.variants.length > 0) {
+        try {
+          const rawVariants = await prisma.$queryRawUnsafe<any[]>(
+            `SELECT id, "imageUrl" FROM "ProductVariant" WHERE "productId" = $1`,
+            id
+          );
+          if (Array.isArray(rawVariants)) {
+            const imgMap = new Map(rawVariants.map(rv => [rv.id, rv.imageUrl]));
+            (product as any).variants = product.variants.map((v: any) => ({
+              ...v,
+              imageUrl: imgMap.get(v.id) || null
+            }));
+          }
+        } catch (e) {
+          // ignore
+        }
       }
 
       const reviews = (product as any).reviews || [];

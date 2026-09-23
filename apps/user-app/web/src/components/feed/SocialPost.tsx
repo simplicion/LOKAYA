@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { MoreHorizontal, Heart, MessageCircle, Send, Bookmark, Play, VolumeX, Volume2, Sparkles, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn, getMediaUrl, formatTimeAgo, isVideoMedia } from '@/lib/utils';
 import { ProductOverlayCard } from './ProductOverlayCard';
@@ -83,8 +83,15 @@ export function SocialPost({
   isPreloadCandidate: propIsPreloadCandidate,
 }: SocialPostProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isAuthor = Boolean(currentUser?.id && authorId && currentUser.id === authorId);
+
+  const redirectToLogin = (msg: string) => {
+    toast.error(msg);
+    const currentUrl = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : (pathname || '/home');
+    router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`);
+  };
 
   // Global feed sound state (unmute one -> unmutes all across the feed)
   const { isMuted, toggleMute } = useFeedSound();
@@ -229,8 +236,7 @@ export function SocialPost({
 
   const triggerLike = async () => {
     if (!currentUser) {
-      toast.error('Please sign in to like this post');
-      router.push('/login');
+      redirectToLogin('Please sign in to like this post');
       return;
     }
 
@@ -295,8 +301,7 @@ export function SocialPost({
 
   const handleToggleLike = async () => {
     if (!currentUser) {
-      toast.error('Please sign in to like this post');
-      router.push('/login');
+      redirectToLogin('Please sign in to like this post');
       return;
     }
 
@@ -328,8 +333,7 @@ export function SocialPost({
 
   const handleToggleSave = async () => {
     if (!currentUser) {
-      toast.error('Please sign in to save this post');
-      router.push('/login');
+      redirectToLogin('Please sign in to save this post');
       return;
     }
 

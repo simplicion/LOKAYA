@@ -97,7 +97,14 @@ async function testLiveFcmNotificationDispatch() {
   // 9. Clean up test data
   console.log('8️⃣ Cleaning Up Test Records...');
   await prisma.deviceToken.deleteMany({ where: { token: testDeviceToken } });
-  await prisma.notification.deleteMany({ where: { userId: user.id, title: { contains: 'Order Shipped' } } });
+  await prisma.notification.deleteMany({
+    where: {
+      OR: [
+        { title: { contains: 'Order Shipped' } },
+        { title: { contains: 'Mega Festival' } }
+      ]
+    }
+  });
   await prisma.notificationCampaign.deleteMany({ where: { id: campaign.id } });
   console.log('   ✅ Cleanup complete.\n');
 

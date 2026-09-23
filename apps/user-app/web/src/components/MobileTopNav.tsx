@@ -12,12 +12,12 @@ import {
   Compass, 
   MapPin, 
   ShoppingCart, 
-  Menu 
+  Menu
 } from 'lucide-react';
 import { Logo } from "@/components/ui/logo";
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
-import { cn } from '@/lib/utils';
+import { cn, getMediaUrl } from '@/lib/utils';
 import { useGetMyStoreQuery } from '@/lib/api';
 import { NotificationBell } from './common/NotificationBell';
 import { CreateUniversalActionSheet } from './navigation/CreateUniversalActionSheet';
@@ -208,14 +208,14 @@ export function MobileTopNav() {
 
   // Right Content: Notifications + Cart (or settings menu on profile)
   const rightContent = (
-    <div className="flex items-center gap-3 shrink-0">
+    <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
       <NotificationBell />
       {pathname === '/profile' ? (
-        <Link href="/profile/settings" prefetch={false} className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5">
+        <Link href="/profile/settings" prefetch={false} className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5" title="Settings">
           <Menu className="w-6 h-6" />
         </Link>
       ) : (
-        <Link href="/cart" prefetch={false} className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5">
+        <Link href="/cart" prefetch={false} className="relative text-[#171717] hover:opacity-80 transition-opacity p-0.5" title="Shopping Cart">
           <ShoppingCart className="w-6 h-6" />
           {cartTotalItems > 0 && (
             <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#FF5A36] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white tabular-nums">

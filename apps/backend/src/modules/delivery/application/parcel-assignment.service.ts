@@ -238,12 +238,19 @@ export class ParcelAssignmentService {
       return newAssignment;
     }, { timeout: 30000, maxWait: 10000 });
 
-    // Notify rider via WebSockets
+    // Notify rider via WebSockets and FCM
     try {
+      const storeRecord = await prisma.store.findUnique({ where: { id: storeId }, select: { name: true } });
+      const { FcmService } = require('../../notification/application/fcm.service');
+      FcmService.notifyRiderDeliveryAssigned(rider.userId, orderId, {
+        storeName: storeRecord?.name || 'Partner Store',
+        earning: effectiveFee
+      }).catch((err: any) => console.warn('[FCM] Rider assignment push error:', err));
+
       const { getIO } = require('../../../api/socket');
       const io = getIO();
       if (io) {
-        io.to(`rider_${rider.userId}`).emit('new_delivery_assignment', {
+        io.to(`rider_${rider.userId}`).emit('delivery_assigned', {
           assignmentId: assignment.id,
           orderId,
           distanceKm: match.distanceToStoreKm,
@@ -370,10 +377,17 @@ export class ParcelAssignmentService {
     }, { timeout: 30000, maxWait: 10000 });
 
     try {
+      const storeRecord = await prisma.store.findUnique({ where: { id: storeId }, select: { name: true } });
+      const { FcmService } = require('../../notification/application/fcm.service');
+      FcmService.notifyRiderDeliveryAssigned(rider.userId, orderId, {
+        storeName: storeRecord?.name || 'Partner Store',
+        earning: effectiveFee
+      }).catch((err: any) => console.warn('[FCM] Rider assignment push error:', err));
+
       const { getIO } = require('../../../api/socket');
       const io = getIO();
       if (io) {
-        io.to(`rider_${rider.userId}`).emit('new_delivery_assignment', {
+        io.to(`rider_${rider.userId}`).emit('delivery_assigned', {
           assignmentId: assignment.id,
           orderId,
           deliveryFee: effectiveFee,

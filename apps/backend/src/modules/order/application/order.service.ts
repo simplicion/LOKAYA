@@ -224,21 +224,58 @@ export class OrderService {
       console.error('Failed to initialize pickup token for order:', e);
     }
 
-    // 5. Create in-app notification for each store owner
-    for (const subOrder of populatedOrder.subOrders || []) {
-      try {
-        await prisma.sellerNotification.create({
-          data: {
-            storeId: subOrder.storeId,
-            type: NotificationType.ORDER,
-            title: `New Order Received #${populatedOrder.id.slice(0, 8)}`,
-            message: `You have received a new order for ${subOrder.items?.length || 1} items (Total: ${subOrder.subtotal}).`,
-            linkUrl: `/seller/orders/details?id=${populatedOrder.id}`
-          }
-        });
-      } catch (e) {
-        console.warn('Notification creation failed for store:', subOrder.storeId, e);
+    // 5. Automated Real-time Alerts: FCM Push + In-App Notifications + Socket.io Events
+    try {
+      const { FcmService } = require('../../notification/application/fcm.service');
+      const { getIO } = require('../../../api/socket');
+      let io: any = null;
+      try { io = getIO(); } catch (e) {}
+
+      // Collect stores involved
+      const storeMap = new Map<string, { total: number; count: number }>();
+      if (populatedOrder.subOrders && populatedOrder.subOrders.length > 0) {
+        for (const sub of populatedOrder.subOrders) {
+          storeMap.set(sub.storeId, { total: Number(sub.subtotal) || 0, count: sub.items?.length || 1 });
+        }
+      } else if (populatedOrder.storeId) {
+        storeMap.set(populatedOrder.storeId, { total: Number(populatedOrder.totalAmount) || 0, count: populatedOrder.items?.length || 1 });
       }
+
+      // Dispatch to each store seller
+      storeMap.forEach((info, storeId) => {
+        FcmService.notifySellerNewOrder(storeId, populatedOrder.id, {
+          itemsCount: info.count,
+          totalAmount: info.total,
+          buyerName: (populatedOrder as any).buyer?.name
+        }).catch((err: any) => console.warn('[FCM] Seller new order push error:', err));
+
+        if (io) {
+          io.to(`store_${storeId}`).emit('new_order', {
+            orderId: populatedOrder.id,
+            totalAmount: info.total,
+            itemsCount: info.count,
+            storeId
+          });
+        }
+      });
+
+      // Dispatch to customer/buyer
+      if (populatedOrder.buyerId) {
+        FcmService.notifyCustomerOrderPlaced(populatedOrder.buyerId, populatedOrder.id, {
+          storeName: (populatedOrder.store as any)?.name || 'Lokaya Store',
+          totalAmount: Number(populatedOrder.totalAmount) || 0,
+          itemsCount: populatedOrder.items?.length || 1
+        }).catch((err: any) => console.warn('[FCM] Buyer order placed push error:', err));
+
+        if (io) {
+          io.to(`user_${populatedOrder.buyerId}`).emit('order_placed', {
+            orderId: populatedOrder.id,
+            totalAmount: populatedOrder.totalAmount
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Realtime notifications emit error on createOrder:', e);
     }
 
     return populatedOrder;
@@ -1054,6 +1091,10 @@ export class OrderService {
   ) {
     if (!payload.items || payload.items.length === 0) {
       throw new AppError('No items provided for manual booking', 400);
+    }
+
+    if (!payload.customerName || !payload.customerName.trim()) {
+      throw new AppError('Customer name is required', 400);
     }
 
     // 1. Verify seller authorization for store

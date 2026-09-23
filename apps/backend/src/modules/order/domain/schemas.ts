@@ -18,7 +18,7 @@ export const createOrderSchema = z.object({
 export const createManualOrderSchema = z.object({
   body: z.object({
     storeId: z.string().uuid('Valid store ID is required'),
-    customerName: z.string().optional().nullable(),
+    customerName: z.string().trim().min(1, 'Customer name is required'),
     customerPhone: z.string().optional().nullable(),
     customerEmail: z.string().email().optional().nullable().or(z.literal('')),
     paymentMethod: z.string().default('CASH'),

@@ -19,7 +19,8 @@ import {
   Tag, 
   X,
   Plus,
-  RefreshCw
+  RefreshCw,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -34,6 +35,7 @@ import { toast } from 'sonner';
 import { cn, getMediaUrl, generateStandardSku } from '@/lib/utils';
 import { useCurrency } from '@/context/CurrencyContext';
 import { AiStudioBottomSheet } from '@/components/seller/AiStudioBottomSheet';
+import { VariantsBottomSheet, VariantItem } from '@/components/seller/VariantsBottomSheet';
 
 interface MediaItem {
   id?: string;
@@ -167,6 +169,9 @@ export default function EditProductClient({ params }: { params?: { id: string } 
   const [isAvailableForPickup, setIsAvailableForPickup] = useState(true);
   const [isDeliveryIncluded, setIsDeliveryIncluded] = useState(false);
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
+  const [hasVariants, setHasVariants] = useState(false);
+  const [variants, setVariants] = useState<VariantItem[]>([]);
+  const [isVariantsSheetOpen, setIsVariantsSheetOpen] = useState(false);
 
   // Initialize from productData
   useEffect(() => {
@@ -184,6 +189,21 @@ export default function EditProductClient({ params }: { params?: { id: string } 
       setIsAvailableForDelivery(productData.isAvailableForDelivery ?? true);
       setIsAvailableForPickup(productData.isAvailableForPickup ?? true);
       setIsDeliveryIncluded(productData.isDeliveryIncluded ?? false);
+      setHasVariants(Boolean(productData.hasVariants));
+
+      if (productData.variants && Array.isArray(productData.variants)) {
+        setVariants(productData.variants.map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          sku: v.sku,
+          price: v.price,
+          stockCount: v.stockCount,
+          imageUrl: v.imageUrl,
+          localPreview: v.imageUrl ? getMediaUrl(v.imageUrl) : undefined
+        })));
+      } else {
+        setVariants([]);
+      }
 
       // Handle media list
       let initialMedia: MediaItem[] = [];
@@ -322,6 +342,20 @@ export default function EditProductClient({ params }: { params?: { id: string } 
 
     try {
       const primaryMedia = mediaList.find(m => m.isPrimary) || mediaList[0];
+      const primaryVariant = variants.length > 0 ? variants[0] : null;
+
+      const computedSellingPrice = hasVariants && primaryVariant
+        ? (Number(primaryVariant.price) || 0)
+        : numericPrice;
+
+      const computedMrp = hasVariants && primaryVariant
+        ? (numericMrp || computedSellingPrice)
+        : numericMrp;
+
+      const computedStockCount = hasVariants && variants.length > 0
+        ? variants.reduce((sum: number, v: any) => sum + (Number(v.stockCount) || 0), 0)
+        : (Number(stock) || 0);
+
       const payload: any = {
         name: name.trim(),
         category: category.trim() || undefined,
@@ -329,14 +363,23 @@ export default function EditProductClient({ params }: { params?: { id: string } 
         brand: brand.trim() || undefined,
         description: description.trim() || undefined,
         sku: sku.trim() || undefined,
-        mrp: numericMrp,
-        sellingPrice: numericPrice,
+        mrp: computedMrp,
+        sellingPrice: computedSellingPrice,
         costPrice: costPrice !== '' ? Number(costPrice) : undefined,
-        stockCount: Number(stock) || 0,
+        stockCount: computedStockCount,
+        hasVariants: Boolean(hasVariants),
         imageUrl: primaryMedia?.url || null,
         isAvailableForDelivery,
         isAvailableForPickup,
         isDeliveryIncluded,
+        variants: hasVariants ? variants.map((v, idx) => ({
+          ...(v.id ? { id: v.id } : {}),
+          name: v.name,
+          sku: v.sku || `${sku || 'SKU'}-V${idx + 1}`,
+          price: Number(v.price) || 0,
+          stockCount: Number(v.stockCount) || 0,
+          imageUrl: v.imageUrl
+        })) : [],
         media: mediaList.map((m, idx) => ({
           url: m.url,
           type: m.type || 'IMAGE',
@@ -809,6 +852,108 @@ export default function EditProductClient({ params }: { params?: { id: string } 
           </div>
         </div>
 
+        {/* Section 3.5: Product Variants (Sizes, Colors, Options) */}
+        <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-2xs space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-[#FF5A36]" />
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Product Variants</h3>
+                <p className="text-[11px] text-gray-500">Sizes, colors, capacities or styles</p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hasVariants}
+                onChange={(e) => {
+                  setHasVariants(e.target.checked);
+                  if (e.target.checked && variants.length === 0) {
+                    setIsVariantsSheetOpen(true);
+                  }
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF5A36]"></div>
+            </label>
+          </div>
+
+          {hasVariants && (
+            <div className="pt-2 border-t border-gray-100 space-y-3 animate-in fade-in duration-200">
+              {variants.length === 0 ? (
+                <div
+                  onClick={() => setIsVariantsSheetOpen(true)}
+                  className="p-6 bg-orange-50/50 border-2 border-dashed border-orange-200 hover:border-[#FF5A36] rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-orange-100 text-[#FF5A36] flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <p className="font-bold text-gray-900 text-xs">Add Sizes, Colors & Options</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Configure individual prices, stock inventory, and photos</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="mt-3 h-8 px-4 rounded-lg bg-[#FF5A36] hover:bg-[#E04B2A] text-white font-bold text-xs flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Configure Variants
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <div className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200/80 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-gray-800">
+                        Total Variant Stock: <span className="text-[#FF5A36] font-extrabold">{variants.reduce((sum, v) => sum + (Number(v.stockCount) || 0), 0)} units</span>
+                      </p>
+                      <p className="text-[10px] text-gray-500">Across {variants.length} configured variants</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsVariantsSheetOpen(true)}
+                      className="h-7 px-2.5 rounded-lg border-orange-300 text-[#FF5A36] hover:bg-orange-100/50 font-bold text-xs cursor-pointer"
+                    >
+                      Manage Variants
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {variants.map((v, index) => {
+                      const previewImg = v.localPreview || (v.imageUrl ? getMediaUrl(v.imageUrl) : '');
+                      return (
+                        <div
+                          key={index}
+                          onClick={() => setIsVariantsSheetOpen(true)}
+                          className="p-2.5 bg-gray-50/80 border border-gray-200 hover:border-gray-300 rounded-xl flex items-center justify-between gap-2.5 cursor-pointer transition-all"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center">
+                              {previewImg ? (
+                                <img src={previewImg} alt={v.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="font-bold text-[11px] text-gray-400">
+                                  {v.name ? v.name.slice(0, 2).toUpperCase() : 'V'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-xs text-gray-900 truncate">{v.name}</p>
+                              <p className="text-[10px] text-gray-500 font-semibold">{currencySymbol}{v.price} • {v.stockCount} in stock</p>
+                            </div>
+                          </div>
+                          <span className="text-gray-400 text-xs shrink-0">Edit →</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Section 4: Fulfillment & Delivery Options */}
         <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-2xs space-y-3">
           <h3 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2">
@@ -908,6 +1053,17 @@ export default function EditProductClient({ params }: { params?: { id: string } 
         onApplyPhotos={handleApplyAiPhotos}
         productName={name}
         category={category}
+      />
+
+      {/* Variants Bottom Sheet */}
+      <VariantsBottomSheet
+        isOpen={isVariantsSheetOpen}
+        onClose={() => setIsVariantsSheetOpen(false)}
+        variants={variants}
+        onChange={(updated) => setVariants(updated)}
+        parentSku={sku || generateStandardSku()}
+        currencySymbol={currencySymbol}
+        availableImages={mediaList.map(m => m.url).filter(Boolean)}
       />
     </div>
   );

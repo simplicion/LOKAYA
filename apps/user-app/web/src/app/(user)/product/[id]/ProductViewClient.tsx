@@ -28,7 +28,9 @@ import {
   ThumbsUp,
   MessageSquare,
   PenLine,
-  X
+  X,
+  Layers,
+  Check
 } from 'lucide-react';
 import { 
   useGetProductByIdQuery, 
@@ -93,6 +95,28 @@ export default function ProductViewClient({ productId, initialData }: { productI
     }
   }, [product?.id]);
 
+  // Helper to extract clean path from media URL for robust matching
+  const extractMediaKey = (u?: string | null) => {
+    if (!u) return '';
+    try {
+      const parsed = u.split('?')[0];
+      const match = parsed.match(/(uploads\/[^\/]+\/[^\/]+|\/[^\/]+\.(?:png|jpg|jpeg|webp|gif|mp4|mov))/i);
+      return match ? match[1] : parsed;
+    } catch {
+      return u || '';
+    }
+  };
+
+  // Selected variant computation
+  const variants = product?.variants || [];
+  const selectedVariant = useMemo(() => {
+    if (!variants || variants.length === 0) return null;
+    if (selectedVariantId) {
+      return variants.find((v: any) => v.id === selectedVariantId) || variants[0];
+    }
+    return variants[0];
+  }, [variants, selectedVariantId]);
+
   // Computed media list with video and image type identification
   const galleryMedia = useMemo<{ url: string; type: 'IMAGE' | 'VIDEO' }[]>(() => {
     if (!product) return [];
@@ -105,6 +129,21 @@ export default function ProductViewClient({ productId, initialData }: { productI
       return clean.includes('.mp4') || clean.includes('.mov') || clean.includes('.webm') || clean.includes('.m3u8');
     };
 
+    // If currently selected variant has a custom imageUrl not present in product.media, prioritize it at the top
+    if (selectedVariant?.imageUrl) {
+      const variantKey = extractMediaKey(selectedVariant.imageUrl);
+      const isAlreadyInMedia = (product.media || []).some((m: any) => extractMediaKey(m.url) === variantKey);
+      const isMainImage = extractMediaKey(product.imageUrl) === variantKey;
+
+      if (!isAlreadyInMedia && !isMainImage) {
+        seenUrls.add(variantKey);
+        items.push({
+          url: getMediaUrl(selectedVariant.imageUrl),
+          type: 'IMAGE',
+        });
+      }
+    }
+
     if (product.media && product.media.length > 0) {
       // Sort with primary first, then by displayOrder
       const sortedMedia = [...product.media].sort((a: any, b: any) => {
@@ -114,8 +153,9 @@ export default function ProductViewClient({ productId, initialData }: { productI
       });
 
       sortedMedia.forEach((m: any) => {
-        if (m.url && !seenUrls.has(m.url)) {
-          seenUrls.add(m.url);
+        const key = extractMediaKey(m.url);
+        if (m.url && !seenUrls.has(key)) {
+          seenUrls.add(key);
           items.push({
             url: getMediaUrl(m.url),
             type: isVideoUrl(m.url, m.type) ? 'VIDEO' : 'IMAGE',
@@ -124,16 +164,19 @@ export default function ProductViewClient({ productId, initialData }: { productI
       });
     }
 
-    if (product.imageUrl && !seenUrls.has(product.imageUrl)) {
-      seenUrls.add(product.imageUrl);
-      items.unshift({
-        url: getMediaUrl(product.imageUrl),
-        type: isVideoUrl(product.imageUrl) ? 'VIDEO' : 'IMAGE',
-      });
+    if (product.imageUrl) {
+      const key = extractMediaKey(product.imageUrl);
+      if (!seenUrls.has(key)) {
+        seenUrls.add(key);
+        items.unshift({
+          url: getMediaUrl(product.imageUrl),
+          type: isVideoUrl(product.imageUrl) ? 'VIDEO' : 'IMAGE',
+        });
+      }
     }
 
     return items;
-  }, [product]);
+  }, [product, selectedVariant?.id, selectedVariant?.imageUrl]);
 
   const galleryImages = useMemo(() => galleryMedia.map(m => m.url), [galleryMedia]);
 
@@ -159,15 +202,38 @@ export default function ProductViewClient({ productId, initialData }: { productI
     setActiveMediaIndex(idx);
   };
 
-  // Selected variant computation
-  const variants = product?.variants || [];
-  const selectedVariant = useMemo(() => {
-    if (!variants || variants.length === 0) return null;
-    if (selectedVariantId) {
-      return variants.find((v: any) => v.id === selectedVariantId) || variants[0];
+  // Handler to select variant and automatically jump to its image
+  const handleSelectVariant = (variant: any) => {
+    setSelectedVariantId(variant.id);
+    if (variant.imageUrl && galleryMedia.length > 0) {
+      const targetKey = extractMediaKey(variant.imageUrl);
+      const targetUrl = getMediaUrl(variant.imageUrl);
+
+      const foundIdx = galleryMedia.findIndex(m => {
+        return extractMediaKey(m.url) === targetKey || m.url === targetUrl || m.url === variant.imageUrl;
+      });
+
+      if (foundIdx !== -1) {
+        scrollToMedia(foundIdx);
+      }
     }
-    return variants[0];
-  }, [variants, selectedVariantId]);
+  };
+
+  // Synchronize carousel slide when selectedVariant changes and has an image
+  useEffect(() => {
+    if (selectedVariant?.imageUrl && galleryMedia.length > 0) {
+      const targetKey = extractMediaKey(selectedVariant.imageUrl);
+      const targetUrl = getMediaUrl(selectedVariant.imageUrl);
+
+      const foundIdx = galleryMedia.findIndex(m => {
+        return extractMediaKey(m.url) === targetKey || m.url === targetUrl || m.url === selectedVariant.imageUrl;
+      });
+
+      if (foundIdx !== -1 && foundIdx !== activeMediaIndex) {
+        scrollToMedia(foundIdx);
+      }
+    }
+  }, [selectedVariant?.id, selectedVariant?.imageUrl, galleryMedia]);
 
   // Active pricing & authoritative stock
   const activePrice = selectedVariant?.price ?? product?.sellingPrice ?? 0;
@@ -253,7 +319,7 @@ export default function ProductViewClient({ productId, initialData }: { productI
       stockCount: activeStock,
       storeId: product.storeId,
       storeName: product.store?.name,
-      image: galleryImages[0],
+      image: selectedVariant?.imageUrl ? getMediaUrl(selectedVariant.imageUrl) : galleryImages[0],
       variantName: selectedVariant?.name
     };
 
@@ -695,35 +761,72 @@ export default function ProductViewClient({ productId, initialData }: { productI
 
       {/* 4. Product Variants (Sizes / Colors / Options) */}
       {variants.length > 0 && (
-        <div className="p-4 border-b border-gray-100 space-y-3">
-          <h4 className="text-sm font-bold text-gray-900">
-            Select Option / Variant: <span className="text-[#FF5A36] ml-1">{selectedVariant?.name || 'Default'}</span>
-          </h4>
-          <div className="flex flex-wrap gap-2">
+        <div className="p-4 border-b border-gray-100 space-y-3 bg-gradient-to-b from-orange-50/20 to-transparent">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-black uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-[#FF5A36]" />
+              Select Option: <span className="text-gray-900 font-extrabold normal-case text-sm ml-1">{selectedVariant?.name || 'Default'}</span>
+            </h4>
+            <span className="text-[11px] font-bold text-gray-400">
+              {variants.length} available
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-2.5">
             {variants.map((v: any) => {
               const isSelected = (selectedVariant?.id === v.id);
               const variantStock = v.stockCount !== undefined ? Number(v.stockCount) : undefined;
               const isVariantOOS = variantStock !== undefined && variantStock <= 0;
+              const isVariantLowStock = !isVariantOOS && variantStock !== undefined && variantStock <= 5;
+              const variantThumb = v.imageUrl ? getMediaUrl(v.imageUrl) : null;
+
               return (
                 <button
                   key={v.id}
-                  onClick={() => setSelectedVariantId(v.id)}
+                  onClick={() => handleSelectVariant(v)}
                   className={cn(
-                    "px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm flex items-center gap-1.5",
+                    "px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all border shadow-2xs flex items-center gap-2 cursor-pointer active:scale-95",
                     isSelected 
-                      ? "border-[#FF5A36] text-white bg-[#FF5A36] shadow-orange-100" 
+                      ? "border-[#FF5A36] text-white bg-[#FF5A36] shadow-md shadow-orange-200 ring-2 ring-[#FF5A36]/30" 
                       : isVariantOOS
-                      ? "border-gray-200 text-gray-400 bg-gray-50/80"
-                      : "border-gray-200 text-gray-700 hover:border-gray-300 bg-white"
+                      ? "border-gray-200 text-gray-400 bg-gray-50/80 cursor-not-allowed opacity-60"
+                      : "border-gray-200 text-gray-800 hover:border-gray-400 hover:bg-gray-50 bg-white"
                   )}
                 >
-                  <span className={isVariantOOS ? "line-through opacity-70" : ""}>{v.name}</span>
-                  {v.price && <span className={cn("text-[10px] opacity-80", isSelected ? "text-white" : "text-gray-500")}>{formatPrice(v.price)}</span>}
-                  {isVariantOOS && (
-                    <span className={cn("text-[9px] font-extrabold uppercase px-1 py-0.2 rounded", isSelected ? "bg-black/25 text-white" : "bg-gray-200 text-gray-500")}>
-                      Sold out
+                  {variantThumb && (
+                    <img 
+                      src={variantThumb} 
+                      alt={v.name} 
+                      className="w-5 h-5 rounded-md object-cover border border-white/40 shrink-0" 
+                    />
+                  )}
+                  {isSelected && (
+                    <Check className="w-3.5 h-3.5 text-white shrink-0" />
+                  )}
+                  <span className={cn(isVariantOOS ? "line-through opacity-70" : "")}>{v.name}</span>
+                  {v.price && (
+                    <span className={cn(
+                      "text-[10px] font-extrabold px-1.5 py-0.5 rounded-md", 
+                      isSelected ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
+                    )}>
+                      {formatPrice(v.price)}
                     </span>
                   )}
+                  {isVariantOOS ? (
+                    <span className={cn(
+                      "text-[9px] font-black uppercase px-1.5 py-0.5 rounded", 
+                      isSelected ? "bg-black/30 text-white" : "bg-gray-200 text-gray-500"
+                    )}>
+                      Sold out
+                    </span>
+                  ) : isVariantLowStock ? (
+                    <span className={cn(
+                      "text-[9px] font-extrabold px-1 py-0.2 rounded", 
+                      isSelected ? "bg-white/25 text-white" : "text-[#FF5A36]"
+                    )}>
+                      {variantStock} left
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -983,7 +1086,9 @@ export default function ProductViewClient({ productId, initialData }: { productI
       {/* 9. Sticky Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white border-t border-gray-200 px-4 py-3 flex items-center justify-between z-50 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
         <div className="flex flex-col pr-3">
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total Price</span>
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider truncate max-w-[140px]">
+            {selectedVariant ? selectedVariant.name : 'Total Price'}
+          </span>
           <span className="text-xl font-black text-[#171717]">
             {formatPrice(activePrice)}
           </span>

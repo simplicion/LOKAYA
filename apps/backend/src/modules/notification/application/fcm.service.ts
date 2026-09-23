@@ -1,6 +1,6 @@
 import { initializeApp, cert, getApps, App } from 'firebase-admin/app';
 import { getMessaging, MulticastMessage } from 'firebase-admin/messaging';
-import { prisma, DevicePlatform } from '@workspace/db';
+import { prisma, DevicePlatform, NotificationType } from '@workspace/db';
 import fs from 'fs';
 import path from 'path';
 import { getNotificationQueue } from './notification-queue';
@@ -614,6 +614,118 @@ export class FcmService {
       });
     } catch (err) {
       console.warn('[FCM] Failed to dispatch order status notification:', err);
+    }
+  }
+
+  /**
+   * Automated Trigger: Notify Store Sellers/Owners of New Order Received
+   */
+  static async notifySellerNewOrder(
+    storeId: string, 
+    orderId: string, 
+    details: { itemsCount: number; totalAmount: number; buyerName?: string }
+  ) {
+    try {
+      const store = await prisma.store.findUnique({
+        where: { id: storeId },
+        include: {
+          users: { select: { userId: true } }
+        }
+      });
+      if (!store) return;
+
+      const title = '🔔 New Order Received!';
+      const shortOrderId = orderId.slice(0, 8).toUpperCase();
+      const body = `Order #${shortOrderId} for ₹${details.totalAmount} (${details.itemsCount} items) has been placed. Tap to accept & prepare.`;
+      const deepLink = `/seller/orders/details?id=${orderId}`;
+
+      // 1. In-App Seller Notification
+      try {
+        await prisma.sellerNotification.create({
+          data: {
+            storeId,
+            type: NotificationType.ORDER,
+            title: `New Order Received #${shortOrderId}`,
+            message: `You have received a new order for ${details.itemsCount} items (Total: ₹${details.totalAmount}).`,
+            linkUrl: deepLink
+          }
+        });
+      } catch (err) {
+        console.warn('[FCM] Error creating sellerNotification row:', err);
+      }
+
+      // 2. Dispatch FCM Push to all owners/managers of this store
+      const storeUserIds = store.users.map((u: any) => u.userId);
+      if (storeUserIds.length > 0) {
+        const tokens = await (prisma as any).deviceToken.findMany({
+          where: { userId: { in: storeUserIds }, isActive: true },
+          select: { token: true }
+        });
+
+        if (tokens.length > 0) {
+          await this.sendToTokensDirect(tokens.map((t: any) => t.token), {
+            title,
+            body,
+            deepLink,
+            type: 'ORDER_UPDATE',
+            data: { orderId, storeId, type: 'NEW_ORDER' }
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[FCM] Error dispatching seller new order notification:', err);
+    }
+  }
+
+  /**
+   * Automated Trigger: Notify Customer on Order Placement
+   */
+  static async notifyCustomerOrderPlaced(
+    buyerId: string,
+    orderId: string,
+    details: { storeName: string; totalAmount: number; itemsCount: number }
+  ) {
+    try {
+      const shortOrderId = orderId.slice(0, 8).toUpperCase();
+      const title = '🛍️ Order Placed Successfully!';
+      const body = `Your order #${shortOrderId} at ${details.storeName || 'the store'} (₹${details.totalAmount}) is confirmed and sent to seller.`;
+      const deepLink = `/orders/${orderId}/track`;
+
+      await this.sendToUserDirect(buyerId, {
+        title,
+        body,
+        deepLink,
+        type: 'ORDER_UPDATE',
+        data: { orderId, status: 'PENDING' }
+      });
+    } catch (err) {
+      console.warn('[FCM] Error dispatching customer order placed notification:', err);
+    }
+  }
+
+  /**
+   * Automated Trigger: Notify Delivery Partner / Rider of Assigned Delivery Task
+   */
+  static async notifyRiderDeliveryAssigned(
+    riderUserId: string,
+    orderId: string,
+    details: { storeName: string; pickupAddress?: string; deliveryAddress?: string; earning?: number }
+  ) {
+    try {
+      const shortOrderId = orderId.slice(0, 8).toUpperCase();
+      const title = '🚴 New Delivery Task Assigned!';
+      const body = `Order #${shortOrderId} from ${details.storeName || 'partner store'} is ready for pickup.${details.earning ? ` Earning: ₹${details.earning}` : ''} Tap to start route.`;
+      const deepLink = `/delivery/orders/${orderId}`;
+
+      await this.sendToUserDirect(riderUserId, {
+        title,
+        body,
+        deepLink,
+        type: 'DELIVERY_DISPATCH',
+        data: { orderId, type: 'DELIVERY_ASSIGNED' }
+      });
+    } catch (err) {
+      console.warn('[FCM] Error dispatching rider assignment notification:', err);
     }
   }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLoginMutation } from '@/lib/api';
@@ -13,11 +13,11 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useGoogleLoginMutation } from '@/lib/api';
-import { Eye, EyeOff, Mail, Phone, Lock, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Mail, Phone, Lock, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { CountrySelector } from '@/components/ui/country-selector';
 import { GoogleIcon } from '@/components/ui/icons';
 
-export default function LoginPage() {
+function LoginForm() {
   const [identifier, setIdentifier] = useState('');
   const [countryCode, setCountryCode] = useState('');
   const [password, setPassword] = useState('');
@@ -201,6 +201,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Loader2 className="w-8 h-8 text-[#FF5A36] animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
 

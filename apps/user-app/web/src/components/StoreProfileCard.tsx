@@ -1,71 +1,17 @@
 import React from 'react';
 import Link from 'next/link';
-import { BadgeCheck, MapPin, Star, Users } from 'lucide-react';
+import { BadgeCheck, Star } from 'lucide-react';
 import { Button } from './ui/button';
 import { getMediaUrl } from '@/lib/utils';
 
 interface StoreProfileCardProps {
-  type: 'user' | 'store';
+  type?: 'user' | 'store';
   data: any;
 }
 
 export function StoreProfileCard({ type, data }: StoreProfileCardProps) {
-  if (type === 'user') {
-    return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
-        <div className="flex items-start gap-4">
-          {/* Avatar */}
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden border-2 border-primary/20">
-            {data.avatarUrl ? (
-              <img src={getMediaUrl(data.avatarUrl)} alt={data.name} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-xl font-bold text-primary">
-                {data.name?.charAt(0)?.toUpperCase()}
-              </span>
-            )}
-          </div>
-
-          {/* Info & Stats */}
-          <div className="flex-1 min-w-0">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h3 className="font-semibold text-lg flex items-center gap-1 text-gray-900 truncate">
-                  {data.name}
-                  <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />
-                </h3>
-              </div>
-            </div>
-
-            {/* Stats Row */}
-            <div className="flex gap-6 text-sm">
-              <div className="flex flex-col items-center">
-                <span className="font-bold text-gray-900">{data._count?.posts || 0}</span>
-                <span className="text-gray-500 text-xs">Posts</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="font-bold text-gray-900">{data._count?.followers || 0}</span>
-                <span className="text-gray-500 text-xs">Followers</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="font-bold text-gray-900">{data._count?.following || 0}</span>
-                <span className="text-gray-500 text-xs">Following</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 flex gap-2">
-          <Button className="flex-1 bg-[#FF5A36] text-white hover:bg-[#E04B28] rounded-xl font-semibold text-xs h-9">
-            Follow
-          </Button>
-          <Link href={`/profile/${data.id}`} className="flex-1">
-            <Button variant="outline" className="w-full rounded-xl font-semibold text-xs h-9 border-gray-200">
-              View Profile
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
+  if (!data || type === 'user') {
+    return null;
   }
 
   // Store Profile Card

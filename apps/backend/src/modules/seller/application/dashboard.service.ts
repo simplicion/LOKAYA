@@ -65,9 +65,16 @@ export class DashboardService {
   /**
    * Retrieve recent orders formatted specifically for the Seller Dashboard
    */
-  static async getRecentOrders(storeId: string, limit: number = 10) {
+  static async getRecentOrders(storeId: string, limit: number = 3, status?: string) {
+    const where: any = { storeId };
+    if (status && status.toUpperCase() === 'PENDING') {
+      where.status = OrderStatus.PENDING;
+    } else if (status && status !== 'all') {
+      where.status = status as OrderStatus;
+    }
+
     const orders = await prisma.order.findMany({
-      where: { storeId },
+      where,
       orderBy: { createdAt: 'desc' },
       take: limit,
       include: {
@@ -141,8 +148,19 @@ export class DashboardService {
    * Retrieve time-bucketed sales data for the Dashboard AreaChart
    */
   static async getSalesTrend(storeId: string, range: string = '7d') {
-    const days = range === '30d' ? 30 : 7;
-    const result: Array<{ name: string, value: number }> = [];
+    let days = 7;
+    const cleanRange = (range || '7d').toLowerCase().trim();
+    if (cleanRange === '14d' || cleanRange === '14') {
+      days = 14;
+    } else if (cleanRange === '30d' || cleanRange === '30' || cleanRange === 'month') {
+      days = 30;
+    } else if (cleanRange === '90d' || cleanRange === '90' || cleanRange === 'quarter') {
+      days = 90;
+    } else if (cleanRange === '1d' || cleanRange === 'today') {
+      days = 1;
+    }
+
+    const result: Array<{ name: string; date: string; fullDate: string; value: number; ordersCount: number }> = [];
     const now = new Date();
 
     for (let i = days - 1; i >= 0; i--) {
@@ -161,11 +179,17 @@ export class DashboardService {
       });
 
       const dayRevenue = dayOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-      const dayName = days === 7 
+      const dayName = days <= 7 
         ? startOfDay.toLocaleDateString('en-US', { weekday: 'short' })
         : startOfDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-      result.push({ name: dayName, value: dayRevenue });
+      result.push({ 
+        name: dayName, 
+        date: startOfDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        fullDate: startOfDay.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+        value: Math.round(dayRevenue * 100) / 100,
+        ordersCount: dayOrders.length
+      });
     }
 
     return result;

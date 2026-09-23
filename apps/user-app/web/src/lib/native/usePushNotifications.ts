@@ -10,6 +10,7 @@ import {
   ActionPerformed,
 } from '@capacitor/push-notifications';
 import { toast } from 'sonner';
+import { triggerNotificationAlert } from './deviceAlert';
 
 interface UsePushNotificationsProps {
   token?: string | null;
@@ -125,6 +126,15 @@ export function usePushNotifications({ token, apiUrl }: UsePushNotificationsProp
           'pushNotificationReceived',
           (notification: PushNotificationSchema) => {
             console.log('[FCM-Client] Push received in foreground:', notification);
+            
+            // Trigger physical vibration + chime
+            const notifType = notification.data?.type === 'DELIVERY_DISPATCH' ? 'dispatch' : 'order';
+            triggerNotificationAlert({
+              title: notification.title || 'LOKAYA Update',
+              body: notification.body || '',
+              type: notifType
+            });
+
             toast(notification.title || 'LOKAYA Update', {
               description: notification.body || '',
               action: notification.data?.deepLink

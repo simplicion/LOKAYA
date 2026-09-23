@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { MoreHorizontal, Heart, MessageCircle, Send, Play, Volume2, VolumeX, Check, CheckCircle2 } from 'lucide-react';
 import { ProductOverlayCard } from './ProductOverlayCard';
 import { CommentsBottomSheet } from '../ui/CommentsBottomSheet';
@@ -86,9 +86,16 @@ export function SocialReel({
   feedType,
 }: SocialReelProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isAuthor = Boolean(currentUser?.id && authorId && currentUser.id === authorId);
   const showOptimizingBadge = isAuthor && (status === 'PROCESSING' || status === 'PENDING' || isOptimizing);
+
+  const redirectToLogin = (msg: string) => {
+    toast.error(msg);
+    const currentUrl = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : (pathname || '/home/reels');
+    router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`);
+  };
 
   const [isPlaying, setIsPlaying] = useState(true);
   const { isMuted, toggleMute } = useFeedSound();
@@ -171,8 +178,7 @@ export function SocialReel({
       }
 
       if (!currentUser) {
-        toast.error('Please sign in to like this reel');
-        router.push('/login');
+        redirectToLogin('Please sign in to like this reel');
         return;
       }
 
@@ -213,8 +219,7 @@ export function SocialReel({
     e.stopPropagation();
 
     if (!currentUser) {
-      toast.error('Please sign in to like this reel');
-      router.push('/login');
+      redirectToLogin('Please sign in to like this reel');
       return;
     }
 
@@ -247,8 +252,7 @@ export function SocialReel({
     e.stopPropagation();
 
     if (!currentUser) {
-      toast.error('Please sign in to follow');
-      router.push('/login');
+      redirectToLogin('Please sign in to follow');
       return;
     }
 

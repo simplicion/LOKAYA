@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 
@@ -12,6 +12,15 @@ const dmSerif = DM_Serif_Display({
   weight: "400",
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#FFFFFF",
+};
 
 export const metadata: Metadata = {
   title: "Lokaya - See It. Know It. Buy It.",

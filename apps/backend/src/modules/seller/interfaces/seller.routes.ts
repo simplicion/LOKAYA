@@ -94,8 +94,9 @@ sellerRouter.get('/dashboard/stats', requireAuth, async (req: AuthRequest, res, 
 sellerRouter.get('/dashboard/recent-orders', requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const storeId = await getSellerStoreId(req.user!.id);
-    const limit = req.query.limit ? Number(req.query.limit) : 10;
-    const orders = await DashboardService.getRecentOrders(storeId, limit);
+    const limit = req.query.limit ? Number(req.query.limit) : 3;
+    const status = (req.query.status as string) || undefined;
+    const orders = await DashboardService.getRecentOrders(storeId, limit, status);
     res.status(200).json(orders);
   } catch (error) {
     next(error);

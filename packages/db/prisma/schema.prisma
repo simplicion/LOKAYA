@@ -272,6 +272,7 @@ model ProductVariant {
   name           String
   sku            String   @unique
   barcode        String?
+  imageUrl       String?
   price          Float
   compareAtPrice Float?
   costPrice      Float?
@@ -1360,5 +1361,17 @@ model PlatformSetting {
   updatedAt   DateTime @updatedAt
 
   @@index([key])
+}
+
+model SearchLog {
+  id             String   @id @default(uuid())
+  keyword        String   @unique
+  count          Int      @default(1)
+  lastSearchedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([count])
+  @@index([lastSearchedAt])
 }
 
