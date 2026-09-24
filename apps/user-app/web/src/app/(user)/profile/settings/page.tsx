@@ -20,7 +20,12 @@ import {
   ChevronRight, 
   Archive,
   LogOut,
-  Smartphone
+  Smartphone,
+  FileText,
+  Users,
+  RotateCcw,
+  Building2,
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -145,7 +150,19 @@ export default function SellerSettingsPage() {
           </div>
         </div>
 
-        {/* Logout Section */}
+        {/* Legal & Compliance Section */}
+        <div className="px-4 py-4 border-t border-gray-100">
+          <h2 className="text-sm font-bold text-gray-500 mb-2 px-2 uppercase tracking-wider">Legal & Compliance</h2>
+          <div className="flex flex-col">
+            <SettingsItem icon={ShieldCheck} label="Privacy Policy" href="/privacy-policy" />
+            <SettingsItem icon={FileText} label="Terms & Conditions" href="/terms-and-conditions" />
+            <SettingsItem icon={Users} label="Community Guidelines" href="/community-guidelines" />
+            <SettingsItem icon={RotateCcw} label="Refund & Cancellation Policy" href="/refund-policy" />
+            <SettingsItem icon={Building2} label="Grievance Redressal & Legal" href="/compliance" />
+          </div>
+        </div>
+
+        {/* Account Actions Section */}
         <div className="px-4 py-4 border-t border-gray-100">
           <h2 className="text-sm font-bold text-gray-500 mb-2 px-2 uppercase tracking-wider">Account Actions</h2>
           <div className="flex flex-col">
@@ -164,6 +181,22 @@ export default function SellerSettingsPage() {
               </div>
               <ChevronRight className="w-5 h-5 text-red-400 group-hover:translate-x-0.5 transition-transform" />
             </div>
+
+            <Link
+              href="/delete-account"
+              className="flex items-center justify-between py-4 px-2 hover:bg-red-50/70 active:bg-red-100/70 rounded-2xl cursor-pointer transition-colors group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 group-hover:bg-red-100 transition-colors">
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-red-600 text-sm">Delete Account & Data</span>
+                  <span className="text-[11px] text-gray-400 font-medium">Permanently erase your account & profile</span>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-red-400 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
           </div>
         </div>
       </div>

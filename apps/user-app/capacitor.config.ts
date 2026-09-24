@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.lokaya.app',
+  appId: 'app.lokaya.shop',
   appName: 'Lokaya',
   webDir: 'web/out'
 };
