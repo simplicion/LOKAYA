@@ -54,6 +54,22 @@ export default {
       return exactAssetResponse;
     }
 
+    // Next.js static export generates .html files (e.g. /privacy-policy.html, /delete-account.html)
+    if (!pathname.endsWith('.html') && !pathname.includes('.')) {
+      const htmlUrl = new URL(`${normalizedPath}.html`, url.origin);
+      const htmlRes = await env.ASSETS.fetch(new Request(htmlUrl.toString(), request));
+      if (htmlRes.status === 200) {
+        const newHeaders = new Headers(htmlRes.headers);
+        newHeaders.set('Content-Type', 'text/html; charset=utf-8');
+        newHeaders.set('Cache-Control', 'public, max-age=0, must-revalidate');
+        return new Response(htmlRes.body, {
+          status: 200,
+          statusText: 'OK',
+          headers: newHeaders
+        });
+      }
+    }
+
     // 5. Dynamic Route Resolution
     const resolveDynamicRoute = async (cleanPath, rscPath) => {
       if (isRSC && rscPath) {

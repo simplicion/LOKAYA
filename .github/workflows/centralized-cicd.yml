@@ -394,8 +394,11 @@ jobs:
           fi
           if [ -d apps/user-app/web/public/downloads ]; then
             mkdir -p apps/user-app/web/out/downloads
-            cp -r apps/user-app/web/public/downloads/* apps/user-app/web/out/downloads/ || true
+            # Only copy files under 24MB into out/downloads to strictly respect Cloudflare Pages 25MiB limit
+            find apps/user-app/web/public/downloads -type f -size -24M -exec cp {} apps/user-app/web/out/downloads/ \; || true
           fi
+          # Safety prune: Cloudflare Pages hard rejects uploads containing any asset >= 25MB
+          find apps/user-app/web/out -type f -size +24M -delete || true
 
       - name: Deploy to Cloudflare Pages
         env:

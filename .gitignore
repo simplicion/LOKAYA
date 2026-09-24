@@ -18,3 +18,5 @@ test-live-server.js
 packages/db/testFuelRateModel.js
 *service-account*.json
 *serviceAccount*.json
+*.apk
+*.aab
