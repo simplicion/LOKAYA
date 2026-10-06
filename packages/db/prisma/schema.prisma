@@ -34,6 +34,7 @@ enum AuthProvider {
   LOCAL
   GOOGLE
   PHONE
+  ONE_EIGHTY
 }
 
 enum MediaType {
@@ -77,6 +78,7 @@ model User {
   name         String
   avatarUrl    String?
   googleId     String?      @unique
+  oneEightyId  String?      @unique
   authProvider AuthProvider @default(LOCAL)
   
   // Capabilities

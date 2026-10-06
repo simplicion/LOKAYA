@@ -35,6 +35,8 @@ import {
 } from 'lucide-react';
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
 import { StoryViewerModal } from '@/components/feed/StoryViewerModal';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import Script from 'next/script';
 import { toast } from 'sonner';
 
 export default function UserPublicProfilePage({ params }: { params?: Promise<{ id: string }> | { id: string } }) {
@@ -244,6 +246,48 @@ export default function UserPublicProfilePage({ params }: { params?: Promise<{ i
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
+  // Synchronize dynamic SEO metadata
+  useEffect(() => {
+    if (profile?.name) {
+      document.title = `${profile.name} (@${storeName || 'LokayaCreator'}) | Lokaya Profile`;
+
+      let canonicalLink = document.querySelector('link[rel="canonical"]');
+      if (!canonicalLink) {
+        canonicalLink = document.createElement('link');
+        canonicalLink.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalLink);
+      }
+      canonicalLink.setAttribute('href', `https://lokaya.shop/user/${userId}`);
+
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement('meta');
+        metaDesc.setAttribute('name', 'description');
+        document.head.appendChild(metaDesc);
+      }
+      const descSnippet = storeDescription
+        ? `${profile.name}: ${storeDescription.slice(0, 140)}... Discover creator reels and curated products on Lokaya.`
+        : `Follow ${profile.name} on Lokaya. Explore trending reels, posts, and recommended local products.`;
+      metaDesc.setAttribute('content', descSnippet);
+    }
+  }, [profile?.name, userId, storeName, storeDescription]);
+
+  const profileJsonLd = React.useMemo(() => {
+    if (!profile?.name) return null;
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'ProfilePage',
+      mainEntity: {
+        '@type': 'Person',
+        name: profile.name,
+        identifier: userId,
+        url: `https://lokaya.shop/user/${userId}`,
+        image: resolvedAvatar ? getMediaUrl(resolvedAvatar) : 'https://lokaya.shop/icon.png',
+        ...(storeDescription ? { description: storeDescription } : {})
+      }
+    };
+  }, [profile?.name, userId, resolvedAvatar, storeDescription]);
+
   return (
     <div className="flex flex-col min-h-screen bg-white pb-24 text-[#171717]">
       {/* Top Header */}
@@ -282,6 +326,24 @@ export default function UserPublicProfilePage({ params }: { params?: Promise<{ i
 
       {/* Main Profile Info Section (Matching SellerProfile Aesthetics) */}
       <div className="px-4 pt-3 pb-4">
+        {profileJsonLd && (
+          <Script
+            id={`profile-schema-${userId}`}
+            type="application/ld+json"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(profileJsonLd) }}
+          />
+        )}
+
+        {/* Visible & Accessible Breadcrumbs */}
+        <Breadcrumbs 
+          items={[
+            { label: 'Creators', href: '/explore' },
+            { label: profile.name || storeName || 'Creator Profile' }
+          ]} 
+          className="pb-2" 
+        />
+
         {/* Avatar + Stats Row */}
         <div className="flex items-center justify-between mb-4">
           <div className="relative">

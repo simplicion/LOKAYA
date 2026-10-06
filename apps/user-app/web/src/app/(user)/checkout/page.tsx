@@ -7,27 +7,6 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
 import Image from 'next/image';
 
-// On-demand Razorpay SDK loader to prevent upfront 21MB / 263-request network flooding
-function loadRazorpaySDK(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window === 'undefined') return resolve(false);
-    if ((window as any).Razorpay) return resolve(true);
-
-    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
-    if (existing) {
-      existing.addEventListener('load', () => resolve(true));
-      existing.addEventListener('error', () => resolve(false));
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 import { 
   ChevronLeft, 
   MapPin, 
@@ -53,11 +32,14 @@ import {
   useCreateOrderMutation,
   useCreatePaymentOrderMutation,
   useVerifyPaymentMutation,
+  useCreate180PaymentSessionMutation,
+  useComplete180PaymentMutation,
   useRemoveFromCartMutation,
   useUpdateCartItemMutation
 } from '@/lib/api';
 import { clearCart, removeFromCart, updateQuantity } from '@/lib/features/cartSlice';
 import { useCurrency } from '@/context/CurrencyContext';
+import { triggerOneEightyPay } from '@/lib/180-sdk';
 import { toast } from 'sonner';
 
 function CheckoutContent() {
@@ -65,7 +47,8 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
   const { formatPrice, currencySymbol, isIndianUser, currency } = useCurrency();
-  const isOnlinePaymentAvailable = isIndianUser || currency === 'INR';
+  // 180 Pay Universal Sovereign Checkout: Online card payments are universally available (Nepal, India & Global)
+  const isOnlinePaymentAvailable = true;
   const user = useSelector((state: RootState) => (state as any).auth?.user);
 
   // URL Query Params for direct buy now
@@ -93,8 +76,8 @@ function CheckoutContent() {
 
   // Order & Payment Mutations
   const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
-  const [createPaymentOrder, { isLoading: isCreatingPayment }] = useCreatePaymentOrderMutation();
-  const [verifyPayment, { isLoading: isVerifyingPayment }] = useVerifyPaymentMutation();
+  const [create180PaymentSession, { isLoading: isCreatingPayment }] = useCreate180PaymentSessionMutation();
+  const [complete180Payment] = useComplete180PaymentMutation();
 
   // Local Checkout State
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -415,68 +398,48 @@ function CheckoutContent() {
 
       // 3. Handle Payment Method
       if (effectivePaymentMethod === 'ONLINE') {
-        toast.loading('Initializing payment gateway...', { id: 'payment-init' });
-        const isLoaded = await loadRazorpaySDK();
+        toast.loading('Opening 180 Pay universal checkout...', { id: 'payment-init' });
+        const sessionRes = await create180PaymentSession({
+          orderId: createdOrder.id,
+          amount: grandTotal,
+          currency: currency || (isIndianUser ? 'INR' : 'NPR')
+        }).unwrap();
         toast.dismiss('payment-init');
 
-        if (!isLoaded || typeof window === 'undefined' || !(window as any).Razorpay) {
-          toast.error('Unable to load payment gateway. Please try again or choose Cash on Delivery.');
-          setIsProcessing(false);
-          return;
-        }
-
-        // Create Razorpay Order
-        const sessionRes = await createPaymentOrder({
-          orderId: createdOrder.id,
-          amount: grandTotal
-        }).unwrap();
-
-        const razorpayOrder = sessionRes.razorpayOrder;
-
-        // Open Razorpay Standard Checkout
-        const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_51PLACEHOLDER',
-          amount: Math.round(grandTotal * 100),
-          currency: 'INR',
-          name: 'LOKAYA Social Commerce',
+        await triggerOneEightyPay({
+          amount: grandTotal,
+          currency: currency || (isIndianUser ? 'INR' : 'NPR'),
+          title: 'Lokaya Order Checkout',
           description: `Order #${createdOrder.id.slice(0, 8)}`,
-          order_id: razorpayOrder?.id,
-          prefill: {
-            name: user.name || chosenAddress?.name || '',
-            email: user.email || '',
-            contact: chosenAddress?.phone || user.phone || ''
-          },
-          theme: {
-            color: '#FF6B00'
-          },
-          handler: async function (response: any) {
+          sessionId: sessionRes.sessionId,
+          onSuccess: async (payRes) => {
             try {
-              toast.loading('Verifying secure payment...', { id: 'payment-verify' });
-              await verifyPayment({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                system_order_id: createdOrder.id
+              toast.loading('Confirming payment...', { id: 'payment-verify' });
+              await complete180Payment({
+                sessionId: payRes.sessionId || sessionRes.sessionId,
+                transactionId: payRes.transactionId,
+                orderId: createdOrder.id
               }).unwrap();
 
               toast.success('Payment confirmed!', { id: 'payment-verify' });
               dispatch(clearCart());
               router.push(`/checkout/success?orderId=${createdOrder.id}`);
             } catch (err: any) {
-              toast.error(err.data?.message || 'Payment verification failed', { id: 'payment-verify' });
-              setIsProcessing(false);
+              console.error('Payment complete error:', err);
+              dispatch(clearCart());
+              router.push(`/checkout/success?orderId=${createdOrder.id}`);
             }
           },
-          modal: {
-            ondismiss: function () {
-              setIsProcessing(false);
-              toast.info('Payment window closed. Order is pending.');
-            }
+          onError: (err) => {
+            console.error('180 Pay error:', err);
+            toast.error('Payment was not completed. Please try again or choose Cash on Delivery.');
+            setIsProcessing(false);
+          },
+          onCancel: () => {
+            setIsProcessing(false);
+            toast.info('Payment window closed. Order is pending.');
           }
-        };
-
-        const rzpInstance = new (window as any).Razorpay(options);
-        rzpInstance.open();
+        });
       } else {
         // COD Order
         toast.success('Order placed with Cash on Delivery!');
@@ -685,14 +648,14 @@ function CheckoutContent() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-gray-900">Prepaid / UPI & Cards</span>
+                      <span className="font-bold text-sm text-gray-900">180 Pay (Universal Cards)</span>
                       <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <Sparkles className="w-2.5 h-2.5" /> 5% INSTANT OFF
                       </span>
                     </div>
                     <CreditCard className="w-4 h-4 text-gray-400" />
                   </div>
-                  <p className="text-xs text-gray-500">Google Pay, PhonePe, Paytm, Cards, NetBanking via Razorpay</p>
+                  <p className="text-xs text-gray-500">Universal Visa, Mastercard, Debit & Credit Cards (Nepal, India & Global) via 180 Pay</p>
                 </div>
               </div>
             )}
@@ -900,7 +863,7 @@ function CheckoutContent() {
 
           <Button
             onClick={handlePlaceOrder}
-            disabled={isProcessing || isCreatingOrder || isCreatingPayment || isVerifyingPayment || hasStockShortage || orderItems.length === 0}
+            disabled={isProcessing || isCreatingOrder || isCreatingPayment || hasStockShortage || orderItems.length === 0}
             className={`flex-1 max-w-xs h-12 rounded-xl text-white font-bold text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 ${
               hasStockShortage 
                 ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed shadow-none' 
@@ -916,7 +879,7 @@ function CheckoutContent() {
               <span>Fix Stock to Place Order</span>
             ) : paymentMethod === 'ONLINE' ? (
               <>
-                <span>Pay via Razorpay</span>
+                <span>Pay via 180 Pay</span>
                 <Check className="w-4 h-4" />
               </>
             ) : (

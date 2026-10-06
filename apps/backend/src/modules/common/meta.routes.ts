@@ -84,4 +84,69 @@ router.get('/onboarding-config', async (req: Request, res: Response, next: NextF
   }
 });
 
+// ==============================================================================
+// XML Sitemaps (Platform-Wide SEO, Products, Stores, Profiles)
+// ==============================================================================
+
+router.get('/sitemap.xml', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { SeoService } = await import('./seo.service');
+    const xml = await SeoService.generateSitemapIndex();
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400');
+    res.status(200).send(xml);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/sitemap-static.xml', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { SeoService } = await import('./seo.service');
+    const xml = SeoService.generateStaticSitemap();
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=7200, stale-while-revalidate=86400');
+    res.status(200).send(xml);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/sitemap-products.xml', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { SeoService } = await import('./seo.service');
+    const xml = await SeoService.generateProductsSitemap();
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400');
+    res.status(200).send(xml);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/sitemap-stores.xml', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { SeoService } = await import('./seo.service');
+    const xml = await SeoService.generateStoresSitemap();
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400');
+    res.status(200).send(xml);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/sitemap-profiles.xml', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { SeoService } = await import('./seo.service');
+    const xml = await SeoService.generateProfilesSitemap();
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=7200, stale-while-revalidate=86400');
+    res.status(200).send(xml);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export const metaRoutes: Router = router;
+

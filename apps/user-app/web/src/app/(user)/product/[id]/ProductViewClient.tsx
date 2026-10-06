@@ -44,9 +44,11 @@ import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import Script from 'next/script';
 import { recordRecentlyViewed } from '@/lib/services/recentlyViewed';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 import { ReviewBottomSheet } from '@/components/ui/ReviewBottomSheet';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 
 export default function ProductViewClient({ productId, initialData }: { productId: string; initialData?: any }) {
   const router = useRouter();
@@ -245,6 +247,35 @@ export default function ProductViewClient({ productId, initialData }: { productI
   const inStock = activeStock !== undefined ? activeStock > 0 : true;
   const isLowStock = inStock && activeStock !== undefined && activeStock > 0 && activeStock <= 5;
 
+  // Synchronize dynamic SEO metadata (Document Title, Canonical URL, Meta Description)
+  useEffect(() => {
+    if (product?.name) {
+      const displayPrice = activePrice > 0 ? ` - ₹${activePrice}` : '';
+      document.title = `${product.name}${displayPrice} | Lokaya`;
+
+      // Synchronize canonical link
+      let canonicalLink = document.querySelector('link[rel="canonical"]');
+      if (!canonicalLink) {
+        canonicalLink = document.createElement('link');
+        canonicalLink.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalLink);
+      }
+      canonicalLink.setAttribute('href', `https://lokaya.shop/product/${product.id}`);
+
+      // Synchronize meta description
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement('meta');
+        metaDesc.setAttribute('name', 'description');
+        document.head.appendChild(metaDesc);
+      }
+      const descSnippet = product.description
+        ? `${product.name}: ${product.description.slice(0, 140)}... Shop on Lokaya with fast delivery.`
+        : `Buy ${product.name} on Lokaya from verified local merchant stores. Fast local delivery.`;
+      metaDesc.setAttribute('content', descSnippet);
+    }
+  }, [product?.name, product?.id, activePrice, product?.description]);
+
   // Cart quantity check to enforce maximum inventory cap
   const cartItems = useSelector((state: any) => state.cart?.items || []);
   const currentCartItem = cartItems.find((i: any) => {
@@ -386,6 +417,39 @@ export default function ProductViewClient({ productId, initialData }: { productI
     });
     return dist;
   }, [product?.ratingDistribution, reviewsList]);
+
+  // Generate valid schema.org Product structured data
+  const productJsonLd = useMemo(() => {
+    if (!product?.name) return null;
+    const mediaList = galleryMedia.map((m: any) => getMediaUrl(m.url)).filter(Boolean);
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.name,
+      image: mediaList.length > 0 ? mediaList : ['https://lokaya.shop/promo-ad.png'],
+      description: product.description || `Buy ${product.name} online at best price on Lokaya.`,
+      sku: product.sku || product.id,
+      offers: {
+        '@type': 'Offer',
+        url: `https://lokaya.shop/product/${product.id}`,
+        priceCurrency: 'INR',
+        price: activePrice || 0,
+        availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        seller: {
+          '@type': 'Organization',
+          name: product?.store?.name || 'Lokaya Merchant Store'
+        }
+      },
+      ...(totalReviewsCount > 0 ? {
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: averageRating.toFixed(1),
+          reviewCount: totalReviewsCount
+        }
+      } : {})
+    };
+  }, [product, galleryMedia, activePrice, inStock, totalReviewsCount, averageRating]);
+
 
   const filteredReviews = useMemo(() => {
     if (selectedFilter === 'all') return reviewsList;
@@ -679,6 +743,25 @@ export default function ProductViewClient({ productId, initialData }: { productI
 
       {/* 3. Title, Price & Category */}
       <div className="p-4 border-b border-gray-100 space-y-3">
+        {productJsonLd && (
+          <Script
+            id={`product-schema-${product.id}`}
+            type="application/ld+json"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+          />
+        )}
+
+        {/* Visible & Accessible Breadcrumbs */}
+        <Breadcrumbs 
+          items={[
+            { label: categoryName || 'Explore', href: '/explore' },
+            { label: store?.name || 'Store', href: store?.id ? `/store/${store.id}` : '/explore' },
+            { label: product.name }
+          ]} 
+          className="pb-1" 
+        />
+
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-50 text-[#FF5A36] uppercase tracking-wider">
             <Tag className="w-3 h-3" />

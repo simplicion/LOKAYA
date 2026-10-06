@@ -4,6 +4,7 @@ import { FloatingCartBar } from '@/components/cart/FloatingCartBar';
 import { OnboardingGuard } from '@/components/ui/OnboardingGuard';
 import { NavigationErrorBoundary } from '@/components/ui/NavigationErrorBoundary';
 import { AppPrefetchWarmup } from '@/components/AppPrefetchWarmup';
+import { Footer } from '@/components/Footer';
 
 export default function UserLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,9 +16,11 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
           {children}
         </NavigationErrorBoundary>
       </div>
+      <Footer />
       <FloatingCartBar />
       <MobileBottomNav />
       <OnboardingGuard />
     </>
   );
 }
+

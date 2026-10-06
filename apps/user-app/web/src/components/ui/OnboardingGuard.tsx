@@ -11,7 +11,7 @@ export function OnboardingGuard() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    if (user && !pathname?.includes('/onboarding') && !pathname?.includes('/login') && !pathname?.includes('/register')) {
+    if (user && !pathname?.includes('/onboarding') && !pathname?.includes('/login')) {
       const isProfileIncomplete = !user.age || !user.gender || !user.locationArea;
       if (isProfileIncomplete) {
         setIsOpen(true);

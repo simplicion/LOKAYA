@@ -1,0 +1,28 @@
+{
+  "name": "Lokaya - Social Commerce & Local Shopping",
+  "short_name": "Lokaya",
+  "description": "Discover unique handcrafted goods, fashion, food, and daily essentials from verified local sellers and creators.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF9F6",
+  "theme_color": "#FF5A36",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

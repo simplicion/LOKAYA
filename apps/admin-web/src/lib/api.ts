@@ -39,7 +39,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates', 'Notifications', 'OnboardingConfig', 'Payouts', 'RiderPayouts'],
+  tagTypes: ['Stores', 'Products', 'Banners', 'Coupons', 'Reports', 'Reviews', 'SupportTickets', 'DeliveryPartners', 'FuelRates', 'Notifications', 'OnboardingConfig', 'Payouts', 'RiderPayouts', 'PlatformSettings'],
   endpoints: (builder) => ({
     getPendingStores: builder.query<any[], void>({
       query: () => '/seller/pending',
@@ -422,6 +422,48 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['RiderPayouts'],
     }),
+
+    // Platform AI Studio & LLM Engine Settings
+    getAiPlatformSettings: builder.query<{
+      geminiApiKey: string;
+      openaiApiKey: string;
+      preferredProvider: 'auto' | 'gemini' | 'openai';
+      enableAiStudio: boolean;
+      hasGeminiKey: boolean;
+      hasOpenAiKey: boolean;
+      updatedAt?: string;
+      updatedBy?: string;
+    }, void>({
+      query: () => '/admin/platform-settings/ai',
+      providesTags: ['PlatformSettings'],
+    }),
+    updateAiPlatformSettings: builder.mutation<any, {
+      geminiApiKey?: string;
+      openaiApiKey?: string;
+      preferredProvider?: 'auto' | 'gemini' | 'openai';
+      enableAiStudio?: boolean;
+    }>({
+      query: (body) => ({
+        url: '/admin/platform-settings/ai',
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['PlatformSettings'],
+    }),
+    testAiPlatformSettings: builder.mutation<{
+      success: boolean;
+      message: string;
+      details?: any;
+    }, {
+      provider: 'gemini' | 'openai';
+      apiKey?: string;
+    }>({
+      query: (body) => ({
+        url: '/admin/platform-settings/ai/test',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 });
 
@@ -479,5 +521,8 @@ export const {
   useGetRiderPayoutsQuery,
   useCompleteRiderPayoutMutation,
   useRejectRiderPayoutMutation,
+  useGetAiPlatformSettingsQuery,
+  useUpdateAiPlatformSettingsMutation,
+  useTestAiPlatformSettingsMutation,
 } = adminApi;
 

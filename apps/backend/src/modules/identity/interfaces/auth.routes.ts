@@ -110,6 +110,56 @@ authRouter.post('/google', validateRequest(googleLoginSchema), async (req, res, 
   }
 });
 
+authRouter.post('/180/exchange', async (req, res, next) => {
+  try {
+    const { code, token, userData } = req.body;
+    let profile = userData;
+
+    const coreUrl = process.env.NEXT_PUBLIC_180_CORE_URL || 'https://services.180workspace.com';
+
+    if (!profile && code) {
+      const tokenRes = await fetch(`${coreUrl}/api/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant_type: 'authorization_code',
+          code,
+          client_id: process.env.NEXT_PUBLIC_180_CLIENT_ID,
+          client_secret: process.env.ONE_EIGHTY_CLIENT_SECRET,
+        }),
+      });
+
+      const tokenData: any = await tokenRes.json().catch(() => ({}));
+      if (tokenRes.ok && tokenData.access_token) {
+        const userRes = await fetch(`${coreUrl}/api/oauth/userinfo`, {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        if (userRes.ok) {
+          profile = await userRes.json();
+        }
+      }
+    } else if (!profile && token) {
+      const userRes = await fetch(`${coreUrl}/api/oauth/userinfo`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (userRes.ok) {
+        profile = await userRes.json();
+      }
+    }
+
+    if (!profile) {
+      return res.status(400).json({ error: 'Failed to retrieve 180 Identity profile' });
+    }
+
+    const result = await authService.oneEightyLogin(profile);
+    setTokenCookies(res, result.token, result.refreshToken);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 authRouter.post('/logout', (req, res) => {
   res.clearCookie('access_token');
   res.clearCookie('refresh_token');

@@ -11,3 +11,7 @@ NEXT_PUBLIC_SOCKET_URL = "https://api.lokaya.shop"
 NEXT_PUBLIC_CDN_DOMAIN = "https://7158d01d5e0dd9e7f5be050ed3717b14.r2.cloudflarestorage.com/lokaya-cdn"
 NEXT_PUBLIC_GOOGLE_CLIENT_ID = "924762867355-6lfudinvj763rl4usv256svhtu3muemi.apps.googleusercontent.com"
 NEXT_PUBLIC_RAZORPAY_KEY_ID = "rzp_live_TJ4cJdMCagilvq"
+NEXT_PUBLIC_180_CLIENT_ID = "180_client_30e2f6a803c849fb213ce31cc7a7ec1f"
+NEXT_PUBLIC_180_CORE_URL = "https://services.180workspace.com"
+NEXT_PUBLIC_180_AUTH_URL = "https://auth.180workspace.com"
+

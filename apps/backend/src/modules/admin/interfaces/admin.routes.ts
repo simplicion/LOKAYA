@@ -1076,6 +1076,52 @@ adminRouter.put('/onboarding-config', requireAuth, requireAdmin, async (req: Aut
 });
 
 // ==========================================
+// AI Studio & LLM Engine Platform Settings
+// ==========================================
+
+// GET /api/v1/admin/platform-settings/ai - Get AI platform settings (masked keys)
+adminRouter.get('/platform-settings/ai', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { PlatformConfigService } = await import('../../common/platform-config.service');
+    const config = await PlatformConfigService.getAiConfig(true);
+    res.status(200).json(config);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/v1/admin/platform-settings/ai - Update AI platform settings
+adminRouter.put('/platform-settings/ai', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { PlatformConfigService } = await import('../../common/platform-config.service');
+    const updatedBy = req.user?.id || 'admin';
+    const config = await PlatformConfigService.updateAiConfig(req.body, updatedBy);
+    res.status(200).json({
+      success: true,
+      message: 'AI Studio engine settings updated successfully',
+      config
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/v1/admin/platform-settings/ai/test - Test live API connectivity
+adminRouter.post('/platform-settings/ai/test', requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const { PlatformConfigService } = await import('../../common/platform-config.service');
+    const { provider, apiKey } = req.body;
+    if (!provider || (provider !== 'gemini' && provider !== 'openai')) {
+      return res.status(400).json({ success: false, message: 'Provider must be "gemini" or "openai"' });
+    }
+    const result = await PlatformConfigService.testAiConnection(provider, apiKey);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
 // Seller Payouts & Withdrawals Management
 // ==========================================
 

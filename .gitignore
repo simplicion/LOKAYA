@@ -20,3 +20,4 @@ packages/db/testFuelRateModel.js
 *serviceAccount*.json
 *.apk
 *.aab
+release-builds/

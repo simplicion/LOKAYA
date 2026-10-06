@@ -58,6 +58,14 @@ export const api = createApi({
         body,
       }),
     }),
+    oneEightyExchange: builder.mutation<any, { code?: string; token?: string; userData?: any }>({
+      query: (body) => ({
+        url: '/identity/180/exchange',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['User'],
+    }),
     getStoreProducts: builder.query<any[], string | { storeId: string; isOwner?: boolean }>({
       query: (arg) => {
         if (typeof arg === 'string') {
@@ -180,6 +188,21 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
+    }),
+    create180PaymentSession: builder.mutation<any, { orderId: string; amount: number; currency?: string }>({
+      query: (body) => ({
+        url: `/payments/180/create-session`,
+        method: 'POST',
+        body,
+      }),
+    }),
+    complete180Payment: builder.mutation<any, { sessionId: string; transactionId?: string; orderId?: string }>({
+      query: (body) => ({
+        url: `/payments/180/complete`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Order'],
     }),
     uploadMedia: builder.mutation<any, FormData>({
       query: (formData) => ({
@@ -1483,6 +1506,9 @@ export const {
   useGetOrderTrackingQuery,
   useCreatePaymentOrderMutation,
   useVerifyPaymentMutation,
+  useOneEightyExchangeMutation,
+  useCreate180PaymentSessionMutation,
+  useComplete180PaymentMutation,
   useUploadMediaMutation,
   useGetPresignedUrlMutation,
   useProcessMediaMutation,

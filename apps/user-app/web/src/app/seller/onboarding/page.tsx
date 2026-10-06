@@ -365,8 +365,8 @@ export default function SellerOnboardingPage() {
       } catch {}
       dispatch(logout());
       dispatch(clearCart());
-      toast.info('Logged out. Please register or sign in with your separate seller account.');
-      router.push('/register');
+      toast.info('Logged out. Please sign in with your separate seller account.');
+      router.push('/login');
     };
 
     return (

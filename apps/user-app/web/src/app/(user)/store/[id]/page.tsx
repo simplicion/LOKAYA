@@ -18,6 +18,8 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import Script from 'next/script';
 
 export default function StoreProfilePage({ params }: { params?: Promise<{ id: string }> | { id: string } }) {
   const routeParams = useParams();
@@ -88,6 +90,65 @@ export default function StoreProfilePage({ params }: { params?: Promise<{ id: st
   const acceptsOnline = Array.isArray(acceptedPayments) ? acceptedPayments.includes('ONLINE PAYMENT') : true;
   const openingTime = store?.openingTime;
   const closingTime = store?.closingTime;
+
+  // Synchronize dynamic SEO metadata
+  React.useEffect(() => {
+    if (store?.name) {
+      const locationLabel = store.city || store.address || 'Local Merchant';
+      document.title = `${store.name} - Verified Store in ${locationLabel} | Lokaya`;
+
+      let canonicalLink = document.querySelector('link[rel="canonical"]');
+      if (!canonicalLink) {
+        canonicalLink = document.createElement('link');
+        canonicalLink.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalLink);
+      }
+      canonicalLink.setAttribute('href', `https://lokaya.shop/store/${store.id}`);
+
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement('meta');
+        metaDesc.setAttribute('name', 'description');
+        document.head.appendChild(metaDesc);
+      }
+      const descSnippet = store.description
+        ? `${store.name}: ${store.description.slice(0, 140)}... Shop on Lokaya.`
+        : `Shop directly from ${store.name} (${locationLabel}) on Lokaya. Browse verified products with fast local delivery.`;
+      metaDesc.setAttribute('content', descSnippet);
+    }
+  }, [store?.name, store?.id, store?.city, store?.address, store?.description]);
+
+  const storeJsonLd = React.useMemo(() => {
+    if (!store?.name) return null;
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Store',
+      name: store.name,
+      description: store.description || `Shop from ${store.name} on Lokaya.`,
+      url: `https://lokaya.shop/store/${store.id}`,
+      image: [
+        logoUrl ? getMediaUrl(logoUrl) : '',
+        bannerUrl ? getMediaUrl(bannerUrl) : ''
+      ].filter(Boolean),
+      ...(contactPhone ? { telephone: contactPhone } : {}),
+      ...(store.address || store.city ? {
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: store.address || '',
+          addressLocality: store.city || '',
+          addressRegion: store.state || '',
+          addressCountry: 'IN'
+        }
+      } : {}),
+      ...(reviewCount > 0 ? {
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: avgRating.toFixed(1),
+          reviewCount: reviewCount
+        }
+      } : {})
+    };
+  }, [store, logoUrl, bannerUrl, contactPhone, reviewCount, avgRating]);
 
   // Filter products by selected category
   const filteredProducts = selectedCategoryId
@@ -198,15 +259,33 @@ export default function StoreProfilePage({ params }: { params?: Promise<{ id: st
 
         {/* Store Profile Identity Card below banner with clearance for overlapping logo */}
         <div className="relative pt-15 pb-6 px-5 bg-white border-b border-gray-100 shadow-sm">
+          {storeJsonLd && (
+            <Script
+              id={`store-schema-${store.id}`}
+              type="application/ld+json"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{ __html: JSON.stringify(storeJsonLd) }}
+            />
+          )}
+
+          {/* Visible & Accessible Breadcrumbs */}
+          <Breadcrumbs 
+            items={[
+              { label: 'Local Stores', href: '/explore' },
+              { label: storeName }
+            ]} 
+            className="pb-2" 
+          />
+
           <div className="flex justify-between items-start gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <h2 className="text-2xl font-black text-gray-900 flex items-center gap-1.5 leading-tight truncate">
+                <h1 className="text-2xl font-black text-gray-900 flex items-center gap-1.5 leading-tight truncate">
                   {storeName}
                   {isVerified && (
                     <CheckCircle2 className="w-5 h-5 text-blue-500 fill-blue-500 text-white flex-shrink-0 animate-in zoom-in duration-300" />
                   )}
-                </h2>
+                </h1>
 
                 {storeCategory && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-[#FF5A36] border border-orange-200/70">

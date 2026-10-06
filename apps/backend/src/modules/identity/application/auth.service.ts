@@ -242,4 +242,63 @@ export class AuthService {
     const tokens = this.generateTokens(user);
     return { ...tokens, user: mapUserWithRole(user) };
   }
+
+  async oneEightyLogin(profile: { id?: string; sub?: string; email?: string; phone?: string; name?: string; picture?: string; avatarUrl?: string }) {
+    const oneEightyId = profile.id || profile.sub;
+    const email = profile.email || null;
+    const phone = profile.phone || null;
+    const name = profile.name || (email ? email.split('@')[0] : 'Lokaya User');
+    const avatarUrl = profile.avatarUrl || profile.picture || null;
+
+    let user: any = null;
+
+    if (oneEightyId) {
+      user = await prisma.user.findUnique({ where: { oneEightyId } });
+    }
+
+    if (!user && email) {
+      user = await prisma.user.findUnique({ where: { email } });
+    }
+
+    if (!user && phone) {
+      user = await prisma.user.findUnique({ where: { phone } });
+    }
+
+    let isNewUser = false;
+    if (!user) {
+      isNewUser = true;
+      user = await prisma.user.create({
+        data: {
+          oneEightyId,
+          email,
+          phone,
+          name,
+          avatarUrl,
+          authProvider: 'ONE_EIGHTY' as any,
+        }
+      });
+    } else {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          oneEightyId: oneEightyId || user.oneEightyId,
+          name: user.name || name,
+          avatarUrl: user.avatarUrl || avatarUrl,
+        }
+      });
+    }
+
+    const hasPassword = !!user.password;
+    const needsOnboarding = isNewUser || !user.locationArea;
+    const tokens = this.generateTokens(user);
+
+    return {
+      ...tokens,
+      user: { ...mapUserWithRole(user), hasPassword },
+      isNewUser,
+      hasPassword,
+      needsOnboarding
+    };
+  }
 }
+

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { MediaService } from './media.service';
+import { PlatformConfigService } from '../../common/platform-config.service';
 import fs from 'fs';
 import sharp from 'sharp';
 
@@ -44,13 +45,45 @@ export class AiStudioService {
     this.mediaService = new MediaService();
   }
 
-  private getGeminiApiKey(): string {
-    return (
-      process.env.GEMINI_API_KEY ||
-      process.env.GOOGLE_AI_KEY ||
-      process.env.GOOGLE_API_KEY ||
-      ''
-    );
+  /**
+   * Resolve active AI keys and preferred provider dynamically from PlatformSettings (Database)
+   * with fallback to .env variables.
+   */
+  private async getResolvedAiKeys(): Promise<{
+    geminiKey: string;
+    openAiKey: string;
+    preferredProvider: 'auto' | 'gemini' | 'openai';
+    isEnabled: boolean;
+  }> {
+    try {
+      const config = await PlatformConfigService.getRawAiConfig();
+      const geminiKey =
+        config.geminiApiKey ||
+        process.env.GEMINI_API_KEY ||
+        process.env.GOOGLE_AI_KEY ||
+        process.env.GOOGLE_API_KEY ||
+        '';
+      const openAiKey = config.openaiApiKey || process.env.OPENAI_API_KEY || '';
+      const preferredProvider = config.preferredProvider || 'auto';
+      const isEnabled = config.enableAiStudio !== false;
+      return { geminiKey, openAiKey, preferredProvider, isEnabled };
+    } catch {
+      return {
+        geminiKey:
+          process.env.GEMINI_API_KEY ||
+          process.env.GOOGLE_AI_KEY ||
+          process.env.GOOGLE_API_KEY ||
+          '',
+        openAiKey: process.env.OPENAI_API_KEY || '',
+        preferredProvider: 'auto',
+        isEnabled: true,
+      };
+    }
+  }
+
+  private async getGeminiApiKey(): Promise<string> {
+    const keys = await this.getResolvedAiKeys();
+    return keys.geminiKey;
   }
 
   /**
@@ -95,7 +128,7 @@ export class AiStudioService {
     category?: string,
     customPrompt?: string
   ): Promise<{ productAnalysis: any; generatedDetails: GeneratedProductDetails; recommendedShotCount: number }> {
-    const geminiKey = this.getGeminiApiKey();
+    const geminiKey = await this.getGeminiApiKey();
 
     const agent1Prompt = `
 You are AGENT 1: The Forensic Product Researcher & E-Commerce Catalog Taxonomist.
@@ -255,7 +288,7 @@ Respond strictly with valid JSON without markdown formatting:
     customPrompt?: string,
     targetShotCount: number = 7
   ): Promise<ShotPrompt[]> {
-    const geminiKey = this.getGeminiApiKey();
+    const geminiKey = await this.getGeminiApiKey();
     const count = Math.min(10, Math.max(6, targetShotCount));
 
     const agent2Prompt = `
@@ -557,9 +590,10 @@ Respond strictly with valid JSON without markdown formatting:
   private async generateWithGeminiImage(
     prompt: string,
     shotId: string,
-    referenceBuffer: Buffer | null
+    referenceBuffer: Buffer | null,
+    customKey?: string
   ): Promise<Buffer | null> {
-    const geminiKey = this.getGeminiApiKey();
+    const geminiKey = customKey || (await this.getGeminiApiKey());
     if (!geminiKey) return null;
 
     const parts: any[] = [];
@@ -631,27 +665,78 @@ Respond strictly with valid JSON without markdown formatting:
   }
 
   /**
-   * Step 2: Render studio angle image using Gemini Multimodal Image Edit & resilient studio compositor fallback
+   * Optional OpenAI DALL-E 3 Image Generation Engine
+   * Activated if configured in PlatformSettings or environment.
+   */
+  private async generateWithOpenAi(prompt: string, customKey?: string): Promise<Buffer | null> {
+    const openAiKey = customKey || (await this.getResolvedAiKeys()).openAiKey;
+    if (!openAiKey) return null;
+    try {
+      const res = await axios.post(
+        'https://api.openai.com/v1/images/generations',
+        {
+          model: 'dall-e-3',
+          prompt: `Commercial e-commerce product photography: ${prompt.slice(0, 950)}`,
+          n: 1,
+          size: '1024x1024',
+          response_format: 'b64_json',
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${openAiKey}`,
+          },
+          timeout: 45000,
+        }
+      );
+      const b64 = res.data?.data?.[0]?.b64_json;
+      if (b64) {
+        console.log('[AiStudioService] OpenAI DALL-E 3 successfully rendered shot');
+        return Buffer.from(b64, 'base64');
+      }
+    } catch (err: any) {
+      console.warn('[AiStudioService] OpenAI DALL-E generation failed:', err?.response?.data?.error?.message || err?.message);
+    }
+    return null;
+  }
+
+  /**
+   * Step 2: Render studio angle image using Gemini Multimodal Image Edit, OpenAI DALL-E, & resilient studio compositor fallback
    */
   async generateSingleImage(
     prompt: string,
     shotId: string,
-    referenceImages?: ReferenceImage[]
-  ): Promise<Buffer | null> {
+    referenceImages?: ReferenceImage[],
+    customKeys?: { geminiKey?: string; openAiKey?: string; preferredProvider?: 'auto' | 'gemini' | 'openai' }
+  ): Promise<{ buffer: Buffer; isFallback: boolean } | null> {
+    const keys = customKeys || (await this.getResolvedAiKeys());
     const refBuffer = this.getReferenceImageBuffer(referenceImages);
 
-    // 1. Primary Engine: Google Gemini Multimodal Image-to-Image Generation
-    if (refBuffer) {
-      const geminiImg = await this.generateWithGeminiImage(prompt, shotId, refBuffer);
-      if (geminiImg) return geminiImg;
+    // 1. If OpenAI is explicitly the preferred provider, try it first
+    if (keys.preferredProvider === 'openai' && keys.openAiKey) {
+      const openAiImg = await this.generateWithOpenAi(prompt, keys.openAiKey);
+      if (openAiImg) return { buffer: openAiImg, isFallback: false };
     }
 
-    // 2. Production Safety Net: Deterministic Luxury Studio Compositor
+    // 2. Primary Engine: Google Gemini Multimodal Image-to-Image Generation
+    if (refBuffer && keys.geminiKey) {
+      const geminiImg = await this.generateWithGeminiImage(prompt, shotId, refBuffer, keys.geminiKey);
+      if (geminiImg) return { buffer: geminiImg, isFallback: false };
+    }
+
+    // 3. Secondary Engine: OpenAI DALL-E 3 (if not tried yet)
+    if (keys.preferredProvider !== 'openai' && keys.openAiKey) {
+      const openAiImg = await this.generateWithOpenAi(prompt, keys.openAiKey);
+      if (openAiImg) return { buffer: openAiImg, isFallback: false };
+    }
+
+    // 4. Production Safety Net: Deterministic Luxury Studio Compositor
     // Guarantees 100% authentic product DNA, zero hallucination, zero cartoon
     try {
       if (refBuffer) {
         console.log(`[AiStudioService] Applying resilient studio backdrop enhancement for ${shotId}`);
-        return await this.generateStudioAngleFromReference(refBuffer, shotId);
+        const fallbackBuffer = await this.generateStudioAngleFromReference(refBuffer, shotId);
+        return { buffer: fallbackBuffer, isFallback: true };
       }
     } catch (sharpErr: any) {
       console.error(`[AiStudioService] Studio angle enhancement error for ${shotId}:`, sharpErr?.message || sharpErr);
@@ -662,7 +747,7 @@ Respond strictly with valid JSON without markdown formatting:
 
   /**
    * Step 3: Progressive Real-Time Streaming Photoshoot Orchestration
-   * Streams 5 angle prompts and image outputs sequentially as base64 without IP queue congestion
+   * Streams angle prompts and image outputs sequentially as base64 without IP queue congestion
    */
   async runStreamingPhotoshoot(
     userId: string,
@@ -672,6 +757,11 @@ Respond strictly with valid JSON without markdown formatting:
     customPrompt?: string,
     onEvent?: (event: string, data: any) => void
   ): Promise<void> {
+    const resolvedKeys = await this.getResolvedAiKeys();
+    if (!resolvedKeys.isEnabled) {
+      throw new Error('AI Product Studio is currently disabled in Platform Settings.');
+    }
+
     // 1. Vision Analysis & Prompt Planning
     const { productAnalysis, generatedDetails, shots: shotPrompts } = await this.analyzeProductAndGeneratePrompts(
       images,
@@ -695,16 +785,19 @@ Respond strictly with valid JSON without markdown formatting:
       });
     }
 
-    // 2. Generate all 5 shots with sequential queueing for optimal rate-limit handling & smooth real-time SSE streaming
+    // 2. Generate shots with sequential queueing for optimal rate-limit handling & smooth real-time SSE streaming
     let completedCount = 0;
+    let anyFallback = false;
+
     for (let i = 0; i < shotPrompts.length; i++) {
       const shot = shotPrompts[i];
       try {
-        const imageBuffer = await this.generateSingleImage(shot.prompt, shot.id, images);
+        const result = await this.generateSingleImage(shot.prompt, shot.id, images, resolvedKeys);
 
-        if (imageBuffer) {
+        if (result && result.buffer) {
           completedCount++;
-          const base64Data = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+          if (result.isFallback) anyFallback = true;
+          const base64Data = `data:image/jpeg;base64,${result.buffer.toString('base64')}`;
 
           if (onEvent) {
             onEvent('shot_complete', {
@@ -716,6 +809,7 @@ Respond strictly with valid JSON without markdown formatting:
               prompt: shot.prompt,
               completedCount,
               totalCount: shotPrompts.length,
+              isFallback: result.isFallback,
             });
           }
         } else {
@@ -747,6 +841,7 @@ Respond strictly with valid JSON without markdown formatting:
         success: completedCount > 0,
         totalCompleted: completedCount,
         totalRequested: shotPrompts.length,
+        isFallback: anyFallback,
       });
     }
   }
@@ -761,6 +856,11 @@ Respond strictly with valid JSON without markdown formatting:
     category?: string,
     customPrompt?: string
   ): Promise<{ success: boolean; productAnalysis: any; generatedDetails?: GeneratedProductDetails; shots: GeneratedStudioShot[] }> {
+    const resolvedKeys = await this.getResolvedAiKeys();
+    if (!resolvedKeys.isEnabled) {
+      throw new Error('AI Product Studio is currently disabled in Platform Settings.');
+    }
+
     const { productAnalysis, generatedDetails, shots: shotPrompts } = await this.analyzeProductAndGeneratePrompts(
       images,
       productName,
@@ -773,12 +873,12 @@ Respond strictly with valid JSON without markdown formatting:
     for (let i = 0; i < shotPrompts.length; i++) {
       const shot = shotPrompts[i];
       try {
-        const imageBuffer = await this.generateSingleImage(shot.prompt, shot.id, images);
+        const result = await this.generateSingleImage(shot.prompt, shot.id, images, resolvedKeys);
 
-        if (imageBuffer) {
+        if (result && result.buffer) {
           const uploadResult = await this.mediaService.uploadFile(userId, {
             originalname: `ai-studio-${shot.id}-${Date.now()}.jpg`,
-            buffer: imageBuffer,
+            buffer: result.buffer,
             mimetype: 'image/jpeg',
           });
 

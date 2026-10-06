@@ -93,6 +93,7 @@ export function AiStudioBottomSheet({
   const [generationStageText, setGenerationStageText] = useState<string>('Analyzing product details & geometry...');
   const [isUploadingToStorage, setIsUploadingToStorage] = useState<boolean>(false);
   const [activePickerSlot, setActivePickerSlot] = useState<1 | 2 | null>(null);
+  const [isFallbackMode, setIsFallbackMode] = useState<boolean>(false);
 
   const galleryInputRef1 = useRef<HTMLInputElement>(null);
   const cameraInputRef1 = useRef<HTMLInputElement>(null);
@@ -175,6 +176,7 @@ export function AiStudioBottomSheet({
 
     setStep('GENERATING');
     setGenerationStageText('Multimodal vision analyzing product geometry & styling...');
+    setIsFallbackMode(false);
 
     // Initialize 5 shots in rendering state
     const initialShots: ShotItem[] = DEFAULT_SHOTS.map(s => ({
@@ -272,6 +274,9 @@ export function AiStudioBottomSheet({
 
               // Automatically select the completed shot
               setSelectedShotIds(prev => prev.includes(parsedData.id) ? prev : [...prev, parsedData.id]);
+              if (parsedData.isFallback) {
+                setIsFallbackMode(true);
+              }
               setGenerationStageText(`Generating studio angles (${parsedData.completedCount || 1} of ${parsedData.totalCount || shots.length} ready)...`);
             } else if (eventType === 'shot_error') {
               setShots(prev => prev.map(s => {
@@ -281,7 +286,12 @@ export function AiStudioBottomSheet({
                 return s;
               }));
             } else if (eventType === 'done') {
-              if (isRegenerating) {
+              if (parsedData.isFallback) {
+                setIsFallbackMode(true);
+                toast.warning('Google AI Studio Free Tier has no image generation quota. Displaying smart framing crops.', {
+                  duration: 6000,
+                });
+              } else if (isRegenerating) {
                 setRegenerationsLeft(prev => Math.max(0, prev - 1));
                 toast.success('Photos updated with your custom direction');
               } else {
@@ -419,7 +429,7 @@ export function AiStudioBottomSheet({
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-brand-navy">AI Product Studio</h3>
                 <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-100">
-                  {step === 'GENERATING' ? `${completedReadyCount} of 5 Ready` : '5 Studio Angles'}
+                  {step === 'GENERATING' ? `${completedReadyCount} of ${shots.length} Ready` : `${readyShots.length || shots.length} Studio Angles`}
                 </span>
               </div>
               <p className="text-xs text-gray-500">
@@ -644,6 +654,19 @@ export function AiStudioBottomSheet({
                   </button>
                 </div>
               </div>
+
+              {/* Informative banner if running in fallback mode due to Gemini Free Tier quota */}
+              {isFallbackMode && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2.5 animate-in fade-in duration-200">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-amber-950">AI Image Model Quota Limit (Free Tier)</p>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      Google AI Studio Free Tier has a quota limit of 0 for real-time image generation models. The studio has generated adaptive camera crops instead. To unlock real photorealistic AI generation, attach a billing account to your project in Google AI Studio or add an <code className="font-mono bg-amber-100 px-1 py-0.5 rounded text-[10px]">OPENAI_API_KEY</code> to your backend.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Photos & Progressive Skeletons Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
