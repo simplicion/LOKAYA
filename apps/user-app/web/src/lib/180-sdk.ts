@@ -123,7 +123,7 @@ export async function triggerOneEightyLogin(options: {
       scope: 'openid identity:read identity:email identity:phone',
       uxMode,
       environment: 'production',
-      authServerUrl: 'https://profile.180workspace.com',
+      authServerUrl: process.env.NEXT_PUBLIC_180_AUTH_URL || 'https://profile.180workspace.com',
       onSuccess: options.onSuccess,
       onError: options.onError,
       onCancel: options.onCancel,
