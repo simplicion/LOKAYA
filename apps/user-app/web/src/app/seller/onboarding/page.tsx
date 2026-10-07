@@ -40,12 +40,14 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { logout } from '@/lib/features/authSlice';
 import { clearCart } from '@/lib/features/cartSlice';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 import { LocationService, LocationContext } from '@/lib/services/location.service';
 import { StoreLocationPicker } from '@/components/seller/StoreLocationPicker';
 
 export default function SellerOnboardingPage() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { openAuth } = useOneEightyAuth();
   const user = useSelector((state: RootState) => state.auth.user);
   const { data: myStore, isLoading: isMyStoreLoading } = useGetMyStoreQuery(undefined, { skip: !user });
   const { data: deliveryProfile, isLoading: isDeliveryProfileLoading } = useGetDeliveryProfileQuery(undefined, { skip: !user });
@@ -366,7 +368,7 @@ export default function SellerOnboardingPage() {
       dispatch(logout());
       dispatch(clearCart());
       toast.info('Logged out. Please sign in with your separate seller account.');
-      router.push('/login');
+      openAuth({ redirectOnSuccess: '/seller/onboarding' });
     };
 
     return (

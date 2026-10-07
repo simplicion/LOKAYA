@@ -20,6 +20,7 @@ import { useCurrency } from '@/context/CurrencyContext';
 import { RootState } from '@/lib/store';
 import { getMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 export interface ProductCardProps {
   product: {
@@ -51,6 +52,7 @@ export interface ProductCardProps {
 export function ProductCard({ product, isPreview = false }: ProductCardProps) {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { openAuth } = useOneEightyAuth();
   const { formatPrice } = useCurrency();
   const cartItems = useSelector((state: RootState) => state.cart.items);
   const user = useSelector((state: RootState) => (state as any).auth?.user);
@@ -155,8 +157,11 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
     e.stopPropagation();
 
     if (!user) {
-      toast.error('Please sign in to save items to your wishlist');
-      router.push('/login');
+      openAuth({
+        onSuccessCallback: () => {
+          toggleWishlist({ productId: product.id });
+        }
+      });
       return;
     }
 
@@ -230,8 +235,7 @@ export function ProductCard({ product, isPreview = false }: ProductCardProps) {
     e.stopPropagation();
 
     if (!user) {
-      toast.error('Please sign in to add items to your cart');
-      router.push('/login');
+      openAuth();
       return;
     }
 

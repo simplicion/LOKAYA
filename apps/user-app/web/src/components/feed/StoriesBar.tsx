@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 // Dedicated Story Avatar component with store logo priority & robust onError fallback
 function StoryAvatarItem({
@@ -79,13 +80,14 @@ export function StoriesBar() {
   const myStoreHasActiveStories = myStoreGroupIndex !== -1;
   const myStoreGroup = myStoreHasActiveStories ? feedGroups[myStoreGroupIndex] : null;
   const myLatestStoryMedia = myStoreGroup?.stories?.[0]?.mediaUrl;
+  const { openAuth } = useOneEightyAuth();
 
   const handleOpenMyStory = (e: React.MouseEvent) => {
     e.stopPropagation();
 
     if (!isAuthenticated || !user) {
       toast.info('Please log in to share stories with your followers');
-      router.push('/login?redirect=/home');
+      openAuth({ redirectOnSuccess: '/home' });
       return;
     }
 
@@ -108,7 +110,7 @@ export function StoriesBar() {
 
     if (!isAuthenticated || !user) {
       toast.info('Please log in to share stories with your followers');
-      router.push('/login?redirect=/home');
+      openAuth({ redirectOnSuccess: '/home' });
       return;
     }
 

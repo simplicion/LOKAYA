@@ -20,6 +20,7 @@ import { RootState } from '@/lib/store';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import Script from 'next/script';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 export default function StoreProfilePage({ params }: { params?: Promise<{ id: string }> | { id: string } }) {
   const routeParams = useParams();
@@ -34,6 +35,7 @@ export default function StoreProfilePage({ params }: { params?: Promise<{ id: st
       ? pathId 
       : (routeId || pathId || '');
   const router = useRouter();
+  const { openAuth } = useOneEightyAuth();
   const currentUser = useSelector((state: RootState) => (state as any).auth?.user);
   
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -54,8 +56,7 @@ export default function StoreProfilePage({ params }: { params?: Promise<{ id: st
 
   const handlePartnerRequest = async () => {
     if (!currentUser) {
-      toast.error('Please sign in to send partner requests');
-      router.push('/login');
+      openAuth();
       return;
     }
 

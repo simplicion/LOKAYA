@@ -48,12 +48,12 @@ export default function SellerSettingsPage() {
       dispatch(logout());
       dispatch(clearCart());
       toast.success('Logged out successfully');
-      router.push('/login');
+      router.push('/home');
     } catch (err) {
       console.error('Logout error:', err);
       dispatch(logout());
       dispatch(clearCart());
-      router.push('/login');
+      router.push('/home');
     }
   };
 

@@ -70,7 +70,7 @@ export function RegularProfile() {
     dispatch(logout());
     dispatch(clearCart());
     toast.success('Logged out successfully');
-    router.push('/login');
+    router.push('/home');
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

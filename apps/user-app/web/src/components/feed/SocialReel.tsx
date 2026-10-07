@@ -18,6 +18,7 @@ import { RootState } from '@/lib/store';
 
 import { VideoPlayer } from '../media/VideoPlayer';
 import { useFeedSound } from '@/context/FeedSoundContext';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 export interface SocialReelProps {
   id: string;
@@ -87,14 +88,14 @@ export function SocialReel({
 }: SocialReelProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { openAuth } = useOneEightyAuth();
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isAuthor = Boolean(currentUser?.id && authorId && currentUser.id === authorId);
   const showOptimizingBadge = isAuthor && (status === 'PROCESSING' || status === 'PENDING' || isOptimizing);
 
   const redirectToLogin = (msg: string) => {
-    toast.error(msg);
     const currentUrl = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : (pathname || '/home/reels');
-    router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`);
+    openAuth({ redirectOnSuccess: currentUrl });
   };
 
   const [isPlaying, setIsPlaying] = useState(true);

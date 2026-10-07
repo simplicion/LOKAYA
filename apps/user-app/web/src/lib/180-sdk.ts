@@ -112,7 +112,7 @@ export async function triggerOneEightyLogin(options: {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const uxMode = options.uxMode || 'bottom_sheet';
 
-  const redirectUri = options.redirectUri || (typeof window !== 'undefined' ? `${window.location.origin}/login` : '');
+  const redirectUri = options.redirectUri || (typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '');
 
   const loginFn = auth.signIn || (window as any).OneEighty?.signIn || auth.openLoginPopup;
 

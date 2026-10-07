@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { bottomSheetVariants, backdropVariants } from '@/lib/animations';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 interface ReviewBottomSheetProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export function ReviewBottomSheet({
   onReviewSubmitted
 }: ReviewBottomSheetProps) {
   const router = useRouter();
+  const { openAuth } = useOneEightyAuth();
   const { data: user } = useCheckAuthQuery();
   const [createReview, { isLoading: isSubmitting }] = useCreateProductReviewMutation();
 
@@ -108,8 +110,7 @@ export function ReviewBottomSheet({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      toast.error('Please sign in to post your customer review');
-      router.push('/login');
+      openAuth();
       return;
     }
 

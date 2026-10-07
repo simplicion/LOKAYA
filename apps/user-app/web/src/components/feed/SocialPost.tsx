@@ -18,6 +18,7 @@ import { RootState } from '@/lib/store';
 import { toast } from 'sonner';
 import { VideoPlayer } from '../media/VideoPlayer';
 import { useFeedSound } from '@/context/FeedSoundContext';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 export interface SocialPostProps {
   id: string;
@@ -84,13 +85,13 @@ export function SocialPost({
 }: SocialPostProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { openAuth } = useOneEightyAuth();
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isAuthor = Boolean(currentUser?.id && authorId && currentUser.id === authorId);
 
   const redirectToLogin = (msg: string) => {
-    toast.error(msg);
     const currentUrl = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : (pathname || '/home');
-    router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`);
+    openAuth({ redirectOnSuccess: currentUrl });
   };
 
   // Global feed sound state (unmute one -> unmutes all across the feed)

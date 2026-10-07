@@ -40,12 +40,14 @@ import {
 import { LocationService, LocationContext } from '@/lib/services/location.service';
 import { logout } from '@/lib/features/authSlice';
 import { clearCart } from '@/lib/features/cartSlice';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 export default function DeliveryOnboardingPage() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { openAuth } = useOneEightyAuth();
   const user = useSelector((state: RootState) => state.auth.user);
   const { data: profile, isLoading: isProfileLoading, refetch } = useGetDeliveryProfileQuery(undefined, { skip: !user });
   const { data: myStore, isLoading: isStoreLoading } = useGetMyStoreQuery(undefined, { skip: !user });
@@ -355,7 +357,7 @@ export default function DeliveryOnboardingPage() {
               onClick={() => {
                 dispatch(logout());
                 dispatch(clearCart());
-                router.push('/login');
+                openAuth({ redirectOnSuccess: '/delivery/onboarding' });
               }}
               className="w-full h-11 rounded-xl border-[#E5E2DC] text-[#171717] font-bold text-xs hover:bg-gray-50"
             >

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 const slides = [
   {
@@ -36,12 +37,13 @@ const slides = [
 export default function Onboarding() {
   const [activeSlide, setActiveSlide] = useState(0);
   const router = useRouter();
+  const { openAuth } = useOneEightyAuth();
 
   const handleNext = () => {
     if (activeSlide < slides.length - 1) {
       setActiveSlide(activeSlide + 1);
     } else {
-      router.push('/login');
+      openAuth({ redirectOnSuccess: '/home' });
     }
   };
 
@@ -98,9 +100,13 @@ export default function Onboarding() {
           {/* Login Link */}
           <div className="mt-6 text-sm font-medium text-[#64748B]">
             Already have an account?{' '}
-            <Link href="/login" className="text-[#172554] font-bold hover:underline">
+            <button 
+              type="button"
+              onClick={() => openAuth({ redirectOnSuccess: '/home' })} 
+              className="text-[#172554] font-bold hover:underline cursor-pointer"
+            >
               Login
-            </Link>
+            </button>
           </div>
         </div>
       </div>

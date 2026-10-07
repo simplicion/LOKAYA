@@ -7,6 +7,7 @@ import { Trash2, Plus, Minus, Heart, Sparkles, Check, AlertCircle, Package } fro
 import { useToggleWishlistMutation, useGetWishlistQuery } from '@/lib/api';
 import { useCurrency } from '@/context/CurrencyContext';
 import { toast } from 'sonner';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 interface CartProductCardProps {
   id: string; // Cart item ID
@@ -42,6 +43,7 @@ export function CartProductCard({
   onRemove
 }: CartProductCardProps) {
   const router = useRouter();
+  const { openAuth } = useOneEightyAuth();
   const user = useSelector((state: RootState) => (state as any).auth?.user);
   const { formatPrice } = useCurrency();
   const { data: wishlistData } = useGetWishlistQuery(undefined, { skip: !user });
@@ -65,8 +67,7 @@ export function CartProductCard({
 
   const handleSaveForLater = async () => {
     if (!user) {
-      toast.error('Please sign in to save items to your wishlist');
-      router.push('/login');
+      openAuth();
       return;
     }
 

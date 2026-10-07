@@ -36,6 +36,7 @@ import {
 import { ShareBottomSheet } from '@/components/ui/ShareBottomSheet';
 import { StoryViewerModal } from '@/components/feed/StoryViewerModal';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 import Script from 'next/script';
 import { toast } from 'sonner';
 
@@ -54,6 +55,7 @@ export default function UserPublicProfilePage({ params }: { params?: Promise<{ i
       : (routeId || pathId || '');
 
   const currentUser = useSelector((state: RootState) => state.auth.user);
+  const { openAuth } = useOneEightyAuth();
 
   // If viewing own profile, seamlessly redirect to /profile
   useEffect(() => {
@@ -108,9 +110,14 @@ export default function UserPublicProfilePage({ params }: { params?: Promise<{ i
 
   const handleToggleFollow = async () => {
     if (!currentUser) {
-      toast.error('Please sign in to follow');
       const currentPath = typeof window !== 'undefined' ? window.location.pathname : `/user/${userId}`;
-      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      openAuth({
+        redirectOnSuccess: currentPath,
+        onSuccessCallback: () => {
+          setIsFollowing(true);
+          followUser(targetUserId);
+        }
+      });
       return;
     }
 

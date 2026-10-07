@@ -10,6 +10,7 @@ import { getMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { bottomSheetVariants, backdropVariants } from '@/lib/animations';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 interface CommentsBottomSheetProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ function formatRelativeTime(dateString: string): string {
 
 export function CommentsBottomSheet({ isOpen, onClose, targetId, type, onCommentAdded }: CommentsBottomSheetProps) {
   const router = useRouter();
+  const { openAuth } = useOneEightyAuth();
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [content, setContent] = useState('');
   const [optimisticComments, setOptimisticComments] = useState<any[]>([]);
@@ -113,9 +115,8 @@ export function CommentsBottomSheet({ isOpen, onClose, targetId, type, onComment
     if (!trimmed) return;
 
     if (!currentUser) {
-      toast.error('Please sign in to comment');
       const currentUrl = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '/home';
-      router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`);
+      openAuth({ redirectOnSuccess: currentUrl });
       return;
     }
 

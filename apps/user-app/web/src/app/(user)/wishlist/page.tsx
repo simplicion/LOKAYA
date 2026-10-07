@@ -1,28 +1,48 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
-import { ArrowLeft, Heart } from 'lucide-react';
+import { ArrowLeft, Heart, Loader2 } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 import { useGetWishlistQuery } from '@/lib/api';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 export default function WishlistPage() {
   const router = useRouter();
   const user = useSelector((state: any) => state.auth.user);
+  const { openAuth } = useOneEightyAuth();
+  const authTriggeredRef = useRef(false);
 
   useEffect(() => {
     if (!user) {
-      router.push('/login?redirect=/wishlist');
+      if (!authTriggeredRef.current) {
+        authTriggeredRef.current = true;
+        openAuth({
+          redirectOnSuccess: '/wishlist',
+          onCancel: () => {
+            router.replace('/');
+          },
+        });
+      }
     }
-  }, [user, router]);
+  }, [user, router, openAuth]);
 
   const { data: wishlistResponse, isLoading } = useGetWishlistQuery(undefined, {
     skip: !user,
   });
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="flex flex-col min-h-[70vh] items-center justify-center bg-[#FAF9F6] gap-3">
+        <Loader2 className="w-8 h-8 text-[#FF5A36] animate-spin" />
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Connecting Sovereign Identity...
+        </span>
+      </div>
+    );
+  }
 
   const wishlistProducts = (wishlistResponse?.data || [])
     .map((item: any) => item.product)

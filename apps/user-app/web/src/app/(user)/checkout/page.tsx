@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 import Image from 'next/image';
 
 import { 
@@ -50,6 +51,7 @@ function CheckoutContent() {
   // 180 Pay Universal Sovereign Checkout: Online card payments are universally available (Nepal, India & Global)
   const isOnlinePaymentAvailable = true;
   const user = useSelector((state: RootState) => (state as any).auth?.user);
+  const { openAuth } = useOneEightyAuth();
 
   // URL Query Params for direct buy now
   const directProductId = searchParams.get('productId');
@@ -338,7 +340,7 @@ function CheckoutContent() {
   const handlePlaceOrder = async () => {
     if (!user) {
       toast.error('Please sign in to complete your purchase');
-      router.push(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      openAuth();
       return;
     }
 

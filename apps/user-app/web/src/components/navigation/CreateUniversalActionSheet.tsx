@@ -16,6 +16,7 @@ import {
   ChevronRight 
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 interface CreateUniversalActionSheetProps {
   isOpen: boolean;
@@ -29,14 +30,14 @@ export function CreateUniversalActionSheet({
   onOpenStoryModal,
 }: CreateUniversalActionSheetProps) {
   const router = useRouter();
+  const { openAuth } = useOneEightyAuth();
   const user = useSelector((state: RootState) => state.auth.user);
   const { data: myStore } = useGetMyStoreQuery(undefined, { skip: !user });
 
   const handleAddProduct = () => {
     onClose();
     if (!user) {
-      toast.info('Please sign in to list products');
-      router.push('/login?redirect=/seller/products/add');
+      openAuth({ redirectOnSuccess: '/seller/products/add' });
       return;
     }
     if (myStore) {
@@ -50,8 +51,7 @@ export function CreateUniversalActionSheet({
   const handleCreatePost = () => {
     onClose();
     if (!user) {
-      toast.info('Please sign in to share posts');
-      router.push('/login?redirect=/profile/create/post');
+      openAuth({ redirectOnSuccess: '/profile/create/post' });
       return;
     }
     router.push('/profile/create/post');
@@ -60,8 +60,7 @@ export function CreateUniversalActionSheet({
   const handleAddStory = () => {
     onClose();
     if (!user) {
-      toast.info('Please sign in to post stories');
-      router.push('/login?redirect=/home');
+      openAuth({ redirectOnSuccess: '/home' });
       return;
     }
     if (myStore) {

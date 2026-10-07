@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 import { Logo } from "@/components/ui/logo";
 import { SellerSidebar, SellerBottomNav } from '@/components/seller/SellerNavigation';
 import { FloatingCartBar } from '@/components/cart/FloatingCartBar';
@@ -16,13 +17,14 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   const user = useSelector((state: any) => state.auth.user);
   const router = useRouter();
   const pathname = usePathname();
+  const { openAuth } = useOneEightyAuth();
   const { data: store, isLoading } = useGetMyStoreQuery(undefined, { skip: !user });
 
   useEffect(() => {
     if (!user) {
-      router.push('/login');
+      openAuth({ redirectOnSuccess: pathname || '/seller' });
     }
-  }, [user, router]);
+  }, [user, pathname, openAuth]);
 
   if (!user) return null;
 

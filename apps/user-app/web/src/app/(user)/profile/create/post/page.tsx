@@ -13,6 +13,7 @@ import { cn, generateVideoThumbnail, getMediaUrl } from '@/lib/utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { useUpload } from '@/context/UploadContext';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 import { toast } from 'sonner';
 
 const MAX_VIDEO_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
@@ -45,20 +46,22 @@ export default function CreatePostPage() {
   const [pendingTrimmerFile, setPendingTrimmerFile] = useState<File | null>(null);
   const [trimData, setTrimData] = useState<{ startTime: number; endTime: number; duration: number } | null>(null);
 
+  const { openAuth } = useOneEightyAuth();
+
   // Auth Guard
   useEffect(() => {
     if (!isAuthenticated && !user) {
       toast.info('Please log in to create posts');
-      router.push('/login?redirect=/profile/create/post');
+      openAuth({ redirectOnSuccess: '/profile/create/post' });
       return;
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, openAuth]);
 
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center p-4">
         <Loader2 className="w-8 h-8 text-[#FF5A36] animate-spin mb-3" />
-        <p className="text-sm font-medium text-gray-500">Redirecting to login...</p>
+        <p className="text-sm font-medium text-gray-500">Opening 180 Identity...</p>
       </div>
     );
   }

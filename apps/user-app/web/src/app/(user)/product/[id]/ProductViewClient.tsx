@@ -49,10 +49,12 @@ import { recordRecentlyViewed } from '@/lib/services/recentlyViewed';
 import { AdaptiveSkeleton } from '@/components/ui/AdaptiveSkeleton';
 import { ReviewBottomSheet } from '@/components/ui/ReviewBottomSheet';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 export default function ProductViewClient({ productId, initialData }: { productId: string; initialData?: any }) {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { openAuth } = useOneEightyAuth();
   const { formatPrice } = useCurrency();
   const user = useSelector((state: any) => state.auth?.user);
 
@@ -308,8 +310,12 @@ export default function ProductViewClient({ productId, initialData }: { productI
   const handleWishlist = async () => {
     if (!product?.id) return;
     if (!user) {
-      toast.error('Please sign in to save items to your wishlist');
-      router.push('/login');
+      openAuth({
+        onSuccessCallback: () => {
+          setIsWishlisted(true);
+          toggleWishlist({ productId: product.id });
+        }
+      });
       return;
     }
     setIsWishlisted(prev => !prev);
@@ -325,8 +331,7 @@ export default function ProductViewClient({ productId, initialData }: { productI
     if (!product?.id) return;
 
     if (!user) {
-      toast.error('Please sign in to add items to your cart');
-      router.push('/login');
+      openAuth();
       return;
     }
 
@@ -372,8 +377,11 @@ export default function ProductViewClient({ productId, initialData }: { productI
 
   const handleBuyNow = () => {
     if (!user) {
-      toast.error('Please sign in to complete your purchase');
-      router.push('/login');
+      openAuth({
+        onSuccessCallback: () => {
+          router.push(`/checkout?productId=${product.id}${selectedVariant?.id ? `&variantId=${selectedVariant.id}` : ''}&quantity=1`);
+        }
+      });
       return;
     }
 
@@ -992,8 +1000,11 @@ export default function ProductViewClient({ productId, initialData }: { productI
             size="sm"
             onClick={() => {
               if (!user) {
-                toast.error('Please sign in to write a review');
-                router.push('/login');
+                openAuth({
+                  onSuccessCallback: () => {
+                    setIsReviewBottomSheetOpen(true);
+                  }
+                });
                 return;
               }
               setIsReviewBottomSheetOpen(true);

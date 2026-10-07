@@ -8,11 +8,13 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { useState, useEffect } from 'react';
 import { api, useGetMyStoreQuery } from '@/lib/api';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useDispatch();
+  const { openAuth } = useOneEightyAuth();
   const user = useSelector((state: RootState) => state.auth.user);
   const cart = useSelector((state: RootState) => state.cart);
   const cartTotalItems = Object.values(cart.items).reduce((sum, item) => sum + item.quantity, 0);
@@ -82,7 +84,7 @@ export function MobileBottomNav() {
         const Icon = link.icon;
         const isProfileTab = link.href === '/profile';
         const showProfileAvatar = isProfileTab && Boolean(user);
-        const targetHref = isProfileTab && !user ? '/login?redirect=/profile' : link.href;
+        const targetHref = isProfileTab && !user ? '#' : link.href;
         let isActive = false;
         if (link.href === '/home') {
           isActive = pathname === '/home' || pathname === '/';
@@ -101,7 +103,7 @@ export function MobileBottomNav() {
         const handleClick = (e: React.MouseEvent) => {
           if (link.href === '/profile' && !user) {
             e.preventDefault();
-            router.push(targetHref);
+            openAuth({ redirectOnSuccess: '/profile' });
           }
         };
         

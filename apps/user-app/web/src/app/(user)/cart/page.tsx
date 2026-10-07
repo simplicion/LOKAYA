@@ -41,10 +41,12 @@ import {
 } from '@/lib/api';
 import { useCurrency } from '@/context/CurrencyContext';
 import { toast } from 'sonner';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 export default function CartPage() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { openAuth } = useOneEightyAuth();
   const { formatPrice, currencySymbol } = useCurrency();
   const user = useSelector((state: RootState) => (state as any).auth?.user);
   const reduxCart = useSelector((state: RootState) => state.cart);
@@ -188,7 +190,7 @@ export default function CartPage() {
 
   const handleCheckout = () => {
     if (!user) {
-      router.push('/login?redirect=/checkout');
+      openAuth({ redirectOnSuccess: '/checkout' });
     } else {
       router.push('/checkout');
     }
@@ -513,7 +515,13 @@ export default function CartPage() {
                 <h3 className="font-extrabold text-sm text-[#171717]">Delivery Address</h3>
               </div>
               <button 
-                onClick={() => router.push(user ? '/checkout' : '/login?redirect=/checkout')}
+                onClick={() => {
+                  if (!user) {
+                    openAuth({ redirectOnSuccess: '/checkout' });
+                  } else {
+                    router.push('/checkout');
+                  }
+                }}
                 className="text-[#FF5A36] text-xs font-bold hover:underline"
               >
                 {defaultAddress ? 'Change' : '+ Add Address'}

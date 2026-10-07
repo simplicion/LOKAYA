@@ -20,6 +20,7 @@ import { useGetDeliveryProfileQuery, useUpdateDeliveryLocationMutation, useGetUs
 import { cn } from '@/lib/utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 
 export default function DeliveryLayout({
   children,
@@ -28,6 +29,7 @@ export default function DeliveryLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { openAuth } = useOneEightyAuth();
   const user = useSelector((state: RootState) => state.auth.user);
   
   const { data: profile, isLoading } = useGetDeliveryProfileQuery(undefined, { skip: !user });
@@ -39,6 +41,13 @@ export default function DeliveryLayout({
   const [updateLocation] = useUpdateDeliveryLocationMutation();
 
   const isOnboarding = pathname === '/delivery/onboarding';
+
+  // Trigger 180 auth if unauthenticated
+  useEffect(() => {
+    if (!user && !isLoading) {
+      openAuth({ redirectOnSuccess: pathname || '/delivery' });
+    }
+  }, [user, isLoading, pathname, openAuth]);
 
   // Real-time GPS Telemetry Watcher
   useEffect(() => {
@@ -69,10 +78,16 @@ export default function DeliveryLayout({
     );
   }
 
-  // If not logged in, redirect to login
+  // If not logged in, show auth holding screen
   if (!user) {
-    if (typeof window !== 'undefined') router.push('/login');
-    return null;
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#FAF9F6] text-[#171717]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-[#FF5A36]" />
+          <p className="text-xs font-bold uppercase tracking-wider text-[#6B6B6B]">Opening 180 Identity...</p>
+        </div>
+      </div>
+    );
   }
 
   // If user has no delivery profile and is not on onboarding page, redirect to onboarding

@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { useCheckAuthQuery } from '@/lib/api';
+import { useOneEightyAuth } from '@/lib/useOneEightyAuth';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -19,6 +20,8 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
   const user = reduxUser || authData?.user;
   const router = useRouter();
   const pathname = usePathname();
+  const { openAuth } = useOneEightyAuth();
+  const authTriggeredRef = useRef(false);
 
   const allowedRolesKey = useMemo(() => allowedRoles?.slice().sort().join(',') || '', [allowedRoles]);
 
@@ -27,8 +30,15 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
     if (isAuthLoading) return;
 
     if (!user) {
-      toast.error('Please login to access this page');
-      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+      if (!authTriggeredRef.current) {
+        authTriggeredRef.current = true;
+        openAuth({
+          redirectOnSuccess: pathname,
+          onCancel: () => {
+            router.replace('/');
+          }
+        });
+      }
       return;
     }
 
@@ -37,18 +47,17 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
       router.replace('/');
       return;
     }
-  }, [user, isAuthLoading, allowedRolesKey, router, pathname, allowedRoles]);
+  }, [user, isAuthLoading, allowedRolesKey, router, pathname, allowedRoles, openAuth]);
 
-  if (isAuthLoading) {
+  if (isAuthLoading || !user) {
     return (
-      <div className="flex h-[60vh] items-center justify-center bg-[#FAF9F6]">
+      <div className="flex flex-col h-[70vh] items-center justify-center bg-[#FAF9F6] gap-3">
         <Loader2 className="w-8 h-8 text-[#FF5A36] animate-spin" />
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Connecting Sovereign Identity...
+        </span>
       </div>
     );
-  }
-
-  if (!user) {
-    return null;
   }
 
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
