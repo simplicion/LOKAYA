@@ -116,27 +116,98 @@ async function run() {
     if (fs.existsSync(androidRes)) {
       console.log('Generating Android icons and splash screens for ' + androidRes + '...');
 
-      // Launcher icon sizes:
-      // mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192
-      const densities = [
-        { name: 'mipmap-mdpi', size: 48 },
-        { name: 'mipmap-hdpi', size: 72 },
-        { name: 'mipmap-xhdpi', size: 96 },
-        { name: 'mipmap-xxhdpi', size: 144 },
-        { name: 'mipmap-xxxhdpi', size: 192 },
+      // Prepare clean transparent trimmed logo for adaptive icon compositing
+      const logoTransparentSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120" width="420" height="120">
+  <g transform="translate(20, 20)">
+    <text x="5" y="66" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="900" font-size="72" fill="#111111" letter-spacing="-2">L</text>
+    <circle cx="95" cy="42" r="30" fill="none" stroke="#FF5400" stroke-width="16" />
+    <text x="145" y="66" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="900" font-size="72" fill="#111111" letter-spacing="-2">KAYA</text>
+  </g>
+</svg>`;
+      const trimmedLogoBuffer = await sharp(Buffer.from(logoTransparentSvg)).trim().toBuffer();
+
+      // Adaptive icon foregrounds: canvas is 108dp (inner 66% is visible circle)
+      // Legacy icons: canvas is 48/72/96/144/192
+      const iconDensities = [
+        { name: 'mipmap-mdpi', canvasSize: 108, legacySize: 48 },
+        { name: 'mipmap-hdpi', canvasSize: 162, legacySize: 72 },
+        { name: 'mipmap-xhdpi', canvasSize: 216, legacySize: 96 },
+        { name: 'mipmap-xxhdpi', canvasSize: 324, legacySize: 144 },
+        { name: 'mipmap-xxxhdpi', canvasSize: 432, legacySize: 192 },
       ];
 
-      for (const d of densities) {
+      for (const d of iconDensities) {
         const dir = path.join(androidRes, d.name);
         if (fs.existsSync(dir)) {
-          const resized = await sharp(iconBuffer)
-            .resize(d.size, d.size)
+          // 1. Adaptive foreground: 108dp canvas, logo sized to ~54% so it stays completely inside circular mask
+          const fgLogoWidth = Math.round(d.canvasSize * 0.54);
+          const fgResizedLogo = await sharp(trimmedLogoBuffer)
+            .resize({ width: fgLogoWidth })
+            .toBuffer();
+
+          const foreground = await sharp({
+            create: {
+              width: d.canvasSize,
+              height: d.canvasSize,
+              channels: 4,
+              background: { r: 255, g: 255, b: 255, alpha: 0 }
+            }
+          })
+            .composite([{ input: fgResizedLogo, gravity: 'center' }])
             .png({ quality: 100 })
             .toBuffer();
 
-          fs.writeFileSync(path.join(dir, 'ic_launcher.png'), resized);
-          fs.writeFileSync(path.join(dir, 'ic_launcher_round.png'), resized);
-          fs.writeFileSync(path.join(dir, 'ic_launcher_foreground.png'), resized);
+          fs.writeFileSync(path.join(dir, 'ic_launcher_foreground.png'), foreground);
+
+          // 2. Legacy square icon: White background, logo centered (~68% width)
+          const legacySquareLogoWidth = Math.round(d.legacySize * 0.68);
+          const legacySquareResized = await sharp(trimmedLogoBuffer)
+            .resize({ width: legacySquareLogoWidth })
+            .toBuffer();
+
+          const legacySquare = await sharp({
+            create: {
+              width: d.legacySize,
+              height: d.legacySize,
+              channels: 4,
+              background: { r: 255, g: 255, b: 255, alpha: 1 }
+            }
+          })
+            .composite([{ input: legacySquareResized, gravity: 'center' }])
+            .png({ quality: 100 })
+            .toBuffer();
+
+          fs.writeFileSync(path.join(dir, 'ic_launcher.png'), legacySquare);
+
+          // 3. Legacy round icon: Circular mask with white background and logo centered (~60% width)
+          const legacyRoundLogoWidth = Math.round(d.legacySize * 0.60);
+          const legacyRoundResized = await sharp(trimmedLogoBuffer)
+            .resize({ width: legacyRoundLogoWidth })
+            .toBuffer();
+
+          // Circle SVG mask
+          const radius = Math.floor(d.legacySize / 2);
+          const circleSvg = Buffer.from(
+            `<svg width="${d.legacySize}" height="${d.legacySize}"><circle cx="${radius}" cy="${radius}" r="${radius}" fill="#FFFFFF"/></svg>`
+          );
+
+          const legacyRound = await sharp({
+            create: {
+              width: d.legacySize,
+              height: d.legacySize,
+              channels: 4,
+              background: { r: 255, g: 255, b: 255, alpha: 0 }
+            }
+          })
+            .composite([
+              { input: circleSvg, blend: 'over' },
+              { input: legacyRoundResized, gravity: 'center' }
+            ])
+            .png({ quality: 100 })
+            .toBuffer();
+
+          fs.writeFileSync(path.join(dir, 'ic_launcher_round.png'), legacyRound);
         }
       }
 

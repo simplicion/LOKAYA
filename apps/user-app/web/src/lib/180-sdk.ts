@@ -112,7 +112,15 @@ export async function triggerOneEightyLogin(options: {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const uxMode = options.uxMode || 'bottom_sheet';
 
-  const redirectUri = options.redirectUri || (typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '');
+  let redirectUri = options.redirectUri;
+  if (!redirectUri && typeof window !== 'undefined') {
+    const origin = window.location.origin;
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      redirectUri = 'https://lokaya.shop';
+    } else {
+      redirectUri = `${origin}${window.location.pathname}`;
+    }
+  }
 
   const loginFn = auth.signIn || (window as any).OneEighty?.signIn || auth.openLoginPopup;
 

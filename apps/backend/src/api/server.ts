@@ -81,7 +81,10 @@ export function startApiServer() {
       if (
         !origin || 
         allAllowedOrigins.has(origin) || 
-        /^http:\/\/localhost:\d+$/.test(origin) ||
+        origin === 'https://localhost' ||
+        origin === 'capacitor://localhost' ||
+        origin === 'http://localhost' ||
+        /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
         /\.pages\.dev$/.test(origin) ||
         /\.workers\.dev$/.test(origin) ||
         /\.lokaya\.shop$/.test(origin) ||
