@@ -196,7 +196,7 @@ export function AiStudioBottomSheet({
       formData.append('customPrompt', isRegenerating ? customPrompt : productNotes);
     }
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.lokaya.shop/api/v1';
 
     try {
       const response = await fetch(`${apiBase}/media/ai-photoshoot-stream`, {

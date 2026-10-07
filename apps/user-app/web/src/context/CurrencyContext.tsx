@@ -54,7 +54,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // 1. Fetch live rates dynamically from real endpoints
   const fetchLiveRates = async () => {
     try {
-      const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
+      const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.lokaya.shop/api/v1';
       const baseUrl = rawApiUrl.replace(/\/api\/v1\/?$/, '');
       const res = await fetch(`${baseUrl}/api/v1/meta/currency-rates?base=INR`);
       if (res.ok) {

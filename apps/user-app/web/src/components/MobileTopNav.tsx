@@ -229,10 +229,15 @@ export function MobileTopNav() {
 
   return (
     <>
-      <div className={cn(
-        "flex items-center justify-between px-4 pt-3.5 pb-2.5 sticky top-0 bg-white/95 backdrop-blur-md z-50 transition-transform duration-300 border-b border-gray-100/80",
-        isVisible ? "translate-y-0" : "-translate-y-full"
-      )}>
+      <div 
+        className={cn(
+          "flex items-center justify-between px-4 pb-2.5 sticky top-0 bg-white z-50 transition-transform duration-300 border-b border-gray-100/80",
+          isVisible ? "translate-y-0" : "-translate-y-full"
+        )}
+        style={{
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)'
+        }}
+      >
         <div className="w-9 h-9 flex items-center justify-start shrink-0">
           {leftContent}
         </div>

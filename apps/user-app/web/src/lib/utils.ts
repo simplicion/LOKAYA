@@ -13,12 +13,12 @@ export function getMediaUrl(url: string | null | undefined): string {
     return url;
   }
 
-  // Determine base API URL
-  let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
+  // Determine base API URL (default to live production endpoint)
+  let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.lokaya.shop/api/v1';
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    // In production or on live domain, never point to localhost on client device
-    if ((host.includes('lokaya.shop') || host.includes('lokaya.com')) && (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1'))) {
+    // On Capacitor native, localhost mobile webview, or live domains, never point to local backend port
+    if ((host === 'localhost' || host.includes('lokaya.shop') || host.includes('lokaya.com')) && (apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1'))) {
       apiUrl = 'https://api.lokaya.shop/api/v1';
     }
   }

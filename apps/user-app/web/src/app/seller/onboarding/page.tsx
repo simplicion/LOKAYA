@@ -360,7 +360,7 @@ export default function SellerOnboardingPage() {
   if (deliveryProfile) {
     const handleLogoutAndRegisterSeller = async () => {
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1'}/identity/logout`, {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.lokaya.shop/api/v1'}/identity/logout`, {
           method: 'POST',
           credentials: 'include',
         });

@@ -3,7 +3,7 @@ import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolk
 import { logout, setCredentials } from './features/authSlice';
 
 const baseQuery = fetchBaseQuery({ 
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api/v1',
+  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'https://api.lokaya.shop/api/v1',
   credentials: 'include',
 });
 

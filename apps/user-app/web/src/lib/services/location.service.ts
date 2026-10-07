@@ -331,8 +331,9 @@ export class LocationService {
 
     // 1. Try Backend Real Location Detection Endpoint first
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
-      const res = await fetch(`${apiUrl}/api/v1/meta/detect-location`, {
+      const baseApi = process.env.NEXT_PUBLIC_API_URL || 'https://api.lokaya.shop/api/v1';
+      const endpoint = baseApi.endsWith('/api/v1') ? `${baseApi}/meta/detect-location` : `${baseApi}/api/v1/meta/detect-location`;
+      const res = await fetch(endpoint, {
         headers: { 'Accept': 'application/json' },
       });
       if (res.ok) {
