@@ -55,20 +55,20 @@ export const metadata: Metadata = {
     description: "Discover trending local products, verified neighborhood merchant stores, creator reels, and fast local deliveries on Lokaya.",
     images: [
       {
-        url: "/promo-ad.png",
-        width: 1200,
-        height: 630,
+        url: "/icon.png",
+        width: 512,
+        height: 512,
         alt: "Lokaya Hyperlocal Social Commerce Platform",
       },
     ],
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     site: "@LokayaShop",
     creator: "@LokayaShop",
     title: "Lokaya - See It. Know It. Buy It.",
     description: "Discover trending local products, verified neighborhood stores, and fast deliveries.",
-    images: ["/promo-ad.png"],
+    images: ["/icon.png"],
   },
   robots: {
     index: true,
@@ -83,11 +83,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
       { url: '/favicon.svg', type: 'image/svg+xml' },
       { url: '/icon.png', type: 'image/png' },
       { url: '/favicon.ico' },
     ],
-    shortcut: '/favicon.ico',
+    shortcut: '/icon.svg',
     apple: '/apple-touch-icon.png',
   },
 };
@@ -113,7 +114,7 @@ const orgAndWebSiteSchema = {
       "url": "https://lokaya.shop",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://lokaya.shop/logo.png",
+        "url": "https://lokaya.shop/icon.png",
         "caption": "Lokaya Logo"
       },
       "sameAs": [

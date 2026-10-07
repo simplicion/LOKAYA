@@ -127,6 +127,13 @@ export function StoriesBar() {
     setIsViewerOpen(true);
   };
 
+  const hasMyStoreStory = Boolean(isAuthenticated && user && myStore);
+  const hasStoriesToRender = hasMyStoreStory || feedGroups.length > 0;
+
+  if (!hasStoriesToRender) {
+    return null;
+  }
+
   return (
     <div className="w-full bg-[#FAF9F6] pt-1 pb-3">
       <div className="flex gap-3.5 overflow-x-auto px-4 snap-x no-scrollbar items-start">

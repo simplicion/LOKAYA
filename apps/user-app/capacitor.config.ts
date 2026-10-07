@@ -5,16 +5,24 @@ const config: CapacitorConfig = {
   appName: 'Lokaya',
   webDir: 'web/out',
   plugins: {
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     SplashScreen: {
       launchShowDuration: 2000,
       launchAutoHide: true,
-      backgroundColor: '#0F172A',
+      backgroundColor: '#FFFFFF',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
       splashFullScreen: true,
       splashImmersive: true,
     },
+    StatusBar: {
+      backgroundColor: '#FFFFFF',
+      style: 'LIGHT',
+    },
   },
 };
 
 export default config;
+

@@ -29,12 +29,14 @@ Allow: /compliance
 
 # Static assets and resources necessary for rendering
 Allow: /_next/
-Allow: /images/
 Allow: /downloads/
 Allow: /favicon.ico
+Allow: /favicon.svg
+Allow: /icon.svg
+Allow: /logo.svg
 Allow: /icon.png
-Allow: /logo.png
-Allow: /promo-ad.png
+Allow: /icon-192.png
+Allow: /apple-touch-icon.png
 
 # Disallow private user flows, authentication, checkout, and admin routes
 Disallow: /cart

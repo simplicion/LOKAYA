@@ -73,8 +73,8 @@ export function useCapacitorNative() {
       SplashScreen.hide().catch(() => {});
 
       // 2. Configure Status Bar
-      StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
-      StatusBar.setBackgroundColor({ color: '#059669' }).catch(() => {});
+      StatusBar.setStyle({ style: Style.Light }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#FFFFFF' }).catch(() => {});
 
       // 3. Hardware Back Button Listener (Android)
       let lastBackPress = 0;

@@ -434,7 +434,7 @@ export default function ProductViewClient({ productId, initialData }: { productI
       '@context': 'https://schema.org',
       '@type': 'Product',
       name: product.name,
-      image: mediaList.length > 0 ? mediaList : ['https://lokaya.shop/promo-ad.png'],
+      image: mediaList.length > 0 ? mediaList : ['https://lokaya.shop/icon.png'],
       description: product.description || `Buy ${product.name} online at best price on Lokaya.`,
       sku: product.sku || product.id,
       offers: {

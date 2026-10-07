@@ -27,9 +27,6 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <div className="z-10 text-white max-w-lg text-center flex flex-col items-center">
           {/* Logo or Brand mark */}
           <div className="flex items-center space-x-3 mb-10">
-             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 font-bold text-2xl shadow-lg">
-                S
-             </div>
              <Logo className="text-3xl" />
           </div>
 
@@ -40,13 +37,11 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             Discover the best local stores, order with a tap, and pick up in minutes. Your neighborhood, in your pocket.
           </p>
 
-          <div className="relative w-72 h-72 lg:w-96 lg:h-96">
-             <Image 
-               src="/images/onboarding_store.png" 
-               alt="Store Illustration" 
-               fill 
-               className="object-contain"
-               priority
+          <div className="relative w-56 h-56 lg:w-72 lg:h-72 flex items-center justify-center">
+             <img 
+               src="/icon.svg" 
+               alt="Lokaya" 
+               className="w-full h-full object-contain rounded-3xl shadow-2xl"
              />
           </div>
         </div>

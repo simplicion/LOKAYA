@@ -25,7 +25,7 @@ function escapeHtml(str) {
 }
 
 function resolveMediaUrl(url) {
-  if (!url) return 'https://lokaya.shop/promo-ad.png';
+  if (!url) return 'https://lokaya.shop/icon.png';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   const cleanPath = url.startsWith('/') ? url.slice(1) : url;
   return `${CDN_URL}/${cleanPath}`;
